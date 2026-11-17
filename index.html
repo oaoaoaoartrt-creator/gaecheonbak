@@ -1,0 +1,769 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="언제나 가난한 저희 개천박컴퍼니와 함께할 영광을 드립니다.">
+  <title>개천박컴퍼니 2기 구인</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+  <style>
+    :root {
+      --paper: #f3f0ea;
+      --paper-deep: #ebe6dc;
+      --surface: #faf8f4;
+      --ink: #1c1b18;
+      --ink-soft: #3f3c36;
+      --muted: #6b665d;
+      --line: #d5cfc4;
+      --line-strong: #b9b2a5;
+      --accent: #7a4332;
+      --accent-soft: rgba(122, 67, 50, 0.12);
+      --radius: 2px;
+      --nav-h: 64px;
+      --max: 1040px;
+      --font-serif: "Noto Serif KR", "Source Han Serif K", "Noto Serif CJK KR", serif;
+      --font-sans: Pretendard, "Pretendard Variable", "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      background: var(--paper);
+      color: var(--ink);
+      font-family: var(--font-sans);
+      font-size: 16px;
+      line-height: 1.7;
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
+    }
+
+    img { max-width: 100%; display: block; }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    :focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 3px;
+    }
+
+    .skip {
+      position: absolute;
+      left: 12px;
+      top: -40px;
+      z-index: 100;
+      background: var(--ink);
+      color: var(--surface);
+      padding: 8px 12px;
+      font-size: 13px;
+    }
+    .skip:focus { top: 12px; }
+
+    /* ---------- Nav ---------- */
+    .nav {
+      position: sticky;
+      top: 0;
+      z-index: 40;
+      height: var(--nav-h);
+      background: var(--paper);
+      border-bottom: 1px solid var(--line);
+    }
+
+    .nav-inner,
+    .wrap {
+      width: min(var(--max), calc(100% - 48px));
+      margin: 0 auto;
+    }
+
+    .nav-inner {
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 24px;
+    }
+
+    .logo {
+      font-family: var(--font-serif);
+      font-weight: 600;
+      font-size: 17px;
+      letter-spacing: -0.02em;
+      color: var(--ink);
+    }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      list-style: none;
+      margin: 0;
+      padding: 0;
+    }
+
+    .nav-links a {
+      display: inline-block;
+      padding: 6px 10px;
+      font-size: 13px;
+      letter-spacing: 0.02em;
+      color: var(--ink-soft);
+    }
+
+    .nav-links a:hover {
+      color: var(--ink);
+    }
+
+    /* ---------- Hero ---------- */
+    .hero {
+      padding: 88px 0 72px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .kicker {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin: 0 0 28px;
+      font-size: 12px;
+      font-weight: 500;
+      letter-spacing: 0.14em;
+      color: var(--muted);
+    }
+
+    .kicker::before {
+      content: "";
+      display: block;
+      width: 28px;
+      height: 1px;
+      background: var(--line-strong);
+    }
+
+    .hero h1 {
+      margin: 0 0 24px;
+      font-family: var(--font-serif);
+      font-weight: 600;
+      font-size: clamp(2.125rem, 5.4vw, 3.5rem);
+      line-height: 1.28;
+      letter-spacing: -0.03em;
+      color: var(--ink);
+    }
+
+    .lede {
+      margin: 0;
+      max-width: 34em;
+      font-size: 1.0625rem;
+      line-height: 1.85;
+      color: var(--ink-soft);
+    }
+
+    /* ---------- Actions ---------- */
+    .recruit {
+      padding: 56px 0 88px;
+    }
+
+    .actions {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+    }
+
+    .action {
+      appearance: none;
+      -webkit-appearance: none;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 18px;
+      width: 100%;
+      margin: 0;
+      padding: 28px 26px 26px;
+      background: var(--surface);
+      color: var(--ink);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      font-family: inherit;
+      text-align: left;
+      cursor: pointer;
+      transition: background 0.22s ease, color 0.22s ease, border-color 0.22s ease;
+    }
+
+    .action:hover {
+      border-color: var(--ink);
+    }
+
+    .action[aria-expanded="true"] {
+      background: var(--ink);
+      border-color: var(--ink);
+      color: var(--surface);
+    }
+
+    .action-index {
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.12em;
+      color: var(--muted);
+    }
+
+    .action[aria-expanded="true"] .action-index {
+      color: #c8c0b4;
+    }
+
+    .action-title {
+      font-family: var(--font-serif);
+      font-size: 1.25rem;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      line-height: 1.3;
+    }
+
+    .action-hint {
+      margin-top: auto;
+      font-size: 12px;
+      letter-spacing: 0.04em;
+      color: var(--muted);
+    }
+
+    .action[aria-expanded="true"] .action-hint {
+      color: #c8c0b4;
+    }
+
+    .action-hint::after {
+      content: "열기";
+    }
+
+    .action[aria-expanded="true"] .action-hint::after {
+      content: "닫기";
+    }
+
+    /* ---------- Panels ---------- */
+    .panels {
+      position: relative;
+      margin-top: 16px;
+    }
+
+    .panel {
+      display: none;
+      position: relative;
+      overflow: hidden;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 48px 40px;
+    }
+
+    .panel.is-open {
+      display: block;
+    }
+
+    .panel.is-open.fx-clean {
+      animation: fadeSlide 0.42s ease both;
+    }
+
+    .panel.is-open.fx-flashy {
+      animation: fadeSlide 0.3s ease both;
+    }
+
+    .panel-label {
+      margin: 0 0 28px;
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.14em;
+      color: var(--muted);
+    }
+
+    /* People */
+    .people {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 32px 48px;
+    }
+
+    .person {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+
+    .avatar {
+      position: relative;
+      flex: 0 0 80px;
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      background: var(--paper-deep);
+      border: 1px solid var(--line);
+      overflow: hidden;
+      display: grid;
+      place-items: center;
+    }
+
+    .avatar span {
+      font-family: var(--font-serif);
+      font-size: 1.375rem;
+      font-weight: 600;
+      color: var(--ink-soft);
+      line-height: 1;
+    }
+
+    /* src가 비어 있으면 이니셜만 보이고, URL을 넣으면 사진이 이니셜을 가립니다. */
+    .avatar img {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .avatar:has(img) span {
+      display: none;
+    }
+
+    .person-role {
+      margin: 0 0 4px;
+      font-size: 12px;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+    }
+
+    .person-name {
+      margin: 0;
+      font-family: var(--font-serif);
+      font-size: 1.375rem;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+    }
+
+    /* Work */
+    .work-lead {
+      margin: 0 0 24px;
+      font-size: 15px;
+      color: var(--ink-soft);
+    }
+
+    .work-lead strong {
+      font-weight: 600;
+      color: var(--ink);
+    }
+
+    .work-list {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      list-style: none;
+      margin: 0;
+      padding: 0;
+    }
+
+    .work-item {
+      padding: 28px 24px;
+      border: 1px solid var(--line);
+      background: var(--paper);
+      font-family: var(--font-serif);
+      font-size: 1.25rem;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+    }
+
+    .panel.is-open.fx-flashy .work-item {
+      animation: popIn 0.55s cubic-bezier(0.16, 1, 0.3, 1) both;
+    }
+
+    .panel.is-open.fx-flashy .work-item:nth-child(2) {
+      animation-delay: 0.12s;
+    }
+
+    .panel.is-open.fx-flashy::before {
+      content: "";
+      position: absolute;
+      inset: 0 auto 0 0;
+      width: 42%;
+      pointer-events: none;
+      opacity: 0;
+      background: linear-gradient(90deg, transparent, rgba(122, 67, 50, 0.16), transparent);
+      animation: sweep 0.85s ease forwards;
+    }
+
+    #fx-canvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+    }
+
+    /* Benefits */
+    .empty-note {
+      margin: 0;
+      font-family: var(--font-serif);
+      font-size: clamp(1.75rem, 4vw, 2.5rem);
+      font-weight: 600;
+      letter-spacing: -0.03em;
+      line-height: 1.3;
+    }
+
+    /* ---------- Footer ---------- */
+    .footer {
+      border-top: 1px solid var(--line);
+      padding: 40px 0 48px;
+    }
+
+    .footer-inner {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 24px;
+    }
+
+    .footer-line {
+      margin: 0;
+      font-size: 14px;
+      color: var(--ink-soft);
+    }
+
+    .copyright {
+      margin: 0;
+      font-size: 12px;
+      letter-spacing: 0.02em;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+
+    /* ---------- Motion ---------- */
+    @keyframes fadeSlide {
+      from { opacity: 0; transform: translateY(10px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes popIn {
+      from { opacity: 0; transform: translateY(14px) scale(0.96); }
+      to   { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    @keyframes sweep {
+      from { transform: translateX(-40%); opacity: 0; }
+      25%  { opacity: 1; }
+      to   { transform: translateX(280%); opacity: 0; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      .panel.is-open.fx-clean,
+      .panel.is-open.fx-flashy,
+      .panel.is-open.fx-flashy .work-item,
+      .panel.is-open.fx-flashy::before {
+        animation: none;
+      }
+    }
+
+    /* ---------- Responsive ---------- */
+    @media (max-width: 800px) {
+      .nav-inner,
+      .wrap { width: min(var(--max), calc(100% - 32px)); }
+
+      .hero { padding: 64px 0 56px; }
+
+      .actions,
+      .people,
+      .work-list {
+        grid-template-columns: 1fr;
+      }
+
+      .panel { padding: 36px 24px; }
+
+      .footer-inner {
+        flex-direction: column;
+        gap: 8px;
+      }
+    }
+
+    @media (max-width: 560px) {
+      .nav-links a { padding: 6px 6px; font-size: 12px; }
+      .hero { padding: 48px 0 44px; }
+      .recruit { padding: 36px 0 64px; }
+      .action { padding: 22px 20px; }
+    }
+  </style>
+</head>
+<body>
+  <a class="skip" href="#recruit">본문으로 건너뛰기</a>
+
+  <header class="nav">
+    <div class="nav-inner">
+      <a class="logo" href="#top">개천박컴퍼니</a>
+      <nav aria-label="바로가기">
+        <ul class="nav-links">
+          <li><a href="#panel-people">인원 소개</a></li>
+          <li><a href="#panel-work">일 소개</a></li>
+          <li><a href="#panel-benefits">혜택 소개</a></li>
+        </ul>
+      </nav>
+    </div>
+  </header>
+
+  <main id="top">
+    <section class="hero" aria-labelledby="page-title">
+      <div class="wrap">
+        <p class="kicker">채용 공고</p>
+        <h1 id="page-title">개천박컴퍼니 2기 구인</h1>
+        <p class="lede">언제나 가난한 저희 개천박컴퍼니와 함께할 영광을 드립니다.</p>
+      </div>
+    </section>
+
+    <section class="recruit" id="recruit" aria-label="소개">
+      <div class="wrap">
+        <div class="actions" aria-label="소개 항목">
+          <button
+            class="action"
+            id="btn-people"
+            type="button"
+            aria-expanded="false"
+            aria-controls="panel-people"
+            data-panel="people">
+            <span class="action-index">01</span>
+            <span class="action-title">인원 소개</span>
+            <span class="action-hint"></span>
+          </button>
+
+          <button
+            class="action"
+            id="btn-work"
+            type="button"
+            aria-expanded="false"
+            aria-controls="panel-work"
+            data-panel="work">
+            <span class="action-index">02</span>
+            <span class="action-title">일 소개</span>
+            <span class="action-hint"></span>
+          </button>
+
+          <button
+            class="action"
+            id="btn-benefits"
+            type="button"
+            aria-expanded="false"
+            aria-controls="panel-benefits"
+            data-panel="benefits">
+            <span class="action-index">03</span>
+            <span class="action-title">혜택 소개</span>
+            <span class="action-hint"></span>
+          </button>
+        </div>
+
+        <div class="panels">
+          <div
+            class="panel fx-clean"
+            id="panel-people"
+            role="region"
+            aria-labelledby="btn-people"
+            hidden>
+            <p class="panel-label">인원 소개</p>
+            <div class="people">
+              <article class="person">
+                <div class="avatar">
+                  <!-- 사진을 쓰려면 아래 주석을 해제하고 src에 경로 또는 URL을 넣으세요.
+                       예: <img src="images/seolpyo.jpg" alt="설표">
+                       이미지를 넣으면 이니셜 대신 사진이 표시됩니다. -->
+                  <!-- <img src="images/seolpyo.jpg" alt="설표"> -->
+                  <span aria-hidden="true">설</span>
+                </div>
+                <div>
+                  <p class="person-role">사장</p>
+                  <h2 class="person-name">설표</h2>
+                </div>
+              </article>
+
+              <article class="person">
+                <div class="avatar">
+                  <!-- 사진을 쓰려면 아래 주석을 해제하고 src에 경로 또는 URL을 넣으세요.
+                       예: <img src="images/taste.jpg" alt="테이스트">
+                       이미지를 넣으면 이니셜 대신 사진이 표시됩니다. -->
+                  <!-- <img src="images/taste.jpg" alt="테이스트"> -->
+                  <span aria-hidden="true">테</span>
+                </div>
+                <div>
+                  <p class="person-role">부사장</p>
+                  <h2 class="person-name">테이스트</h2>
+                </div>
+              </article>
+            </div>
+          </div>
+
+          <div
+            class="panel fx-flashy"
+            id="panel-work"
+            role="region"
+            aria-labelledby="btn-work"
+            hidden>
+            <canvas id="fx-canvas" aria-hidden="true"></canvas>
+            <p class="panel-label">일 소개</p>
+            <p class="work-lead"><strong>주된 업무</strong></p>
+            <ul class="work-list">
+              <li class="work-item">공사장 노가다</li>
+              <li class="work-item">집안일</li>
+            </ul>
+          </div>
+
+          <div
+            class="panel fx-clean"
+            id="panel-benefits"
+            role="region"
+            aria-labelledby="btn-benefits"
+            hidden>
+            <p class="panel-label">혜택 소개</p>
+            <p class="empty-note">없습니다.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="wrap footer-inner">
+      <p class="footer-line">저희는 언제나 가난합니다.</p>
+      <p class="copyright">&copy; 2026 개천박컴퍼니</p>
+    </div>
+  </footer>
+
+  <script>
+    (function () {
+      const buttons = Array.from(document.querySelectorAll(".action"));
+      const panels = Array.from(document.querySelectorAll(".panel"));
+      const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+      function closeAll() {
+        buttons.forEach(function (btn) {
+          btn.setAttribute("aria-expanded", "false");
+        });
+        panels.forEach(function (panel) {
+          panel.hidden = true;
+          panel.classList.remove("is-open");
+        });
+      }
+
+      function openPanel(id) {
+        closeAll();
+        const btn = document.getElementById("btn-" + id);
+        const panel = document.getElementById("panel-" + id);
+        if (!btn || !panel) return;
+        btn.setAttribute("aria-expanded", "true");
+        panel.hidden = false;
+        panel.classList.remove("is-open");
+        void panel.offsetWidth;
+        panel.classList.add("is-open");
+        if (id === "work" && !reduceMotion) {
+          burst(panel);
+        }
+      }
+
+      function toggle(id) {
+        const btn = document.getElementById("btn-" + id);
+        const isOpen = btn && btn.getAttribute("aria-expanded") === "true";
+        if (isOpen) closeAll();
+        else openPanel(id);
+      }
+
+      buttons.forEach(function (btn) {
+        btn.addEventListener("click", function () {
+          toggle(btn.getAttribute("data-panel"));
+        });
+      });
+
+      document.addEventListener("keydown", function (event) {
+        if (event.key === "Escape") closeAll();
+      });
+
+      document.querySelectorAll('.nav-links a[href^="#panel-"]').forEach(function (link) {
+        link.addEventListener("click", function (event) {
+          event.preventDefault();
+          const id = link.getAttribute("href").replace("#panel-", "");
+          openPanel(id);
+          const panel = document.getElementById("panel-" + id);
+          if (panel) {
+            panel.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "nearest" });
+          }
+        });
+      });
+
+      function burst(panel) {
+        const canvas = document.getElementById("fx-canvas");
+        if (!canvas) return;
+        const ctx = canvas.getContext("2d");
+        const rect = panel.getBoundingClientRect();
+        const dpr = Math.max(1, window.devicePixelRatio || 1);
+        canvas.width = Math.floor(rect.width * dpr);
+        canvas.height = Math.floor(rect.height * dpr);
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+        const width = rect.width;
+        const height = rect.height;
+        const originX = width * 0.5;
+        const originY = 72;
+        const colors = ["#7a4332", "#1c1b18", "#c4a574", "#8d6a4a", "#d5cfc4"];
+        const particles = [];
+        const count = 36;
+
+        for (let i = 0; i < count; i++) {
+          const angle = (Math.PI * 2 * i) / count + (Math.random() - 0.5) * 0.4;
+          const speed = 1.6 + Math.random() * 3.8;
+          particles.push({
+            x: originX,
+            y: originY,
+            vx: Math.cos(angle) * speed,
+            vy: Math.sin(angle) * speed - 1.4,
+            size: 1.5 + Math.random() * 2.6,
+            color: colors[i % colors.length],
+            life: 1,
+            decay: 0.016 + Math.random() * 0.012,
+            square: Math.random() > 0.45
+          });
+        }
+
+        let running = true;
+        const start = performance.now();
+
+        function frame(now) {
+          if (!running) return;
+          ctx.clearRect(0, 0, width, height);
+          let alive = 0;
+          for (let i = 0; i < particles.length; i++) {
+            const p = particles[i];
+            p.vy += 0.045;
+            p.x += p.vx;
+            p.y += p.vy;
+            p.life -= p.decay;
+            if (p.life <= 0) continue;
+            alive += 1;
+            ctx.globalAlpha = Math.max(0, p.life);
+            ctx.fillStyle = p.color;
+            if (p.square) {
+              ctx.fillRect(p.x, p.y, p.size, p.size);
+            } else {
+              ctx.beginPath();
+              ctx.arc(p.x, p.y, p.size * 0.55, 0, Math.PI * 2);
+              ctx.fill();
+            }
+          }
+          ctx.globalAlpha = 1;
+          if (alive > 0 && now - start < 1400) {
+            requestAnimationFrame(frame);
+          } else {
+            ctx.clearRect(0, 0, width, height);
+            running = false;
+          }
+        }
+
+        requestAnimationFrame(frame);
+      }
+    })();
+  </script>
+</body>
+</html>
