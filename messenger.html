@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="robots" content="noindex">
+  <meta name="description" content="개천박컴퍼니 사내메신저">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://oaoaoaoartrt-creator.github.io/gaecheonbak/messenger.html">
+  <meta property="og:title" content="개천박컴퍼니 사내메신저">
+  <meta property="og:description" content="임직원 전용 사내메신저입니다.">
+  <meta property="og:image" content="https://oaoaoaoartrt-creator.github.io/gaecheonbak/images/og.jpg">
+  <meta name="twitter:card" content="summary_large_image">
+  <title>사내메신저 | 개천박컴퍼니</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+  <style>
+    :root {
+      --paper: #f3f0ea;
+      --paper-deep: #ebe6dc;
+      --surface: #faf8f4;
+      --ink: #1c1b18;
+      --ink-soft: #3f3c36;
+      --muted: #6b665d;
+      --line: #d5cfc4;
+      --line-strong: #b9b2a5;
+      --accent: #7a4332;
+      --accent-soft: rgba(122, 67, 50, 0.12);
+      --radius: 2px;
+      --nav-h: 64px;
+      --max: 1040px;
+      --font-serif: "Noto Serif KR", "Source Han Serif K", "Noto Serif CJK KR", serif;
+      --font-sans: Pretendard, "Pretendard Variable", "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+    }
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      background: var(--paper);
+      color: var(--ink);
+      font-family: var(--font-sans);
+      font-size: 16px;
+      line-height: 1.7;
+      -webkit-font-smoothing: antialiased;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+      min-height: 100dvh;
+    }
+    a { color: inherit; text-decoration: none; }
+    :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+    [hidden] { display: none !important; }
+
+    /* Nav */
+    .nav { position: sticky; top: 0; z-index: 40; height: var(--nav-h); background: var(--paper); border-bottom: 1px solid var(--line); flex: none; }
+    .nav-inner, .wrap { width: min(var(--max), calc(100% - 48px)); margin: 0 auto; }
+    .nav-inner { height: 100%; display: flex; align-items: center; justify-content: space-between; gap: 24px; }
+    .logo { font-family: var(--font-serif); font-weight: 600; font-size: 17px; letter-spacing: -0.02em; }
+    .nav-links { display: flex; align-items: center; gap: 12px; list-style: none; margin: 0; padding: 0; }
+    .nav-links a { display: inline-block; padding: 6px 10px; font-size: 13px; letter-spacing: 0.02em; color: var(--ink-soft); }
+    .nav-links a:hover { color: var(--ink); }
+    .nav-links a[aria-current="page"] { color: var(--ink); border-bottom: 1px solid var(--ink); }
+
+    main { flex: 1 0 auto; display: flex; flex-direction: column; }
+    body.in-chat { height: 100vh; height: 100dvh; min-height: 0; }
+    body.in-chat main { flex: 1 1 auto; min-height: 0; }
+
+    /* Page head */
+    .page-head { padding: 48px 0 28px; border-bottom: 1px solid var(--line); }
+    .kicker { display: flex; align-items: center; gap: 12px; margin: 0 0 16px; font-size: 12px; font-weight: 500; letter-spacing: 0.14em; color: var(--muted); }
+    .kicker::before { content: ""; display: block; width: 28px; height: 1px; background: var(--line-strong); }
+    .page-head h1 { margin: 0 0 8px; font-family: var(--font-serif); font-weight: 600; font-size: clamp(1.75rem, 4vw, 2.375rem); letter-spacing: -0.03em; line-height: 1.25; }
+    .page-head p { margin: 0; color: var(--ink-soft); font-size: 15px; }
+
+    /* Auth / nickname cards */
+    .stage { padding: 48px 0 72px; }
+    .card { width: min(420px, 100%); background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 36px 32px 32px; }
+    .card h2 { margin: 0 0 6px; font-family: var(--font-serif); font-size: 1.25rem; font-weight: 600; letter-spacing: -0.02em; }
+    .card .lead { margin: 0 0 24px; font-size: 14px; color: var(--muted); }
+    .tabs { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid var(--line); margin-bottom: 24px; }
+    .tab { appearance: none; border: 0; background: transparent; padding: 10px 0; font: inherit; font-size: 14px; color: var(--ink-soft); cursor: pointer; }
+    .tab + .tab { border-left: 1px solid var(--line); }
+    .tab[aria-selected="true"] { background: var(--ink); color: var(--surface); }
+    .field { display: block; margin-bottom: 16px; }
+    .field span { display: block; margin-bottom: 6px; font-size: 13px; color: var(--ink-soft); }
+    .field input { width: 100%; padding: 11px 12px; font: inherit; font-size: 15px; color: var(--ink); background: #fff; border: 1px solid var(--line-strong); border-radius: var(--radius); }
+    .field input:focus { outline: none; border-color: var(--ink); }
+    .hint { margin: -8px 0 16px; font-size: 12px; color: var(--muted); }
+    .btn { appearance: none; display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 11px 18px; font: inherit; font-size: 14px; font-weight: 500; border-radius: var(--radius); cursor: pointer; border: 1px solid var(--ink); background: var(--ink); color: var(--surface); }
+    .btn:hover { background: #2e2c27; }
+    .btn:disabled { opacity: 0.55; cursor: default; }
+    .btn-block { width: 100%; }
+    .btn-line { background: transparent; color: var(--ink-soft); border-color: var(--line-strong); padding: 7px 12px; font-size: 13px; }
+    .btn-line:hover { background: var(--paper-deep); color: var(--ink); }
+    .error { min-height: 1.5em; margin: 12px 0 0; font-size: 13px; color: var(--accent); }
+    .note { margin: 20px 0 0; padding-top: 16px; border-top: 1px solid var(--line); font-size: 12px; color: var(--muted); }
+
+    /* Chat */
+    .chat-wrap { flex: 1; display: flex; flex-direction: column; min-height: 0; padding: 24px 0 24px; }
+    .chat { flex: 1; display: flex; flex-direction: column; min-height: 0; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); }
+    .chat-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 20px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+    .channel { display: flex; align-items: baseline; gap: 12px; }
+    .channel h2 { margin: 0; font-family: var(--font-serif); font-size: 1.0625rem; font-weight: 600; letter-spacing: -0.02em; }
+    .channel .me { font-size: 13px; color: var(--muted); }
+    .channel .me b { font-weight: 500; color: var(--ink-soft); }
+    .head-actions { display: flex; gap: 8px; }
+    .log { flex: 1; overflow-y: auto; padding: 20px; min-height: 280px; height: 0; }
+    .log-empty { margin: 40px auto; text-align: center; font-size: 14px; color: var(--muted); }
+    .day { display: flex; align-items: center; gap: 12px; margin: 18px 0 14px; font-size: 12px; color: var(--muted); letter-spacing: 0.04em; }
+    .day::before, .day::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+    .msg { display: flex; flex-direction: column; align-items: flex-start; margin-bottom: 12px; max-width: 100%; }
+    .msg.mine { align-items: flex-end; }
+    .meta { display: flex; align-items: baseline; gap: 8px; margin-bottom: 3px; font-size: 12px; color: var(--muted); }
+    .meta .who { font-weight: 600; color: var(--ink-soft); }
+    .msg.mine .meta { flex-direction: row-reverse; }
+    .bubble { max-width: min(560px, 82%); padding: 9px 13px; font-size: 15px; line-height: 1.6; white-space: pre-wrap; word-break: break-word; overflow-wrap: anywhere; background: #fff; border: 1px solid var(--line); border-radius: var(--radius); }
+    .msg.mine .bubble { background: var(--ink); color: var(--surface); border-color: var(--ink); }
+    .msg.follow { margin-top: -6px; }
+    .msg.follow .meta { display: none; }
+    .composer { display: flex; gap: 10px; align-items: flex-end; padding: 14px 16px; border-top: 1px solid var(--line); }
+    .composer textarea { flex: 1; resize: none; min-height: 44px; max-height: 160px; padding: 10px 12px; font: inherit; font-size: 15px; line-height: 1.5; color: var(--ink); background: #fff; border: 1px solid var(--line-strong); border-radius: var(--radius); }
+    .composer textarea:focus { outline: none; border-color: var(--ink); }
+    .composer .btn { height: 44px; }
+    .composer-foot { display: flex; justify-content: space-between; padding: 0 16px 10px; font-size: 12px; color: var(--muted); }
+    .composer-foot .err { color: var(--accent); }
+
+    /* Nickname dialog */
+    .dialog-bg { position: fixed; inset: 0; z-index: 60; background: rgba(28, 27, 24, 0.35); display: flex; align-items: center; justify-content: center; padding: 16px; }
+
+    .footer { border-top: 1px solid var(--line); padding: 24px 0 28px; flex: none; }
+    .footer-inner { display: flex; align-items: baseline; justify-content: space-between; gap: 24px; }
+    .footer-line { margin: 0; font-size: 13px; color: var(--ink-soft); }
+    .copyright { margin: 0; font-size: 12px; color: var(--muted); white-space: nowrap; }
+
+    .loading { padding: 64px 0; font-size: 14px; color: var(--muted); }
+
+    @media (max-width: 800px) {
+      .nav-inner, .wrap { width: min(var(--max), calc(100% - 32px)); }
+      .page-head { padding: 32px 0 20px; }
+      .stage { padding: 32px 0 48px; }
+      .footer-inner { flex-direction: column; gap: 4px; }
+    }
+    @media (max-width: 560px) {
+      .nav-links { gap: 2px; }
+      .nav-links a { padding: 6px 5px; font-size: 12px; }
+      .card { padding: 28px 20px 24px; }
+      .chat-wrap { padding: 12px 0; }
+      .chat-head { padding: 12px 14px; }
+      .log { padding: 14px; }
+      .bubble { max-width: 88%; }
+      .composer { padding: 10px; }
+      .composer-foot { padding: 0 10px 8px; }
+      body.in-chat .page-head, body.in-chat .footer { display: none; }
+      body.in-chat .wrap.chat-wrap { width: 100%; padding: 0; }
+      body.in-chat .chat { border-left: 0; border-right: 0; }
+    }
+  </style>
+</head>
+<body>
+  <header class="nav">
+    <div class="nav-inner">
+      <a class="logo" href="./">개천박컴퍼니</a>
+      <nav aria-label="바로가기">
+        <ul class="nav-links">
+          <li><a href="./#panel-people">인원 소개</a></li>
+          <li><a href="./#panel-work">일 소개</a></li>
+          <li><a href="./#panel-benefits">혜택 소개</a></li>
+          <li><a href="messenger.html" aria-current="page">사내메신저</a></li>
+        </ul>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <section class="page-head">
+      <div class="wrap">
+        <p class="kicker">임직원 전용</p>
+        <h1>사내메신저</h1>
+        <p>개천박컴퍼니 임직원이 업무 연락을 나누는 곳입니다.</p>
+      </div>
+    </section>
+
+    <p class="wrap loading" id="view-loading">불러오는 중입니다.</p>
+
+    <!-- 로그인 / 회원가입 -->
+    <section class="wrap stage" id="view-auth" hidden>
+      <div class="card">
+        <div class="tabs" role="tablist" aria-label="로그인 방식">
+          <button class="tab" type="button" role="tab" id="tab-login" aria-selected="true">로그인</button>
+          <button class="tab" type="button" role="tab" id="tab-signup" aria-selected="false">회원가입</button>
+        </div>
+        <h2 id="auth-title">로그인</h2>
+        <p class="lead" id="auth-lead">사내 계정으로 로그인해 주세요.</p>
+        <form id="auth-form" novalidate>
+          <label class="field">
+            <span>아이디 또는 이메일</span>
+            <input type="text" id="auth-email" autocomplete="username" autocapitalize="off" spellcheck="false" maxlength="64" required>
+          </label>
+          <label class="field">
+            <span>비밀번호</span>
+            <input type="password" id="auth-password" autocomplete="current-password" required maxlength="128">
+          </label>
+          <label class="field" id="field-confirm" hidden>
+            <span>비밀번호 확인</span>
+            <input type="password" id="auth-confirm" autocomplete="new-password">
+          </label>
+          <p class="hint" id="pw-hint" hidden>아이디는 영문 소문자·숫자 3자 이상, 비밀번호는 8자 이상으로 정해 주세요.</p>
+          <button class="btn btn-block" type="submit" id="auth-submit">로그인</button>
+          <p class="error" id="auth-error" role="alert"></p>
+        </form>
+        <p class="note">비밀번호를 잊으셨다면 사장에게 문의해 주세요.</p>
+      </div>
+    </section>
+
+    <!-- 닉네임 -->
+    <section class="wrap stage" id="view-nick" hidden>
+      <div class="card">
+        <h2>닉네임 설정</h2>
+        <p class="lead">메신저에서 다른 임직원에게 보일 이름을 정해 주세요.</p>
+        <form id="nick-form" novalidate>
+          <label class="field">
+            <span>닉네임</span>
+            <input type="text" id="nick-input" maxlength="20" autocomplete="nickname" required>
+          </label>
+          <p class="hint">1자 이상 20자 이하로 입력해 주세요.</p>
+          <button class="btn btn-block" type="submit" id="nick-submit">시작하기</button>
+          <p class="error" id="nick-error" role="alert"></p>
+        </form>
+      </div>
+    </section>
+
+    <!-- 채팅 -->
+    <section class="wrap chat-wrap" id="view-chat" hidden>
+      <div class="chat">
+        <div class="chat-head">
+          <div class="channel">
+            <h2># 전체 채널</h2>
+            <span class="me"><b id="me-name"></b> 님</span>
+          </div>
+          <div class="head-actions">
+            <button class="btn btn-line" type="button" id="btn-rename">닉네임 변경</button>
+            <button class="btn btn-line" type="button" id="btn-logout">로그아웃</button>
+          </div>
+        </div>
+        <div class="log" id="log" aria-live="polite" aria-label="메시지 목록">
+          <p class="log-empty" id="log-empty">아직 대화가 없습니다. 첫 메시지를 남겨 보세요.</p>
+        </div>
+        <form class="composer" id="composer">
+          <textarea id="msg-input" aria-label="메시지" rows="1" maxlength="500" placeholder="메시지를 입력하세요"></textarea>
+          <button class="btn" type="submit" id="btn-send">보내기</button>
+        </form>
+        <div class="composer-foot">
+          <span id="send-error" class="err" role="alert"></span>
+          <span>Enter 보내기 · Shift+Enter 줄바꿈 · <span id="count">0</span>/500</span>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div class="dialog-bg" id="rename-dialog" hidden role="dialog" aria-modal="true" aria-labelledby="rename-title">
+    <div class="card">
+      <h2 id="rename-title">닉네임 변경</h2>
+      <p class="lead">새 닉네임은 이후 보내는 메시지부터 적용됩니다.</p>
+      <form id="rename-form" novalidate>
+        <label class="field">
+          <span>닉네임</span>
+          <input type="text" id="rename-input" maxlength="20" required>
+        </label>
+        <p class="hint">1자 이상 20자 이하로 입력해 주세요.</p>
+        <div style="display:flex; gap:8px; justify-content:flex-end;">
+          <button class="btn btn-line" type="button" id="rename-cancel">취소</button>
+          <button class="btn" type="submit" id="rename-submit">저장</button>
+        </div>
+        <p class="error" id="rename-error" role="alert"></p>
+      </form>
+    </div>
+  </div>
+
+  <footer class="footer">
+    <div class="wrap footer-inner">
+      <p class="footer-line">저희는 언제나 가난합니다.</p>
+      <p class="copyright">&copy; 2026 개천박컴퍼니</p>
+    </div>
+  </footer>
+
+  <script>
+  (function () {
+    "use strict";
+    var API = "https://gaecheonbak-chat.oaoaoaoartrt.workers.dev";
+    var WS_URL = API.replace(/^http/, "ws") + "/api/ws";
+    var TOKEN_KEY = "gcb_chat_token";
+
+    var $ = function (id) { return document.getElementById(id); };
+    var views = ["view-loading", "view-auth", "view-nick", "view-chat"];
+    function show(id) {
+      views.forEach(function (v) { $(v).hidden = v !== id; });
+      document.body.classList.toggle("in-chat", id === "view-chat");
+    }
+
+    var ERRORS = {
+      invalid_login: "아이디는 영문 소문자, 숫자, 그리고 . _ @ + - 기호로 3~64자 입력해 주세요.",
+      weak_password: "비밀번호는 8자 이상이어야 합니다.",
+      login_taken: "이미 가입된 아이디입니다. 로그인해 주세요.",
+      invalid_credentials: "아이디 또는 비밀번호가 올바르지 않습니다.",
+      invalid_nickname: "닉네임은 1자 이상 20자 이하로 입력해 주세요.",
+      invalid_message: "메시지는 1자 이상 500자 이하로 보낼 수 있습니다.",
+      nickname_required: "닉네임을 먼저 정해 주세요.",
+      rate_limited: "시도가 너무 많습니다. 잠시 후 다시 시도해 주세요.",
+      unauthorized: "로그인이 만료되었습니다. 다시 로그인해 주세요.",
+      network: "네트워크 연결을 확인해 주세요.",
+      server_error: "서버에 문제가 생겼습니다. 잠시 후 다시 시도해 주세요."
+    };
+    function errText(e) { return ERRORS[e && e.code] || "알 수 없는 오류가 발생했습니다. 잠시 후 다시 시도해 주세요."; }
+
+    var token = null;
+    try { token = localStorage.getItem(TOKEN_KEY); } catch (e) {}
+    function setToken(t) {
+      token = t;
+      try { if (t) localStorage.setItem(TOKEN_KEY, t); else localStorage.removeItem(TOKEN_KEY); } catch (e) {}
+    }
+
+    function api(path, opts) {
+      opts = opts || {};
+      var headers = {};
+      if (opts.body !== undefined) headers["Content-Type"] = "application/json";
+      if (token && opts.auth !== false) headers["Authorization"] = "Bearer " + token;
+      return fetch(API + path, {
+        method: opts.method || "GET",
+        headers: headers,
+        body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
+        cache: "no-store"
+      }).then(function (res) {
+        return res.json().catch(function () { return {}; }).then(function (data) {
+          if (!res.ok) {
+            var err = new Error(data.error || "http_" + res.status);
+            err.code = data.error || (res.status >= 500 ? "server_error" : "unknown");
+            err.status = res.status;
+            if (res.status === 401 && opts.auth !== false) expired();
+            throw err;
+          }
+          return data;
+        });
+      }, function () {
+        var err = new Error("network"); err.code = "network"; throw err;
+      });
+    }
+
+    /* ---------- 로그인 / 회원가입 ---------- */
+    var mode = "login";
+    function setMode(m) {
+      mode = m;
+      var signup = m === "signup";
+      $("tab-login").setAttribute("aria-selected", String(!signup));
+      $("tab-signup").setAttribute("aria-selected", String(signup));
+      $("auth-title").textContent = signup ? "회원가입" : "로그인";
+      $("auth-lead").textContent = signup ? "사용할 아이디(또는 이메일)와 비밀번호를 입력해 주세요." : "사내 계정으로 로그인해 주세요.";
+      $("auth-submit").textContent = signup ? "가입하기" : "로그인";
+      $("field-confirm").hidden = !signup;
+      $("pw-hint").hidden = !signup;
+      $("auth-password").autocomplete = signup ? "new-password" : "current-password";
+      $("auth-error").textContent = "";
+    }
+    $("tab-login").addEventListener("click", function () { setMode("login"); });
+    $("tab-signup").addEventListener("click", function () { setMode("signup"); });
+
+    $("auth-form").addEventListener("submit", function (ev) {
+      ev.preventDefault();
+      var login = $("auth-email").value.trim().toLowerCase();
+      var pw = $("auth-password").value;
+      var err = $("auth-error");
+      err.textContent = "";
+      if (!login) { err.textContent = "아이디 또는 이메일을 입력해 주세요."; return; }
+      if (!pw) { err.textContent = "비밀번호를 입력해 주세요."; return; }
+      if (mode === "signup") {
+        if (!/^[a-z0-9._@+-]{3,64}$/.test(login)) { err.textContent = ERRORS.invalid_login; return; }
+        if (pw.length < 8) { err.textContent = ERRORS.weak_password; return; }
+        if (pw !== $("auth-confirm").value) { err.textContent = "비밀번호 확인이 일치하지 않습니다."; return; }
+      }
+      $("auth-submit").disabled = true;
+      api(mode === "signup" ? "/api/signup" : "/api/login", { method: "POST", auth: false, body: { login: login, password: pw } })
+        .then(function (data) {
+          setToken(data.token);
+          $("auth-password").value = "";
+          $("auth-confirm").value = "";
+          afterLogin(data.user);
+        })
+        .catch(function (e) { err.textContent = errText(e); })
+        .then(function () { $("auth-submit").disabled = false; });
+    });
+
+    /* ---------- 닉네임 ---------- */
+    var me = null;
+    var myNick = "";
+    function validNick(s) { var n = Array.from(s).length; return n >= 1 && n <= 20; }
+
+    function saveNick(nick) {
+      return api("/api/nickname", { method: "POST", body: { nickname: nick } }).then(function (data) {
+        myNick = data.user.nickname;
+        $("me-name").textContent = myNick;
+      });
+    }
+
+    function afterLogin(user) {
+      me = user;
+      myNick = user.nickname || "";
+      if (myNick) { $("me-name").textContent = myNick; enterChat(); }
+      else { $("nick-input").value = ""; $("nick-error").textContent = ""; show("view-nick"); $("nick-input").focus(); }
+    }
+
+    $("nick-form").addEventListener("submit", function (ev) {
+      ev.preventDefault();
+      var nick = $("nick-input").value.trim();
+      var err = $("nick-error");
+      err.textContent = "";
+      if (!validNick(nick)) { err.textContent = ERRORS.invalid_nickname; return; }
+      $("nick-submit").disabled = true;
+      saveNick(nick).then(enterChat)
+        .catch(function (e) { err.textContent = errText(e); })
+        .then(function () { $("nick-submit").disabled = false; });
+    });
+
+    var dlg = $("rename-dialog");
+    $("btn-rename").addEventListener("click", function () {
+      $("rename-input").value = myNick;
+      $("rename-error").textContent = "";
+      dlg.hidden = false;
+      $("rename-input").focus();
+      $("rename-input").select();
+    });
+    function closeDlg() { dlg.hidden = true; $("msg-input").focus(); }
+    $("rename-cancel").addEventListener("click", closeDlg);
+    dlg.addEventListener("click", function (e) { if (e.target === dlg) closeDlg(); });
+    document.addEventListener("keydown", function (e) { if (e.key === "Escape" && !dlg.hidden) closeDlg(); });
+    $("rename-form").addEventListener("submit", function (ev) {
+      ev.preventDefault();
+      var nick = $("rename-input").value.trim();
+      var err = $("rename-error");
+      if (!validNick(nick)) { err.textContent = ERRORS.invalid_nickname; return; }
+      $("rename-submit").disabled = true;
+      saveNick(nick).then(closeDlg)
+        .catch(function (e) { err.textContent = errText(e); })
+        .then(function () { $("rename-submit").disabled = false; });
+    });
+
+    function resetToAuth(message) {
+      stopLive();
+      setToken(null);
+      me = null; myNick = ""; msgs = []; seen = {}; lastId = 0;
+      dlg.hidden = true;
+      setMode("login");
+      show("view-auth");
+      $("auth-error").textContent = message || "";
+    }
+    function expired() { if (me || token) resetToAuth(ERRORS.unauthorized); }
+
+    $("btn-logout").addEventListener("click", function () {
+      var t = token;
+      if (t) {
+        fetch(API + "/api/logout", { method: "POST", keepalive: true, headers: { "Authorization": "Bearer " + t } }).catch(function () {});
+      }
+      resetToAuth("");
+    });
+
+    /* ---------- 채팅 ---------- */
+    var log = $("log");
+    var timeFmt = new Intl.DateTimeFormat("ko-KR", { timeZone: "Asia/Seoul", hour: "numeric", minute: "2-digit" });
+    var dayFmt = new Intl.DateTimeFormat("ko-KR", { timeZone: "Asia/Seoul", year: "numeric", month: "long", day: "numeric", weekday: "short" });
+    var msgs = [];
+    var seen = {};
+    var lastId = 0;
+
+    function addMessages(list, forceScroll) {
+      var added = false;
+      (list || []).forEach(function (m) {
+        if (!m || typeof m.id !== "number" || seen[m.id]) return;
+        seen[m.id] = true;
+        msgs.push(m);
+        if (m.id > lastId) lastId = m.id;
+        added = true;
+      });
+      if (!added) return;
+      msgs.sort(function (a, b) { return a.id - b.id; });
+      if (msgs.length > 300) {
+        msgs.splice(0, msgs.length - 300).forEach(function (m) { delete seen[m.id]; });
+      }
+      render(forceScroll);
+    }
+
+    function render(forceScroll) {
+      var nearBottom = log.scrollHeight - log.scrollTop - log.clientHeight < 120;
+      log.replaceChildren();
+      if (!msgs.length) {
+        var p = document.createElement("p");
+        p.className = "log-empty";
+        p.textContent = "아직 대화가 없습니다. 첫 메시지를 남겨 보세요.";
+        log.appendChild(p);
+        return;
+      }
+      var lastDay = "", lastUid = null, lastTs = 0;
+      msgs.forEach(function (m) {
+        var date = new Date(Number(m.createdAt) || Date.now());
+        var day = dayFmt.format(date);
+        if (day !== lastDay) {
+          var sep = document.createElement("div");
+          sep.className = "day";
+          sep.textContent = day;
+          log.appendChild(sep);
+          lastUid = null;
+        }
+        var row = document.createElement("div");
+        row.className = "msg";
+        if (me && m.userId === me.id) row.classList.add("mine");
+        if (m.userId === lastUid && date - lastTs < 3 * 60 * 1000) row.classList.add("follow");
+
+        var meta = document.createElement("div");
+        meta.className = "meta";
+        var who = document.createElement("span");
+        who.className = "who";
+        who.textContent = String(m.nickname || "익명");
+        var when = document.createElement("time");
+        when.dateTime = date.toISOString();
+        when.textContent = timeFmt.format(date);
+        meta.append(who, when);
+
+        var bubble = document.createElement("div");
+        bubble.className = "bubble";
+        bubble.textContent = String(m.text || "");
+        bubble.title = timeFmt.format(date);
+
+        row.append(meta, bubble);
+        log.appendChild(row);
+        lastDay = day; lastUid = m.userId; lastTs = date;
+      });
+      if (nearBottom || forceScroll) log.scrollTop = log.scrollHeight;
+    }
+
+    /* 실시간: WebSocket, 끊기면 3초마다 새 메시지 확인 */
+    var ws = null, wsReady = false, live = false, retry = 0, retryTimer = null, pollTimer = null, catching = false;
+
+    function catchUp() {
+      if (!live || catching) return;
+      catching = true;
+      api("/api/messages?after=" + lastId)
+        .then(function (d) { addMessages(d.messages); $("send-error").textContent = ""; })
+        .catch(function (e) { if (e.code !== "unauthorized") $("send-error").textContent = errText(e); })
+        .then(function () { catching = false; });
+    }
+    function startPolling() { if (!pollTimer) pollTimer = setInterval(catchUp, 3000); }
+    function stopPolling() { if (pollTimer) { clearInterval(pollTimer); pollTimer = null; } }
+
+    function connect() {
+      if (!live || ws) return;
+      var sock;
+      try { sock = new WebSocket(WS_URL); } catch (e) { scheduleReconnect(); return; }
+      ws = sock;
+      var pinger = null;
+      sock.onopen = function () {
+        sock.send(JSON.stringify({ type: "auth", token: token }));
+        pinger = setInterval(function () { try { sock.send('{"type":"ping"}'); } catch (e) {} }, 30000);
+      };
+      sock.onmessage = function (ev) {
+        var data; try { data = JSON.parse(ev.data); } catch (e) { return; }
+        if (data.type === "ready") { wsReady = true; retry = 0; stopPolling(); catchUp(); }
+        else if (data.type === "message") addMessages([data.message]);
+        else if (data.type === "unauthorized") expired();
+      };
+      sock.onclose = function () {
+        if (pinger) clearInterval(pinger);
+        if (ws === sock) { ws = null; wsReady = false; }
+        if (live) { startPolling(); scheduleReconnect(); }
+      };
+      sock.onerror = function () { try { sock.close(); } catch (e) {} };
+    }
+    function scheduleReconnect() {
+      if (retryTimer || !live) return;
+      var delay = Math.min(30000, 1000 * Math.pow(2, retry++));
+      retryTimer = setTimeout(function () { retryTimer = null; connect(); }, delay);
+    }
+    function stopLive() {
+      live = false;
+      stopPolling();
+      if (retryTimer) { clearTimeout(retryTimer); retryTimer = null; }
+      if (ws) { var s = ws; ws = null; wsReady = false; try { s.close(1000); } catch (e) {} }
+    }
+
+    function enterChat() {
+      show("view-chat");
+      stopLive();
+      live = true;
+      msgs = []; seen = {}; lastId = 0;
+      render(true);
+      api("/api/messages")
+        .then(function (d) { addMessages(d.messages, true); })
+        .catch(function (e) { if (e.code !== "unauthorized") $("send-error").textContent = errText(e); });
+      startPolling();
+      connect();
+      $("msg-input").focus();
+    }
+
+    document.addEventListener("visibilitychange", function () {
+      if (document.visibilityState === "visible" && live) { catchUp(); if (!ws) { retry = 0; connect(); } }
+    });
+
+    var input = $("msg-input");
+    function autosize() {
+      input.style.height = "auto";
+      input.style.height = Math.min(input.scrollHeight + 2, 160) + "px";
+      $("count").textContent = input.value.length;
+    }
+    input.addEventListener("input", autosize);
+    input.addEventListener("keydown", function (e) {
+      if (e.key === "Enter" && !e.shiftKey && !e.isComposing && e.keyCode !== 229) {
+        e.preventDefault();
+        $("composer").requestSubmit();
+      }
+    });
+
+    var sending = false;
+    $("composer").addEventListener("submit", function (ev) {
+      ev.preventDefault();
+      if (sending) return;
+      var text = input.value.replace(/^\s+|\s+$/g, "");
+      $("send-error").textContent = "";
+      if (!text) return;
+      if (Array.from(text).length > 500) { $("send-error").textContent = "메시지는 500자까지 보낼 수 있습니다."; return; }
+      sending = true;
+      $("btn-send").disabled = true;
+      input.value = "";
+      autosize();
+      api("/api/messages", { method: "POST", body: { text: text } })
+        .then(function (d) { addMessages([d.message], true); })
+        .catch(function (e) {
+          if (e.code === "unauthorized") return;
+          input.value = text;
+          autosize();
+          $("send-error").textContent = errText(e);
+        })
+        .then(function () {
+          sending = false;
+          $("btn-send").disabled = false;
+          input.focus();
+        });
+    });
+
+    /* ---------- 시작 ---------- */
+    if (!token) { setMode("login"); show("view-auth"); }
+    else {
+      show("view-loading");
+      api("/api/me")
+        .then(function (d) { afterLogin(d.user); })
+        .catch(function (e) {
+          if (e.code === "unauthorized") return;
+          setMode("login"); show("view-auth");
+          $("auth-error").textContent = errText(e);
+        });
+    }
+  })();
+  </script>
+</body>
+</html>
