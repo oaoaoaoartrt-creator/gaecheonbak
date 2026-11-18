@@ -300,8 +300,8 @@
     /* People */
     .people {
       display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 32px 48px;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 32px 28px;
     }
 
     .person {
@@ -360,6 +360,9 @@
       height: 100%;
       z-index: 1;
     }
+    .pf:not(.metal) > .avatar {
+      box-shadow: 0 0 0 1.5px var(--ring-bg), 0 0 0 2.5px #c8c0b2;
+    }
     .pf.metal::before,
     .pf.metal::after {
       content: "";
@@ -381,10 +384,10 @@
       box-shadow: 0 0 0 2px var(--ring-bg);
     }
     .pf.f-platinum_crown {
-      --metal: conic-gradient(from 200deg, #f6f8fb, #b7bfca 14%, #eef2f6 27%, #8f99a7 41%, #e2e7ee 55%, #a6afbb 70%, #f2f5f8 84%, #f6f8fb);
-      --edge: rgba(72, 82, 98, 0.55);
-      --edge-in: rgba(255, 255, 255, 0.6);
-      --inner: #9ba5b3;
+      --metal: conic-gradient(from 210deg, #ffffff, #c5e6f5 8%, #f8fdff 16%, #9cc9e0 24%, #ffffff 34%, #d7eef8 42%, #8ebad2 52%, #f4fbff 62%, #b3d6e8 72%, #ffffff 82%, #cfe8f4 90%, #ffffff);
+      --edge: rgba(90, 132, 156, 0.5);
+      --edge-in: rgba(255, 255, 255, 0.88);
+      --inner: #9dbcd0;
     }
     .pf.f-gold_crown {
       --metal: conic-gradient(from 200deg, #eedcaa, #b08a44 14%, #e3c785 27%, #8d6a2e 41%, #d8b874 55%, #a17d3a 70%, #ecd8a2 84%, #eedcaa);
@@ -393,6 +396,27 @@
       --inner: #a98540;
     }
     @keyframes pf-sheen { to { transform: rotate(360deg); } }
+    .pf.f-platinum_crown::after {
+      background: conic-gradient(from 0deg, transparent 0 58%, rgba(160, 216, 240, 0.28) 64%, rgba(255,255,255,0.9) 70%, rgba(200, 230, 255, 0.35) 74%, transparent 82% 100%);
+    }
+    .pf.f-platinum_crown .crown { filter: drop-shadow(0 0.6px 0.5px rgba(70, 110, 130, 0.28)); }
+    .pf.f-platinum_crown .sparks { position: absolute; inset: calc(var(--band) * -2.2); z-index: 3; pointer-events: none; overflow: visible; }
+    .pf.f-platinum_crown .sparks i {
+      position: absolute; display: block; width: calc(var(--s) * 0.09); height: calc(var(--s) * 0.09);
+      background: #fff; clip-path: polygon(50% 0%, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%);
+      filter: drop-shadow(0 0 1.1px rgba(200, 236, 255, 0.95)); opacity: 0;
+      animation: pf-twinkle 3.6s ease-in-out infinite;
+    }
+    .pf.f-platinum_crown .sparks i:nth-child(1) { top: 2%; left: 78%; animation-duration: 3.4s; animation-delay: 0.15s; }
+    .pf.f-platinum_crown .sparks i:nth-child(2) { top: -6%; left: 22%; width: calc(var(--s) * 0.07); height: calc(var(--s) * 0.07); animation-duration: 4.1s; animation-delay: 1.15s; }
+    .pf.f-platinum_crown .sparks i:nth-child(3) { bottom: 6%; right: 0; animation-duration: 3.8s; animation-delay: 2.05s; }
+    .pf.f-platinum_crown .sparks i:nth-child(4) { top: 42%; left: -6%; width: calc(var(--s) * 0.06); height: calc(var(--s) * 0.06); animation-duration: 4.4s; animation-delay: 0.75s; }
+    @keyframes pf-twinkle {
+      0%, 62%, 100% { opacity: 0; transform: scale(0.35); }
+      70% { opacity: 1; transform: scale(1); }
+      78% { opacity: 0.25; transform: scale(0.6); }
+      86% { opacity: 0.95; transform: scale(1.08); }
+    }
     .pf .crown {
       position: absolute;
       z-index: 2;
@@ -544,6 +568,9 @@
         animation: none;
       }
       .pf.metal::after { animation: none; transform: rotate(-40deg); }
+      .pf.f-platinum_crown .sparks i { animation: none; opacity: 0; }
+      .pf.f-platinum_crown .sparks i:nth-child(1) { opacity: 0.65; }
+      .pf.f-platinum_crown .sparks i:nth-child(3) { opacity: 0.35; }
     }
 
     /* ---------- Responsive ---------- */
@@ -651,23 +678,34 @@
             <p class="panel-label">인원 소개</p>
             <div class="people">
               <article class="person">
-                <div class="pf metal f-platinum_crown" title="플래티넘 왕관 테두리">
+                <div class="pf metal f-platinum_crown" title="다이아몬드 왕관 테두리">
                   <div class="avatar">
                     <img src="images/seolpyo.jpg" alt="사장 설표">
                     <span aria-hidden="true">설</span>
                   </div>
                   <svg class="crown" viewBox="0 0 40 27" aria-hidden="true" focusable="false">
-                    <path d="M6.2 20.4 L3.4 8.8 L12.3 14.7 L20 4.6 L27.7 14.7 L36.6 8.8 L33.8 20.4 Q20 22.2 6.2 20.4Z" fill="url(#cr-platinum_crown-body)" stroke="#5d6675" stroke-width=".8" stroke-linejoin="round"/>
-                    <path d="M12.3 14.7 L13.6 19.6 M27.7 14.7 L26.4 19.6 M20 4.6 L20 19.9" stroke="#fff" stroke-opacity=".35" stroke-width=".55" fill="none"/>
-                    <circle cx="3.4" cy="7.5" r="1.9" fill="url(#cr-platinum_crown-body)" stroke="#5d6675" stroke-width=".7"/>
-                    <circle cx="20" cy="3.3" r="2.2" fill="url(#cr-platinum_crown-body)" stroke="#5d6675" stroke-width=".7"/>
-                    <circle cx="36.6" cy="7.5" r="1.9" fill="url(#cr-platinum_crown-body)" stroke="#5d6675" stroke-width=".7"/>
-                    <path d="M5.7 19.5 Q20 21.7 34.3 19.5 L33.9 23.5 Q20 25.7 6.1 23.5Z" fill="url(#cr-platinum_crown-band)" stroke="#5d6675" stroke-width=".8" stroke-linejoin="round"/>
-                    <path d="M7 20.6 Q20 22.6 33 20.6" stroke="#fff" stroke-opacity=".4" stroke-width=".5" fill="none"/>
-                    <circle cx="12.4" cy="22.1" r=".8" fill="#fff" fill-opacity=".75"/><circle cx="27.6" cy="22.1" r=".8" fill="#fff" fill-opacity=".75"/>
-                    <ellipse cx="20" cy="22.5" rx="2.1" ry="1.4" fill="#4a6890" stroke="#2c3f5a" stroke-width=".5"/>
-                    <ellipse cx="19.3" cy="22" rx=".75" ry=".35" fill="#fff" fill-opacity=".7"/>
+                    <path d="M6.2 20.4 L3.4 8.8 L12.3 14.7 L20 4.6 L27.7 14.7 L36.6 8.8 L33.8 20.4 Q20 22.2 6.2 20.4Z" fill="url(#cr-platinum_crown-body)" stroke="#6d8ea3" stroke-width=".8" stroke-linejoin="round"/>
+                    <path d="M6.2 20.4 L3.4 8.8 L12.3 14.7 L13.6 19.6Z" fill="#9ec9e0" fill-opacity=".28"/>
+                    <path d="M12.3 14.7 L20 4.6 L20 19.9 L13.6 19.6Z" fill="#fff" fill-opacity=".35"/>
+                    <path d="M20 4.6 L27.7 14.7 L26.4 19.6 L20 19.9Z" fill="#c5e6f5" fill-opacity=".3"/>
+                    <path d="M27.7 14.7 L36.6 8.8 L33.8 20.4 L26.4 19.6Z" fill="#fff" fill-opacity=".18"/>
+                    <path d="M12.3 14.7 L13.6 19.6 M27.7 14.7 L26.4 19.6 M20 4.6 L20 19.9" stroke="#fff" stroke-opacity=".55" stroke-width=".55" fill="none"/>
+                    <path d="M3.4 8.8 L12.3 14.7 L20 4.6 L27.7 14.7 L36.6 8.8" stroke="#c8eaf8" stroke-opacity=".5" stroke-width=".4" fill="none"/>
+                    <polygon points="3.4,5.4 5.5,7.5 3.4,9.7 1.3,7.5" fill="url(#cr-platinum_crown-ice)" stroke="#6d8ea3" stroke-width=".6" stroke-linejoin="round"/>
+                    <path d="M3.4 5.4 L3.4 9.7 M1.3 7.5 L5.5 7.5" stroke="#fff" stroke-opacity=".7" stroke-width=".4" fill="none"/>
+                    <polygon points="20,1 22.5,3.3 20,5.7 17.5,3.3" fill="url(#cr-platinum_crown-ice)" stroke="#6d8ea3" stroke-width=".6" stroke-linejoin="round"/>
+                    <path d="M20 1 L20 5.7 M17.5 3.3 L22.5 3.3" stroke="#fff" stroke-opacity=".75" stroke-width=".4" fill="none"/>
+                    <polygon points="36.6,5.4 38.7,7.5 36.6,9.7 34.5,7.5" fill="url(#cr-platinum_crown-ice)" stroke="#6d8ea3" stroke-width=".6" stroke-linejoin="round"/>
+                    <path d="M36.6 5.4 L36.6 9.7 M34.5 7.5 L38.7 7.5" stroke="#fff" stroke-opacity=".7" stroke-width=".4" fill="none"/>
+                    <path d="M5.7 19.5 Q20 21.7 34.3 19.5 L33.9 23.5 Q20 25.7 6.1 23.5Z" fill="url(#cr-platinum_crown-band)" stroke="#6d8ea3" stroke-width=".8" stroke-linejoin="round"/>
+                    <path d="M7 20.6 Q20 22.6 33 20.6" stroke="#fff" stroke-opacity=".55" stroke-width=".5" fill="none"/>
+                    <polygon points="12.4,21 13.3,22.1 12.4,23.2 11.5,22.1" fill="#f6fcff" stroke="#7aa3b8" stroke-width=".35" stroke-linejoin="round"/>
+                    <polygon points="27.6,21 28.5,22.1 27.6,23.2 26.7,22.1" fill="#f6fcff" stroke="#7aa3b8" stroke-width=".35" stroke-linejoin="round"/>
+                    <polygon points="20,20.6 22.4,22.4 20,24.5 17.6,22.4" fill="url(#cr-platinum_crown-ice)" stroke="#5e849c" stroke-width=".5" stroke-linejoin="round"/>
+                    <path d="M20 20.6 L20 24.5 M17.6 22.4 L22.4 22.4" stroke="#fff" stroke-opacity=".8" stroke-width=".4" fill="none"/>
+                    <circle cx="19.4" cy="21.8" r=".35" fill="#fff"/>
                   </svg>
+                  <span class="sparks" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
                 </div>
                 <div>
                   <p class="person-role">사장</p>
@@ -697,6 +735,19 @@
                 <div>
                   <p class="person-role">부사장</p>
                   <h2 class="person-name">테이스트</h2>
+                </div>
+              </article>
+
+              <article class="person">
+                <div class="pf">
+                  <div class="avatar">
+                    <img src="images/staff1.jpg" alt="사원 호퀸">
+                    <span aria-hidden="true">호</span>
+                  </div>
+                </div>
+                <div>
+                  <p class="person-role">사원</p>
+                  <h2 class="person-name">호퀸</h2>
                 </div>
               </article>
             </div>
@@ -735,8 +786,9 @@
   <!-- 왕관·테두리 금속 그라데이션 (사내메신저와 동일) -->
   <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
     <defs>
-      <linearGradient id="cr-platinum_crown-body" x1="0" y1="0" x2="0.35" y2="1"><stop offset="0" stop-color="#fbfcfe"/><stop offset="0.45" stop-color="#d3d9e1"/><stop offset="0.7" stop-color="#aab3bf"/><stop offset="1" stop-color="#848e9c"/></linearGradient>
-      <linearGradient id="cr-platinum_crown-band" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#c6cdd6"/><stop offset="1" stop-color="#76808e"/></linearGradient>
+      <linearGradient id="cr-platinum_crown-body" x1="0" y1="0" x2="0.35" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="0.4" stop-color="#e8f5fb"/><stop offset="0.7" stop-color="#b9d8ea"/><stop offset="1" stop-color="#8fb8ce"/></linearGradient>
+      <linearGradient id="cr-platinum_crown-band" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#e4f1f8"/><stop offset="1" stop-color="#8eafc2"/></linearGradient>
+      <linearGradient id="cr-platinum_crown-ice" x1="0.2" y1="0" x2="0.8" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="0.45" stop-color="#e7f6ff"/><stop offset="1" stop-color="#9ec9e0"/></linearGradient>
       <linearGradient id="cr-gold_crown-body" x1="0" y1="0" x2="0.35" y2="1"><stop offset="0" stop-color="#f6e7bd"/><stop offset="0.45" stop-color="#ddbd78"/><stop offset="0.7" stop-color="#b8914a"/><stop offset="1" stop-color="#8c682b"/></linearGradient>
       <linearGradient id="cr-gold_crown-band" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#c9a259"/><stop offset="1" stop-color="#7f5d25"/></linearGradient>
     </defs>
