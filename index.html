@@ -386,6 +386,24 @@
       pointer-events: none;
       user-select: none;
     }
+
+    .pf.f-geommeomwoyo > .fx-bh-back {
+      z-index: 0;
+    }
+    .pf.f-geommeomwoyo > .avatar {
+      z-index: 1;
+    }
+    .pf.f-geommeomwoyo > .fx-bh-front {
+      z-index: 2;
+    }
+    @keyframes gm-bh-shimmer {
+      0%, 100% { filter: brightness(1); }
+      50% { filter: brightness(1.06); }
+    }
+    .pf.f-geommeomwoyo > .fx-bh-back,
+    .pf.f-geommeomwoyo > .fx-bh-front {
+      animation: gm-bh-shimmer 18s ease-in-out infinite;
+    }
     @keyframes pf-sheen { to { transform: rotate(360deg); } }
     @keyframes pf-twinkle {
       0%, 62%, 100% { opacity: 0; transform: scale(0.35); }
@@ -781,6 +799,8 @@
       .pf.f-seolpyo .sparks i { animation: none; opacity: 0; }
       .pf.f-seolpyo .sparks i:nth-child(1) { opacity: 0.65; }
       .pf.f-seolpyo .sparks i:nth-child(3) { opacity: 0.35; }
+      .pf.f-geommeomwoyo > .fx-bh-back,
+      .pf.f-geommeomwoyo > .fx-bh-front { animation: none; filter: none; }
     }
 
     /* ---------- Responsive ---------- */
@@ -1021,11 +1041,12 @@
 
               <article class="person">
                 <div class="pf framed f-geommeomwoyo">
+                  <img class="fx-frame fx-bh-back" src="images/frames/geommeomwoyo-back.webp" alt="" aria-hidden="true">
                   <div class="avatar">
                     <img src="images/staff4.jpg" alt="노예 검은뭐요">
                     <span aria-hidden="true">검</span>
                   </div>
-                  <img class="fx-frame" src="images/frames/geommeomwoyo.svg" alt="" aria-hidden="true">
+                  <img class="fx-frame fx-bh-front" src="images/frames/geommeomwoyo-front.webp" alt="" aria-hidden="true">
                 </div>
                 <div>
                   <p class="person-role">노예</p>

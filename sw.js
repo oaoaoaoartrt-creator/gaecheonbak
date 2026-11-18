@@ -3,7 +3,7 @@
  * - HTML은 네트워크 우선: 새 버전이 바로 반영되고, 오프라인일 때만 캐시 사용
  * - 채팅 서버(workers.dev) API와 WebSocket은 절대 캐시하지 않음
  */
-var VERSION = "v30-20261119-red-geom-frames";
+var VERSION = "v31-20261119-geom-blackhole";
 var SHELL_CACHE = "gcb-shell-" + VERSION;
 var FONT_CACHE = "gcb-fonts-v2"; // 버전과 무관하게 유지 (업데이트마다 글꼴을 다시 받지 않게)
 
@@ -34,7 +34,8 @@ var SHELL = [
   "./images/frames/hoqueen.svg",
   "./images/frames/bbunin.svg",
   "./images/frames/red.svg",
-  "./images/frames/geommeomwoyo.svg",
+  "./images/frames/geommeomwoyo-back.webp",
+  "./images/frames/geommeomwoyo-front.webp",
   "./images/frames/mobai.svg",
   "./images/frames/seommyeol.svg"
 ];
