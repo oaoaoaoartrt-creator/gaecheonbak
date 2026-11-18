@@ -446,6 +446,8 @@ export default {
         return json({ user: { ...publicUser(user), nickname: nick } }, 200, cors);
       }
 
+      if (path === "/api/unfurl" && req.method === "GET") return unfurl(env, url.searchParams.get("url"), user, ip, cors);
+
       // 사내 메신저 참여코드 (코드는 서버 비밀값의 SHA-256 해시로만 비교)
       if (path === "/api/join" && req.method === "POST") {
         if (user.member) return json({ user: publicUser(user) }, 200, cors);
@@ -600,6 +602,7 @@ export default {
     await env.DB.batch([
       env.DB.prepare("DELETE FROM sessions WHERE expires_at <= ?").bind(t),
       env.DB.prepare("DELETE FROM rate_limits WHERE window_start <= ?").bind(t - 86400000),
+      env.DB.prepare("DELETE FROM link_cache WHERE fetched_at <= ?").bind(t - 2 * 86400000),
       // 글에 붙지 않은 채 하루가 지난 게시판 이미지 정리
       env.DB.prepare(`DELETE FROM images WHERE purpose = 'board' AND created_at <= ?
         AND NOT EXISTS (SELECT 1 FROM post_images p WHERE p.image_id = images.id)`).bind(t - 86400000),
@@ -1341,4 +1344,114 @@ async function notifyComment(env, ctx, user, postId, parentId, text) {
     const rs = (await env.DB.prepare("SELECT * FROM push_subs WHERE user_id = ? AND user_id IN (SELECT id FROM users WHERE member = 1)").bind(uid).all()).results;
     await pushTo(env, rs, { title, body, url, tag: "board-" + postId, kind: "board" });
   }
+}
+
+/* ---------- 링크 미리보기 (OG) ---------- */
+const UNFURL_TTL = 86400000, UNFURL_FAIL_TTL = 3600000, UNFURL_MAX = 524288;
+function safeLinkUrl(raw) {
+  let u;
+  try { u = new URL(String(raw || "").trim()); } catch { return null; }
+  if (u.protocol !== "http:" && u.protocol !== "https:") return null;
+  if (u.username || u.password) return null;
+  if (u.port && u.port !== "80" && u.port !== "443") return null;
+  const h = u.hostname.toLowerCase().replace(/\.$/, "");
+  if (!h || h.length > 253 || !h.includes(".")) return null;
+  if (h.startsWith("[") || h.includes(":")) return null; // IPv6 literal
+  if (/^(localhost|.*\.localhost|.*\.local|.*\.internal|.*\.lan|.*\.home|.*\.arpa|metadata\.google\.internal)$/.test(h)) return null;
+  if (/^[0-9.]+$/.test(h) || /^0x/i.test(h)) {
+    const p = h.split(".").map(Number);
+    if (p.length !== 4 || p.some((n) => !Number.isInteger(n) || n < 0 || n > 255)) return null;
+    const [a, b] = p;
+    if (a === 0 || a === 10 || a === 127 || a >= 224 || (a === 169 && b === 254) || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) || (a === 100 && b >= 64 && b <= 127) || (a === 198 && (b === 18 || b === 19))) return null;
+  }
+  u.hash = "";
+  u.hostname = h;
+  if (u.href.length > 1000) return null;
+  return u;
+}
+function ytId(u) {
+  const h = u.hostname.replace(/^(www|m|music)\./, "");
+  let id = null;
+  if (h === "youtu.be") id = u.pathname.slice(1).split("/")[0];
+  else if (h === "youtube.com" || h === "youtube-nocookie.com") {
+    if (u.pathname === "/watch") id = u.searchParams.get("v");
+    else { const m = /^\/(shorts|embed|live|v)\/([^/?#]+)/.exec(u.pathname); if (m) id = m[2]; }
+  }
+  return id && /^[A-Za-z0-9_-]{11}$/.test(id) ? id : null;
+}
+const ENT = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " ", "#39": "'" };
+function decodeEnt(s) {
+  return String(s || "").replace(/&(#x[0-9a-f]+|#\d+|[a-z0-9]+);/gi, (m, e) => {
+    if (e[0] === "#") { const n = e[1] === "x" || e[1] === "X" ? parseInt(e.slice(2), 16) : parseInt(e.slice(1), 10); try { return n > 0 && n < 0x110000 ? String.fromCodePoint(n) : ""; } catch { return ""; } }
+    return ENT[e.toLowerCase()] ?? m;
+  });
+}
+const clip = (s, n) => { s = decodeEnt(s).replace(/\s+/g, " ").trim(); return s.length > n ? s.slice(0, n - 1) + "…" : s; };
+function parseOg(html, base) {
+  const meta = {};
+  const tagRe = /<meta\b[^>]*>/gi; let m;
+  while ((m = tagRe.exec(html))) {
+    const t = m[0];
+    const k = /(?:property|name)\s*=\s*["']([^"']+)["']/i.exec(t), c = /content\s*=\s*["']([^"']*)["']/i.exec(t) || /content\s*=\s*([^\s>"']+)/i.exec(t);
+    if (k && c) { const key = k[1].toLowerCase(); if (!(key in meta)) meta[key] = c[1]; }
+  }
+  const title = meta["og:title"] || meta["twitter:title"] || (/<title[^>]*>([\s\S]{0,400}?)<\/title>/i.exec(html) || [])[1] || "";
+  const abs = (v) => { if (!v) return ""; try { const x = new URL(decodeEnt(v).trim(), base); return x.protocol === "https:" || x.protocol === "http:" ? x.href.slice(0, 1000) : ""; } catch { return ""; } };
+  let icon = "";
+  const lr = /<link\b[^>]*>/gi;
+  while ((m = lr.exec(html))) { if (/rel\s*=\s*["'][^"']*icon[^"']*["']/i.test(m[0])) { const h = /href\s*=\s*["']([^"']+)["']/i.exec(m[0]); if (h) { icon = abs(h[1]); break; } } }
+  return {
+    title: clip(title, 200), description: clip(meta["og:description"] || meta["twitter:description"] || meta["description"] || "", 300),
+    siteName: clip(meta["og:site_name"] || "", 80), image: abs(meta["og:image:secure_url"] || meta["og:image"] || meta["twitter:image"] || meta["twitter:image:src"]),
+    icon,
+  };
+}
+async function readCapped(res, max) {
+  const reader = res.body && res.body.getReader(); if (!reader) return "";
+  const chunks = []; let total = 0;
+  while (total < max) { const { done, value } = await reader.read(); if (done) break; chunks.push(value); total += value.length; if (/<\/head>/i.test(new TextDecoder().decode(value))) break; }
+  try { reader.cancel(); } catch {}
+  const buf = new Uint8Array(Math.min(total, max)); let o = 0;
+  for (const c of chunks) { const n = Math.min(c.length, buf.length - o); buf.set(c.subarray(0, n), o); o += n; if (o >= buf.length) break; }
+  const ct = res.headers.get("content-type") || ""; const cs = (/charset=([\w-]+)/i.exec(ct) || [])[1];
+  let txt = new TextDecoder(cs || "utf-8", { fatal: false }).decode(buf);
+  if (!cs) { const mc = /<meta[^>]+charset\s*=\s*["']?([\w-]+)/i.exec(txt); if (mc && !/utf-?8/i.test(mc[1])) { try { txt = new TextDecoder(mc[1]).decode(buf); } catch {} } }
+  return txt;
+}
+async function fetchPreview(u) {
+  const host = u.hostname.replace(/^www\./, "");
+  const out = { url: u.href, host, title: "", description: "", siteName: "", image: "", icon: "" };
+  const yid = ytId(u);
+  const ctl = new AbortController(); const timer = setTimeout(() => ctl.abort(), 5000);
+  try {
+    if (yid) {
+      out.youtube = yid; out.siteName = "YouTube"; out.image = "https://i.ytimg.com/vi/" + yid + "/hqdefault.jpg";
+      const r = await fetch("https://www.youtube.com/oembed?format=json&url=" + encodeURIComponent("https://www.youtube.com/watch?v=" + yid), { signal: ctl.signal });
+      if (r.ok) { const d = await r.json(); out.title = clip(d.title || "", 200); out.description = clip(d.author_name || "", 120); }
+      return out;
+    }
+    let cur = u;
+    for (let i = 0; i < 4; i++) {
+      const r = await fetch(cur.href, { redirect: "manual", signal: ctl.signal, headers: { "User-Agent": "Mozilla/5.0 (compatible; GaecheonbakLinkPreview/1.0; +https://oaoaoaoartrt-creator.github.io/gaecheonbak/)", Accept: "text/html,application/xhtml+xml", "Accept-Language": "ko,en;q=0.8" } });
+      if (r.status >= 300 && r.status < 400 && r.headers.get("location")) {
+        const nx = safeLinkUrl(new URL(r.headers.get("location"), cur).href); try { r.body && r.body.cancel(); } catch {}
+        if (!nx) return out; cur = nx; continue;
+      }
+      if (!r.ok || !/html/i.test(r.headers.get("content-type") || "")) { try { r.body && r.body.cancel(); } catch {} return out; }
+      Object.assign(out, parseOg(await readCapped(r, UNFURL_MAX), cur.href));
+      return out;
+    }
+    return out;
+  } catch { return out; } finally { clearTimeout(timer); }
+}
+async function unfurl(env, url, user, ip, cors) {
+  const u = safeLinkUrl(url);
+  if (!u) return fail("invalid_url", 400, cors);
+  const key = u.href, now = Date.now();
+  const row = await env.DB.prepare("SELECT data, fetched_at FROM link_cache WHERE url = ?").bind(key).first();
+  if (row) { const d = JSON.parse(row.data); if (now - row.fetched_at < (d.title ? UNFURL_TTL : UNFURL_FAIL_TTL)) return json({ preview: d }, 200, { ...cors, "Cache-Control": "private, max-age=3600" }); }
+  if (!(await hit(env, "unfurl:" + user.id, 60, 600000)) || !(await hit(env, "unfurl-ip:" + ip, 200, 3600000))) return fail("rate_limited", 429, cors);
+  const d = await fetchPreview(u);
+  await env.DB.prepare("INSERT INTO link_cache (url, data, fetched_at) VALUES (?, ?, ?) ON CONFLICT(url) DO UPDATE SET data = excluded.data, fetched_at = excluded.fetched_at").bind(key, JSON.stringify(d), now).run();
+  return json({ preview: d }, 200, { ...cors, "Cache-Control": "private, max-age=3600" });
 }
