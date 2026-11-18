@@ -783,7 +783,6 @@ async function cons(req, env, url, path, user, cors) {
 
 async function board(req, env, url, path, user, cors, ctx) {
   const M = req.method;
-  if (!user.member) return fail("members_only", 403, cors);
   if (path.startsWith("/api/board/con")) {
     const r = await cons(req, env, url, path, user, cors);
     if (r) return r;
@@ -1340,8 +1339,8 @@ async function notifyComment(env, ctx, user, postId, parentId, text) {
   const body = "「" + snip(post.title, 30) + "」 " + snip(conText(text), 60);
   const stub = env.ROOM.get(env.ROOM.idFromName("main"));
   for (const [uid, title] of targets) {
-    ctx.waitUntil(stub.fetch("https://room/broadcast", { method: "POST", body: JSON.stringify({ type: "notify", to: [uid], membersOnly: true, kind: "board", title, body, url }) }).catch(() => {}));
-    const rs = (await env.DB.prepare("SELECT * FROM push_subs WHERE user_id = ? AND user_id IN (SELECT id FROM users WHERE member = 1)").bind(uid).all()).results;
+    ctx.waitUntil(stub.fetch("https://room/broadcast", { method: "POST", body: JSON.stringify({ type: "notify", to: [uid], kind: "board", title, body, url }) }).catch(() => {}));
+    const rs = (await env.DB.prepare("SELECT * FROM push_subs WHERE user_id = ?").bind(uid).all()).results;
     await pushTo(env, rs, { title, body, url, tag: "board-" + postId, kind: "board" });
   }
 }

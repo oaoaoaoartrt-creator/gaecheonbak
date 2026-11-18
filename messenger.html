@@ -775,7 +775,7 @@
     <section class="wrap stage" id="view-join" hidden>
       <div class="card join-card">
         <h2>사내 메신저 참여</h2>
-        <p class="lead">사내 메신저와 사내 게시판은 임직원 전용입니다. 전달받은 참여코드를 입력해 주세요.</p>
+        <p class="lead">사내 메신저는 임직원 전용입니다. 전달받은 참여코드를 입력해 주세요.</p>
         <form id="join-form" novalidate>
           <label class="field">
             <span>참여코드</span>
@@ -2199,7 +2199,7 @@
       var um = /^#\/u\/(me|\d{1,12})$/.exec(h);
       if (um) { show("view-profile", um[1] === "me" || Number(um[1]) === me.id ? "view-profile" : "none"); profileView(++bseq, um[1] === "me" ? me.id : Number(um[1])); return; }
       var m = /^#\/board(?:\/(write|\d{1,12})(?:\/(edit))?)?(?:\?(.*))?$/.exec(h);
-      if ((m || h === "#/chat") && !me.member) { showJoin(m ? "view-board" : "view-chat"); return; }
+      if (h === "#/chat" && !me.member) { showJoin("view-chat"); return; }
       if (!m) {
         var ch = h === "#/free" ? "free" : h === "#/chat" ? "company" : (me.member ? "company" : "free");
         if (h !== "#/chat" && h !== "#/free") history.replaceState(history.state, "", ch === "free" ? "#/free" : "#/chat");
