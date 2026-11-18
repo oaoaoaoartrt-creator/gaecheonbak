@@ -3,7 +3,7 @@
  * - HTML은 네트워크 우선: 새 버전이 바로 반영되고, 오프라인일 때만 캐시 사용
  * - 채팅 서버(workers.dev) API와 WebSocket은 절대 캐시하지 않음
  */
-var VERSION = "v17-20261118-dm";
+var VERSION = "v18-20261118-staff45";
 var SHELL_CACHE = "gcb-shell-" + VERSION;
 var FONT_CACHE = "gcb-fonts-v2"; // 버전과 무관하게 유지 (업데이트마다 글꼴을 다시 받지 않게)
 
@@ -21,7 +21,11 @@ var SHELL = [
   "./icons/badge-96.png",
   "./images/seolpyo.jpg",
   "./images/taste.jpg",
-  "./images/staff1.jpg"
+  "./images/staff1.jpg",
+  "./images/staff2.jpg",
+  "./images/staff3.jpg",
+  "./images/staff4.jpg",
+  "./images/staff5.jpg"
 ];
 
 var FONT_HOSTS = ["fonts.googleapis.com", "fonts.gstatic.com", "cdn.jsdelivr.net"];
