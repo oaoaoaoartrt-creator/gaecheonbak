@@ -17,6 +17,19 @@ const MAX_EMOTICONS = 50;
 const MAX_EMO_NAME = 20;
 const STORAGE_CAP = 400 * 1024 * 1024;   // D1 무료 DB 한도(500MB) 전에 업로드를 막아 텍스트 채팅을 보호
 const IMG_ID_RE = /^[0-9a-f]{32}$/;
+IMG_RULES.board = { maxBytes: 1024 * 1024, maxDim: 4096 };
+
+/* 게시판 */
+const BOARD_CATS = ["일반", "질문", "정보", "잡담"];
+const MAX_TITLE = 60;
+const MAX_BODY = 5000;
+const MAX_COMMENT = 400;
+const MAX_POST_IMAGES = 5;
+const PAGE_SIZE = 20;
+const BEST_MIN = 3;                      // 추천 3개 이상 = 개념글
+const FRAMES = ["basic", "platinum_crown", "gold_crown"];
+const MOD_ROLES = ["ceo", "vp"];         // 사장·부사장: 모든 글/댓글 삭제, 공지 지정
+
 
 const enc = new TextEncoder();
 const now = () => Date.now();
@@ -68,6 +81,18 @@ function normNick(v) {
   const s = stripCtl(v, false).trim();
   const n = charLen(s);
   return n >= 1 && n <= MAX_NICK ? s : null;
+}
+function normLine(v, max) {
+  if (typeof v !== "string") return null;
+  const s = stripCtl(v, false).replace(/\s+/g, " ").trim();
+  const n = charLen(s);
+  return n >= 1 && n <= max ? s : null;
+}
+function normLong(v, max) {
+  if (typeof v !== "string") return null;
+  const s = stripCtl(v.replace(/\r\n?/g, "\n"), true).replace(/^\s+|\s+$/g, "").replace(/\n{4,}/g, "\n\n\n");
+  const n = charLen(s);
+  return n >= 1 && n <= max ? s : null;
 }
 function normText(v) {
   if (typeof v !== "string") return null;
@@ -157,7 +182,8 @@ async function dropImageIfUnused(env, id) {
     `DELETE FROM images WHERE id = ?1
        AND NOT EXISTS (SELECT 1 FROM messages WHERE image_id = ?1)
        AND NOT EXISTS (SELECT 1 FROM users WHERE avatar_id = ?1)
-       AND NOT EXISTS (SELECT 1 FROM emoticons WHERE image_id = ?1)`
+       AND NOT EXISTS (SELECT 1 FROM emoticons WHERE image_id = ?1)
+       AND NOT EXISTS (SELECT 1 FROM post_images WHERE image_id = ?1)`
   ).bind(id).run();
 }
 function normEmoName(v) {
@@ -189,11 +215,11 @@ function json(data, status, cors) {
 }
 const fail = (code, status, cors) => json({ error: code }, status, cors);
 
-async function readJson(req) {
+async function readJson(req, max = 8192) {
   const len = Number(req.headers.get("Content-Length") || 0);
-  if (len > 8192) return null;
+  if (len > max) return null;
   const txt = await req.text();
-  if (txt.length > 8192) return null;
+  if (txt.length > max) return null;
   try { const v = JSON.parse(txt); return v && typeof v === "object" ? v : null; } catch { return null; }
 }
 
@@ -221,7 +247,7 @@ async function createSession(env, userId) {
 export async function userFromToken(env, token) {
   if (!token || typeof token !== "string" || !/^[0-9a-f]{64}$/.test(token)) return null;
   const row = await env.DB.prepare(
-    `SELECT u.id, u.login, u.nickname, u.avatar_id FROM sessions s JOIN users u ON u.id = s.user_id
+    `SELECT u.id, u.login, u.nickname, u.avatar_id, u.frame, u.role FROM sessions s JOIN users u ON u.id = s.user_id
      WHERE s.token_hash = ? AND s.expires_at > ?`
   ).bind(await sha256Hex(token), now()).first();
   return row || null;
@@ -231,13 +257,18 @@ function bearer(req) {
   const m = /^Bearer\s+([0-9a-f]{64})$/i.exec(h);
   return m ? m[1].toLowerCase() : null;
 }
-const publicUser = (u) => ({ id: u.id, login: u.login, nickname: u.nickname || "", avatarId: u.avatar_id || null });
+const cleanFrame = (f) => (FRAMES.includes(f) ? f : "basic");
+const cleanRole = (r) => (MOD_ROLES.includes(r) ? r : "");
+const publicUser = (u) => ({ id: u.id, login: u.login, nickname: u.nickname || "", avatarId: u.avatar_id || null, frame: cleanFrame(u.frame), role: cleanRole(u.role) });
+// 다른 사람에게 보이는 작성자 정보 (로그인 아이디 제외)
+const author = (r) => ({ id: r.uid, nickname: r.u_nick || "(탈퇴한 사용자)", avatarId: r.u_avatar || null, frame: cleanFrame(r.u_frame), role: cleanRole(r.u_role) });
+const isMod = (u) => MOD_ROLES.includes(u.role);
 const publicMsg = (m) => ({
   id: m.id, userId: m.user_id, nickname: m.nickname, kind: m.kind || "text", text: m.text,
   image: m.image_id ? { id: m.image_id, w: m.w || 0, h: m.h || 0 } : null,
-  avatarId: m.avatar_id || null, createdAt: m.created_at,
+  avatarId: m.avatar_id || null, frame: cleanFrame(m.frame), role: cleanRole(m.role), createdAt: m.created_at,
 });
-const MSG_SELECT = `SELECT m.id, m.user_id, m.nickname, m.kind, m.text, m.image_id, m.created_at, i.w, i.h, u.avatar_id
+const MSG_SELECT = `SELECT m.id, m.user_id, m.nickname, m.kind, m.text, m.image_id, m.created_at, i.w, i.h, u.avatar_id, u.frame, u.role
   FROM messages m LEFT JOIN users u ON u.id = m.user_id LEFT JOIN images i ON i.id = m.image_id`;
 async function insertMessage(env, user, kind, text, imageId) {
   const r = await env.DB.prepare(
@@ -326,7 +357,7 @@ export default {
         if (!(await hit(env, "login-ip:" + ip, 30, 600000)) || !(await hit(env, "login-id:" + login, 10, 600000))) {
           return fail("rate_limited", 429, cors);
         }
-        const u = await env.DB.prepare("SELECT id, login, nickname, avatar_id, pw_hash, pw_salt, pw_iter FROM users WHERE login = ?").bind(login).first();
+        const u = await env.DB.prepare("SELECT id, login, nickname, avatar_id, frame, role, pw_hash, pw_salt, pw_iter FROM users WHERE login = ?").bind(login).first();
         if (!u) {
           await pbkdf2(pw, crypto.getRandomValues(new Uint8Array(16)), PBKDF2_ITER); // 시간 차 줄이기
           return fail("invalid_credentials", 401, cors);
@@ -354,8 +385,17 @@ export default {
         const nick = body && normNick(body.nickname);
         if (!nick) return fail("invalid_nickname", 400, cors);
         if (!(await hit(env, "nick:" + user.id, 20, 600000))) return fail("rate_limited", 429, cors);
-        await env.DB.prepare("UPDATE users SET nickname = ? WHERE id = ?").bind(nick, user.id).run();
-        broadcast(env, ctx, { type: "profile", user: { id: user.id, nickname: nick, avatarId: user.avatar_id || null } });
+        // 닉네임 중복 금지 (대소문자 무시, 자기 자신 제외). 동시 요청은 DB 고유 인덱스가 막음
+        const taken = await env.DB.prepare("SELECT 1 FROM users WHERE id != ? AND nickname != '' AND lower(trim(nickname)) = lower(?)")
+          .bind(user.id, nick).first();
+        if (taken) return fail("nickname_taken", 409, cors);
+        try {
+          await env.DB.prepare("UPDATE users SET nickname = ? WHERE id = ?").bind(nick, user.id).run();
+        } catch (e) {
+          if (String(e).includes("UNIQUE")) return fail("nickname_taken", 409, cors);
+          throw e;
+        }
+        broadcast(env, ctx, { type: "profile", user: { id: user.id, nickname: nick, avatarId: user.avatar_id || null, frame: cleanFrame(user.frame), role: cleanRole(user.role) } });
         return json({ user: { ...publicUser(user), nickname: nick } }, 200, cors);
       }
 
@@ -421,7 +461,7 @@ export default {
         await env.DB.prepare("UPDATE users SET avatar_id = ? WHERE id = ?").bind(id, user.id).run();
         await dropImageIfUnused(env, user.avatar_id);
         const pu = { ...publicUser(user), avatarId: id };
-        broadcast(env, ctx, { type: "profile", user: { id: pu.id, nickname: pu.nickname, avatarId: id } });
+        broadcast(env, ctx, { type: "profile", user: { id: pu.id, nickname: pu.nickname, avatarId: id, frame: pu.frame, role: pu.role } });
         return json({ user: pu }, 200, cors);
       }
 
@@ -461,6 +501,11 @@ export default {
         return json({ ok: true }, 200, cors);
       }
 
+      if (path.startsWith("/api/board/")) {
+        const r = await board(req, env, url, path, user, cors);
+        if (r) return r;
+      }
+
       return fail("not_found", 404, cors);
     } catch (e) {
       console.error(e && e.stack || e);
@@ -474,9 +519,249 @@ export default {
     await env.DB.batch([
       env.DB.prepare("DELETE FROM sessions WHERE expires_at <= ?").bind(t),
       env.DB.prepare("DELETE FROM rate_limits WHERE window_start <= ?").bind(t - 86400000),
+      // 글에 붙지 않은 채 하루가 지난 게시판 이미지 정리
+      env.DB.prepare(`DELETE FROM images WHERE purpose = 'board' AND created_at <= ?
+        AND NOT EXISTS (SELECT 1 FROM post_images p WHERE p.image_id = images.id)`).bind(t - 86400000),
     ]);
   },
 };
+
+
+/* ---------- 사내 게시판 ---------- */
+const POST_COLS = `p.id, p.user_id, p.category, p.title, p.created_at, p.updated_at, p.views, p.up, p.down, p.comment_count, p.pinned,
+  (SELECT COUNT(*) FROM post_images pi WHERE pi.post_id = p.id) AS img_count,
+  u.id AS uid, u.nickname AS u_nick, u.avatar_id AS u_avatar, u.frame AS u_frame, u.role AS u_role`;
+const listItem = (r) => ({
+  id: r.id, category: r.category, title: r.title, createdAt: r.created_at, updatedAt: r.updated_at || null,
+  views: r.views, up: r.up, down: r.down, comments: r.comment_count, pinned: !!r.pinned, images: r.img_count,
+  author: author({ ...r, uid: r.user_id }),
+});
+const likeEsc = (q) => "%" + q.replace(/[\\%_]/g, (c) => "\\" + c) + "%";
+
+async function loadPost(env, id) {
+  return env.DB.prepare(`SELECT ${POST_COLS}, p.body FROM posts p LEFT JOIN users u ON u.id = p.user_id WHERE p.id = ?`).bind(id).first();
+}
+// 내가 올렸고 아직 다른 글에 붙지 않은 게시판 이미지만 허용
+async function checkImageIds(env, user, ids, postId) {
+  if (ids === undefined) return [];
+  if (!Array.isArray(ids) || ids.length > MAX_POST_IMAGES) return null;
+  const out = [];
+  for (const id of ids) {
+    if (typeof id !== "string" || !IMG_ID_RE.test(id) || out.includes(id)) return null;
+    const ok = await env.DB.prepare(
+      `SELECT 1 FROM images i WHERE i.id = ? AND i.user_id = ? AND i.purpose = 'board'
+         AND NOT EXISTS (SELECT 1 FROM post_images p WHERE p.image_id = i.id AND p.post_id != ?)`
+    ).bind(id, user.id, postId || 0).first();
+    if (!ok) return null;
+    out.push(id);
+  }
+  return out;
+}
+async function postDetail(env, id, user) {
+  const r = await loadPost(env, id);
+  if (!r) return null;
+  const imgs = await env.DB.prepare(
+    "SELECT i.id, i.w, i.h FROM post_images p JOIN images i ON i.id = p.image_id WHERE p.post_id = ? ORDER BY p.ord"
+  ).bind(id).all();
+  const cm = await env.DB.prepare(
+    `SELECT c.id, c.parent_id, c.body, c.created_at, c.updated_at, c.deleted, c.user_id,
+       u.nickname AS u_nick, u.avatar_id AS u_avatar, u.frame AS u_frame, u.role AS u_role
+     FROM comments c LEFT JOIN users u ON u.id = c.user_id WHERE c.post_id = ? ORDER BY c.id LIMIT 1000`
+  ).bind(id).all();
+  const vote = await env.DB.prepare("SELECT v FROM post_votes WHERE post_id = ? AND user_id = ?").bind(id, user.id).first();
+  return {
+    ...listItem(r), body: r.body, myVote: vote ? vote.v : 0,
+    images: imgs.results.map((i) => ({ id: i.id, w: i.w, h: i.h })),
+    comments: cm.results.map((c) => c.deleted
+      ? { id: c.id, parentId: c.parent_id, deleted: true, body: "", createdAt: c.created_at, author: null }
+      : { id: c.id, parentId: c.parent_id, deleted: false, body: c.body, createdAt: c.created_at, updatedAt: c.updated_at || null, author: author({ ...c, uid: c.user_id }) }),
+  };
+}
+
+async function board(req, env, url, path, user, cors) {
+  const M = req.method;
+
+  // 게시판 이미지 올리기 (글 작성 전에 미리 업로드, 본문 = 이미지 바이트)
+  if (path === "/api/board/images" && M === "POST") {
+    if (!(await hit(env, "upload:" + user.id, 30, 600000)) || !(await hit(env, "upload-day:" + user.id, 300, 86400000))) return fail("rate_limited", 429, cors);
+    const img = await readImage(req, "board");
+    if (img.error) return fail(img.error, img.status, cors);
+    const id = await storeImage(env, user.id, "board", img);
+    if (!id) return fail("storage_full", 507, cors);
+    return json({ image: { id, w: img.w, h: img.h } }, 201, cors);
+  }
+
+  // 목록: tab=all|best, page, q, field=title|content|title_content|author, cat
+  if (path === "/api/board/posts" && M === "GET") {
+    const best = url.searchParams.get("tab") === "best";
+    let page = Number(url.searchParams.get("page") || 1);
+    if (!Number.isInteger(page) || page < 1 || page > 100000) page = 1;
+    const where = [], args = [];
+    if (best) { where.push("p.up >= ?"); args.push(BEST_MIN); }
+    const cat = url.searchParams.get("cat");
+    if (cat && BOARD_CATS.includes(cat)) { where.push("p.category = ?"); args.push(cat); }
+    const qRaw = stripCtl(String(url.searchParams.get("q") || ""), false).trim().slice(0, 40);
+    if (qRaw) {
+      const like = likeEsc(qRaw);
+      const field = url.searchParams.get("field") || "title_content";
+      if (field === "title") { where.push("p.title LIKE ? ESCAPE '\\'"); args.push(like); }
+      else if (field === "content") { where.push("p.body LIKE ? ESCAPE '\\'"); args.push(like); }
+      else if (field === "author") { where.push("u.nickname LIKE ? ESCAPE '\\'"); args.push(like); }
+      else { where.push("(p.title LIKE ? ESCAPE '\\' OR p.body LIKE ? ESCAPE '\\')"); args.push(like, like); }
+    }
+    const w = where.length ? " WHERE " + where.join(" AND ") : "";
+    const from = " FROM posts p LEFT JOIN users u ON u.id = p.user_id";
+    const total = (await env.DB.prepare("SELECT COUNT(*) AS c" + from + w).bind(...args).first()).c;
+    const rows = await env.DB.prepare(`SELECT ${POST_COLS}${from}${w} ORDER BY p.id DESC LIMIT ? OFFSET ?`)
+      .bind(...args, PAGE_SIZE, (page - 1) * PAGE_SIZE).all();
+    let notices = [];
+    if (!best && !qRaw && !cat && page === 1) {
+      notices = (await env.DB.prepare(`SELECT ${POST_COLS}${from} WHERE p.pinned = 1 ORDER BY p.id DESC LIMIT 5`).all()).results.map(listItem);
+    }
+    return json({ posts: rows.results.map(listItem), notices, total, page, pageSize: PAGE_SIZE, bestMin: BEST_MIN, categories: BOARD_CATS }, 200, cors);
+  }
+
+  // 글쓰기
+  if (path === "/api/board/posts" && M === "POST") {
+    if (!user.nickname) return fail("nickname_required", 400, cors);
+    const body = await readJson(req, 32768);
+    if (!body) return fail("bad_request", 400, cors);
+    const title = normLine(body.title, MAX_TITLE);
+    if (!title) return fail("invalid_title", 400, cors);
+    const text = normLong(body.body, MAX_BODY);
+    if (!text) return fail("invalid_body", 400, cors);
+    const cat = BOARD_CATS.includes(body.category) ? body.category : "일반";
+    const ids = await checkImageIds(env, user, body.imageIds, 0);
+    if (!ids) return fail("bad_images", 400, cors);
+    if (!(await hit(env, "bpost:" + user.id, 10, 600000)) || !(await hit(env, "bpost-day:" + user.id, 60, 86400000))) return fail("rate_limited", 429, cors);
+    const r = await env.DB.prepare("INSERT INTO posts (user_id, category, title, body, created_at) VALUES (?, ?, ?, ?, ?) RETURNING id")
+      .bind(user.id, cat, title, text, now()).first();
+    if (ids.length) await env.DB.batch(ids.map((id, i) => env.DB.prepare("INSERT INTO post_images (post_id, image_id, ord) VALUES (?, ?, ?)").bind(r.id, id, i)));
+    return json({ post: { id: r.id } }, 201, cors);
+  }
+
+  const pm = /^\/api\/board\/posts\/(\d{1,12})(\/(vote|pin|comments))?$/.exec(path);
+  if (pm) {
+    const id = Number(pm[1]), sub = pm[3];
+    const post = await env.DB.prepare("SELECT id, user_id, pinned FROM posts WHERE id = ?").bind(id).first();
+    if (!post) return fail("post_not_found", 404, cors);
+
+    if (!sub && M === "GET") {
+      const v = await env.DB.prepare("INSERT OR IGNORE INTO post_views (post_id, user_id) VALUES (?, ?)").bind(id, user.id).run();
+      if (v.meta && v.meta.changes) await env.DB.prepare("UPDATE posts SET views = views + 1 WHERE id = ?").bind(id).run();
+      return json({ post: await postDetail(env, id, user), bestMin: BEST_MIN, categories: BOARD_CATS }, 200, cors);
+    }
+    // 수정 (작성자만)
+    if (!sub && M === "POST") {
+      if (post.user_id !== user.id) return fail("forbidden", 403, cors);
+      const body = await readJson(req, 32768);
+      if (!body) return fail("bad_request", 400, cors);
+      const title = normLine(body.title, MAX_TITLE);
+      if (!title) return fail("invalid_title", 400, cors);
+      const text = normLong(body.body, MAX_BODY);
+      if (!text) return fail("invalid_body", 400, cors);
+      const cat = BOARD_CATS.includes(body.category) ? body.category : "일반";
+      const ids = await checkImageIds(env, user, body.imageIds, id);
+      if (!ids) return fail("bad_images", 400, cors);
+      if (!(await hit(env, "bedit:" + user.id, 30, 600000))) return fail("rate_limited", 429, cors);
+      const old = (await env.DB.prepare("SELECT image_id FROM post_images WHERE post_id = ?").bind(id).all()).results.map((x) => x.image_id);
+      await env.DB.batch([
+        env.DB.prepare("UPDATE posts SET title = ?, body = ?, category = ?, updated_at = ? WHERE id = ?").bind(title, text, cat, now(), id),
+        env.DB.prepare("DELETE FROM post_images WHERE post_id = ?").bind(id),
+        ...ids.map((iid, i) => env.DB.prepare("INSERT INTO post_images (post_id, image_id, ord) VALUES (?, ?, ?)").bind(id, iid, i)),
+      ]);
+      for (const o of old) if (!ids.includes(o)) await dropImageIfUnused(env, o);
+      return json({ post: { id } }, 200, cors);
+    }
+    // 삭제 (작성자 또는 사장·부사장)
+    if (!sub && M === "DELETE") {
+      if (post.user_id !== user.id && !isMod(user)) return fail("forbidden", 403, cors);
+      const old = (await env.DB.prepare("SELECT image_id FROM post_images WHERE post_id = ?").bind(id).all()).results.map((x) => x.image_id);
+      await env.DB.batch([
+        env.DB.prepare("DELETE FROM posts WHERE id = ?").bind(id),
+        env.DB.prepare("DELETE FROM post_images WHERE post_id = ?").bind(id),
+        env.DB.prepare("DELETE FROM post_votes WHERE post_id = ?").bind(id),
+        env.DB.prepare("DELETE FROM post_views WHERE post_id = ?").bind(id),
+        env.DB.prepare("DELETE FROM comments WHERE post_id = ?").bind(id),
+      ]);
+      for (const o of old) await dropImageIfUnused(env, o);
+      return json({ ok: true }, 200, cors);
+    }
+    // 추천/비추천 (글마다 1인 1회)
+    if (sub === "vote" && M === "POST") {
+      const body = await readJson(req);
+      const v = body && body.v === 1 ? 1 : body && body.v === -1 ? -1 : 0;
+      if (!v) return fail("bad_request", 400, cors);
+      if (!(await hit(env, "vote:" + user.id, 60, 600000))) return fail("rate_limited", 429, cors);
+      const ins = await env.DB.prepare("INSERT OR IGNORE INTO post_votes (post_id, user_id, v, created_at) VALUES (?, ?, ?, ?)").bind(id, user.id, v, now()).run();
+      if (!(ins.meta && ins.meta.changes)) return fail("already_voted", 409, cors);
+      const r = await env.DB.prepare(`UPDATE posts SET ${v === 1 ? "up = up + 1" : "down = down + 1"} WHERE id = ? RETURNING up, down`).bind(id).first();
+      return json({ up: r.up, down: r.down, myVote: v }, 200, cors);
+    }
+    // 공지 지정/해제 (사장·부사장)
+    if (sub === "pin" && M === "POST") {
+      if (!isMod(user)) return fail("forbidden", 403, cors);
+      const body = await readJson(req);
+      const pinned = !!(body && body.pinned);
+      await env.DB.prepare("UPDATE posts SET pinned = ? WHERE id = ?").bind(pinned ? 1 : 0, id).run();
+      return json({ pinned }, 200, cors);
+    }
+    // 댓글 쓰기 (답글은 한 단계까지)
+    if (sub === "comments" && M === "POST") {
+      if (!user.nickname) return fail("nickname_required", 400, cors);
+      const body = await readJson(req);
+      if (!body) return fail("bad_request", 400, cors);
+      const text = normLong(body.body, MAX_COMMENT);
+      if (!text) return fail("invalid_comment", 400, cors);
+      let parent = null;
+      if (body.parentId !== undefined && body.parentId !== null) {
+        const pid = Number(body.parentId);
+        if (!Number.isInteger(pid) || pid <= 0) return fail("bad_request", 400, cors);
+        const pc = await env.DB.prepare("SELECT id, parent_id FROM comments WHERE id = ? AND post_id = ?").bind(pid, id).first();
+        if (!pc) return fail("comment_not_found", 404, cors);
+        parent = pc.parent_id || pc.id;
+      }
+      if (!(await hit(env, "cmt:" + user.id, 30, 600000)) || !(await hit(env, "cmt-day:" + user.id, 300, 86400000))) return fail("rate_limited", 429, cors);
+      await env.DB.batch([
+        env.DB.prepare("INSERT INTO comments (post_id, user_id, parent_id, body, created_at) VALUES (?, ?, ?, ?, ?)").bind(id, user.id, parent, text, now()),
+        env.DB.prepare("UPDATE posts SET comment_count = comment_count + 1 WHERE id = ?").bind(id),
+      ]);
+      return json({ post: await postDetail(env, id, user) }, 201, cors);
+    }
+    return fail("not_found", 404, cors);
+  }
+
+  // 댓글 수정 / 삭제
+  const cmm = /^\/api\/board\/comments\/(\d{1,12})$/.exec(path);
+  if (cmm && (M === "POST" || M === "DELETE")) {
+    const cid = Number(cmm[1]);
+    const c = await env.DB.prepare("SELECT id, post_id, user_id, parent_id, deleted FROM comments WHERE id = ?").bind(cid).first();
+    if (!c || c.deleted) return fail("comment_not_found", 404, cors);
+    if (M === "POST") {
+      if (c.user_id !== user.id) return fail("forbidden", 403, cors);
+      const body = await readJson(req);
+      const text = body && normLong(body.body, MAX_COMMENT);
+      if (!text) return fail("invalid_comment", 400, cors);
+      if (!(await hit(env, "cedit:" + user.id, 30, 600000))) return fail("rate_limited", 429, cors);
+      await env.DB.prepare("UPDATE comments SET body = ?, updated_at = ? WHERE id = ?").bind(text, now(), cid).run();
+    } else {
+      if (c.user_id !== user.id && !isMod(user)) return fail("forbidden", 403, cors);
+      const kids = await env.DB.prepare("SELECT COUNT(*) AS n FROM comments WHERE parent_id = ? AND deleted = 0").bind(cid).first();
+      const ops = [];
+      // 답글이 달린 댓글은 '삭제된 댓글입니다'로 자리만 남김
+      if (kids.n > 0) ops.push(env.DB.prepare("UPDATE comments SET deleted = 1, body = '' WHERE id = ?").bind(cid));
+      else ops.push(env.DB.prepare("DELETE FROM comments WHERE id = ?").bind(cid));
+      ops.push(env.DB.prepare("UPDATE posts SET comment_count = MAX(comment_count - 1, 0) WHERE id = ?").bind(c.post_id));
+      // 지워진 부모 댓글에 남은 답글이 없으면 부모 자리도 정리
+      if (c.parent_id) ops.push(env.DB.prepare(
+        "DELETE FROM comments WHERE id = ? AND deleted = 1 AND NOT EXISTS (SELECT 1 FROM comments k WHERE k.parent_id = ? AND k.id != ?)"
+      ).bind(c.parent_id, c.parent_id, cid));
+      await env.DB.batch(ops);
+    }
+    return json({ post: await postDetail(env, c.post_id, user) }, 200, cors);
+  }
+  return null;
+}
 
 /* ---------- 실시간 방 (WebSocket Hibernation) ---------- */
 export class ChatRoom extends DurableObject {

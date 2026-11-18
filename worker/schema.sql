@@ -6,7 +6,9 @@ CREATE TABLE IF NOT EXISTS users (
   pw_iter INTEGER NOT NULL,
   nickname TEXT NOT NULL DEFAULT '',
   created_at INTEGER NOT NULL,
-  avatar_id TEXT
+  avatar_id TEXT,
+  frame TEXT NOT NULL DEFAULT 'basic',
+  role TEXT NOT NULL DEFAULT ''
 );
 CREATE TABLE IF NOT EXISTS sessions (
   token_hash TEXT PRIMARY KEY,
@@ -53,3 +55,52 @@ CREATE TABLE IF NOT EXISTS emoticons (
   created_at INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_emoticons_user ON emoticons(user_id);
+
+-- 게시판 (0003)
+CREATE TABLE IF NOT EXISTS posts (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,
+  category TEXT NOT NULL DEFAULT '일반',
+  title TEXT NOT NULL,
+  body TEXT NOT NULL,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER,
+  views INTEGER NOT NULL DEFAULT 0,
+  up INTEGER NOT NULL DEFAULT 0,
+  down INTEGER NOT NULL DEFAULT 0,
+  comment_count INTEGER NOT NULL DEFAULT 0,
+  pinned INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS idx_posts_up ON posts(up);
+CREATE INDEX IF NOT EXISTS idx_posts_pinned ON posts(pinned);
+CREATE TABLE IF NOT EXISTS post_images (
+  post_id INTEGER NOT NULL,
+  image_id TEXT NOT NULL,
+  ord INTEGER NOT NULL,
+  PRIMARY KEY (post_id, image_id)
+);
+CREATE INDEX IF NOT EXISTS idx_post_images_image ON post_images(image_id);
+CREATE TABLE IF NOT EXISTS post_votes (
+  post_id INTEGER NOT NULL,
+  user_id INTEGER NOT NULL,
+  v INTEGER NOT NULL,
+  created_at INTEGER NOT NULL,
+  PRIMARY KEY (post_id, user_id)
+);
+CREATE TABLE IF NOT EXISTS post_views (
+  post_id INTEGER NOT NULL,
+  user_id INTEGER NOT NULL,
+  PRIMARY KEY (post_id, user_id)
+);
+CREATE TABLE IF NOT EXISTS comments (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  post_id INTEGER NOT NULL,
+  user_id INTEGER NOT NULL,
+  parent_id INTEGER,
+  body TEXT NOT NULL,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER,
+  deleted INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS idx_comments_post ON comments(post_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_users_nick_unique ON users(lower(trim(nickname))) WHERE nickname != '';
