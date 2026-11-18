@@ -7,6 +7,17 @@ const MAX_MSG = 500;
 const MAX_NICK = 20;
 const RECENT_LIMIT = 100;
 
+/* 이미지 (D1 BLOB 저장 — 무료 요금제, R2 미사용) */
+const IMG_RULES = {
+  avatar:   { maxBytes: 512 * 1024,  maxDim: 1024 },
+  emoticon: { maxBytes: 512 * 1024,  maxDim: 512 },
+  photo:    { maxBytes: 1024 * 1024, maxDim: 4096 },
+};
+const MAX_EMOTICONS = 50;
+const MAX_EMO_NAME = 20;
+const STORAGE_CAP = 400 * 1024 * 1024;   // D1 무료 DB 한도(500MB) 전에 업로드를 막아 텍스트 채팅을 보호
+const IMG_ID_RE = /^[0-9a-f]{32}$/;
+
 const enc = new TextEncoder();
 const now = () => Date.now();
 
@@ -65,6 +76,97 @@ function normText(v) {
   return n >= 1 && n <= MAX_MSG ? s : null;
 }
 
+/* ---------- 이미지 검사 (매직 바이트 + 크기) ---------- */
+function sniffImage(a) {
+  if (a.length < 16) return null;
+  const ascii = (o, n) => String.fromCharCode(...a.subarray(o, o + n));
+  if (a[0] === 0xff && a[1] === 0xd8 && a[2] === 0xff) return "image/jpeg";
+  if (a[0] === 0x89 && ascii(1, 3) === "PNG" && a[4] === 0x0d && a[5] === 0x0a && a[6] === 0x1a && a[7] === 0x0a) return "image/png";
+  if (ascii(0, 6) === "GIF87a" || ascii(0, 6) === "GIF89a") return "image/gif";
+  if (ascii(0, 4) === "RIFF" && ascii(8, 4) === "WEBP") return "image/webp";
+  return null;
+}
+function imageSize(a, mime) {
+  const u16be = (o) => (a[o] << 8) | a[o + 1];
+  const u16le = (o) => a[o] | (a[o + 1] << 8);
+  const u24le = (o) => a[o] | (a[o + 1] << 8) | (a[o + 2] << 16);
+  const u32be = (o) => ((a[o] << 24) >>> 0) + (a[o + 1] << 16) + (a[o + 2] << 8) + a[o + 3];
+  try {
+    if (mime === "image/png") {
+      if (String.fromCharCode(...a.subarray(12, 16)) !== "IHDR") return null;
+      return { w: u32be(16), h: u32be(20) };
+    }
+    if (mime === "image/gif") return { w: u16le(6), h: u16le(8) };
+    if (mime === "image/webp") {
+      const fourcc = String.fromCharCode(...a.subarray(12, 16));
+      if (fourcc === "VP8 " && a.length >= 30) return { w: u16le(26) & 0x3fff, h: u16le(28) & 0x3fff };
+      if (fourcc === "VP8L" && a.length >= 25 && a[20] === 0x2f) {
+        const b = a[21] | (a[22] << 8) | (a[23] << 16) | (a[24] << 24);
+        return { w: (b & 0x3fff) + 1, h: ((b >> 14) & 0x3fff) + 1 };
+      }
+      if (fourcc === "VP8X" && a.length >= 30) return { w: u24le(24) + 1, h: u24le(27) + 1 };
+      return null;
+    }
+    if (mime === "image/jpeg") {
+      let o = 2;
+      while (o + 9 < a.length) {
+        if (a[o] !== 0xff) { o++; continue; }
+        const m = a[o + 1];
+        if (m === 0xff) { o++; continue; }
+        if (m === 0xd8 || m === 0x01 || (m >= 0xd0 && m <= 0xd7)) { o += 2; continue; }
+        const len = u16be(o + 2);
+        if (m >= 0xc0 && m <= 0xcf && m !== 0xc4 && m !== 0xc8 && m !== 0xcc) return { w: u16be(o + 7), h: u16be(o + 5) };
+        if (m === 0xda || len < 2) return null;
+        o += 2 + len;
+      }
+    }
+  } catch {}
+  return null;
+}
+// 요청 본문을 크기 제한 안에서 읽고 검사. 실패 시 오류 코드 문자열 반환
+async function readImage(req, purpose) {
+  const rule = IMG_RULES[purpose];
+  const declared = (req.headers.get("Content-Type") || "").split(";")[0].trim().toLowerCase();
+  if (!["image/jpeg", "image/png", "image/webp", "image/gif"].includes(declared)) return { error: "unsupported_type", status: 415 };
+  const lenHdr = req.headers.get("Content-Length");
+  if (lenHdr === null) return { error: "length_required", status: 411 };
+  const len = Number(lenHdr);
+  if (!Number.isFinite(len) || len <= 0) return { error: "bad_request", status: 400 };
+  if (len > rule.maxBytes) return { error: "too_large", status: 413 };
+  const buf = new Uint8Array(await req.arrayBuffer());
+  if (buf.length === 0 || buf.length > rule.maxBytes) return { error: "too_large", status: 413 };
+  const mime = sniffImage(buf);
+  if (!mime || mime !== declared) return { error: "unsupported_type", status: 415 };
+  const dim = imageSize(buf, mime);
+  if (!dim || !dim.w || !dim.h) return { error: "unsupported_type", status: 415 };
+  if (dim.w > rule.maxDim || dim.h > rule.maxDim) return { error: "too_large", status: 413 };
+  return { buf, mime, w: dim.w, h: dim.h };
+}
+async function storeImage(env, userId, purpose, img) {
+  const used = await env.DB.prepare("SELECT COALESCE(SUM(size), 0) AS s FROM images").first();
+  if (used.s + img.buf.length > STORAGE_CAP) return null;
+  const id = randomToken(16);
+  await env.DB.prepare("INSERT INTO images (id, user_id, purpose, mime, size, w, h, created_at, data) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")
+    .bind(id, userId, purpose, img.mime, img.buf.length, img.w, img.h, now(), img.buf).run();
+  return id;
+}
+// 메시지·프로필·이모티콘 어디에서도 쓰지 않는 이미지만 삭제
+async function dropImageIfUnused(env, id) {
+  if (!id) return;
+  await env.DB.prepare(
+    `DELETE FROM images WHERE id = ?1
+       AND NOT EXISTS (SELECT 1 FROM messages WHERE image_id = ?1)
+       AND NOT EXISTS (SELECT 1 FROM users WHERE avatar_id = ?1)
+       AND NOT EXISTS (SELECT 1 FROM emoticons WHERE image_id = ?1)`
+  ).bind(id).run();
+}
+function normEmoName(v) {
+  if (typeof v !== "string") return null;
+  const s = stripCtl(v, false).trim();
+  const n = charLen(s);
+  return n >= 1 && n <= MAX_EMO_NAME ? s : null;
+}
+
 /* ---------- CORS / 응답 ---------- */
 function allowedOrigins(env) {
   return (env.ALLOWED_ORIGINS || "").split(",").map((s) => s.trim()).filter(Boolean);
@@ -73,7 +175,7 @@ function corsHeaders(origin, env) {
   const h = { "Vary": "Origin" };
   if (origin && allowedOrigins(env).includes(origin)) {
     h["Access-Control-Allow-Origin"] = origin;
-    h["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS";
+    h["Access-Control-Allow-Methods"] = "GET, POST, DELETE, OPTIONS";
     h["Access-Control-Allow-Headers"] = "Authorization, Content-Type";
     h["Access-Control-Max-Age"] = "86400";
   }
@@ -119,7 +221,7 @@ async function createSession(env, userId) {
 export async function userFromToken(env, token) {
   if (!token || typeof token !== "string" || !/^[0-9a-f]{64}$/.test(token)) return null;
   const row = await env.DB.prepare(
-    `SELECT u.id, u.login, u.nickname FROM sessions s JOIN users u ON u.id = s.user_id
+    `SELECT u.id, u.login, u.nickname, u.avatar_id FROM sessions s JOIN users u ON u.id = s.user_id
      WHERE s.token_hash = ? AND s.expires_at > ?`
   ).bind(await sha256Hex(token), now()).first();
   return row || null;
@@ -129,8 +231,25 @@ function bearer(req) {
   const m = /^Bearer\s+([0-9a-f]{64})$/i.exec(h);
   return m ? m[1].toLowerCase() : null;
 }
-const publicUser = (u) => ({ id: u.id, login: u.login, nickname: u.nickname || "" });
-const publicMsg = (m) => ({ id: m.id, userId: m.user_id, nickname: m.nickname, text: m.text, createdAt: m.created_at });
+const publicUser = (u) => ({ id: u.id, login: u.login, nickname: u.nickname || "", avatarId: u.avatar_id || null });
+const publicMsg = (m) => ({
+  id: m.id, userId: m.user_id, nickname: m.nickname, kind: m.kind || "text", text: m.text,
+  image: m.image_id ? { id: m.image_id, w: m.w || 0, h: m.h || 0 } : null,
+  avatarId: m.avatar_id || null, createdAt: m.created_at,
+});
+const MSG_SELECT = `SELECT m.id, m.user_id, m.nickname, m.kind, m.text, m.image_id, m.created_at, i.w, i.h, u.avatar_id
+  FROM messages m LEFT JOIN users u ON u.id = m.user_id LEFT JOIN images i ON i.id = m.image_id`;
+async function insertMessage(env, user, kind, text, imageId) {
+  const r = await env.DB.prepare(
+    "INSERT INTO messages (user_id, nickname, text, created_at, kind, image_id) VALUES (?, ?, ?, ?, ?, ?) RETURNING id"
+  ).bind(user.id, user.nickname, text, now(), kind, imageId).first();
+  return publicMsg(await env.DB.prepare(MSG_SELECT + " WHERE m.id = ?").bind(r.id).first());
+}
+function broadcast(env, ctx, payload) {
+  const stub = env.ROOM.get(env.ROOM.idFromName("main"));
+  ctx.waitUntil(stub.fetch("https://room/broadcast", { method: "POST", body: JSON.stringify(payload) }).catch(() => {}));
+}
+const publicEmo = (e) => ({ id: e.id, userId: e.user_id, nickname: e.nickname || "", name: e.name, imageId: e.image_id, createdAt: e.created_at });
 
 /* ---------- 라우터 ---------- */
 export default {
@@ -150,6 +269,19 @@ export default {
 
     try {
       if (path === "/" || path === "/api/health") return json({ ok: true, service: "gaecheonbak-chat" }, 200, cors);
+
+      // 이미지 제공: 추측 불가능한 128비트 ID로만 접근 (img 태그는 인증 헤더를 보낼 수 없음)
+      if (path.startsWith("/img/") && (req.method === "GET" || req.method === "HEAD")) {
+        const id = path.slice(5);
+        const base = { "X-Content-Type-Options": "nosniff", "Content-Security-Policy": "default-src 'none'; sandbox", "Cross-Origin-Resource-Policy": "cross-origin", ...cors };
+        if (!IMG_ID_RE.test(id)) return new Response("not found", { status: 404, headers: { ...base, "Cache-Control": "no-store" } });
+        const row = await env.DB.prepare("SELECT mime, size, data FROM images WHERE id = ?").bind(id).first();
+        if (!row) return new Response("not found", { status: 404, headers: { ...base, "Cache-Control": "no-store" } });
+        const body = new Uint8Array(row.data);
+        return new Response(req.method === "HEAD" ? null : body, {
+          headers: { ...base, "Content-Type": row.mime, "Content-Length": String(body.length), "Content-Disposition": "inline", "Cache-Control": "public, max-age=31536000, immutable" },
+        });
+      }
 
       // 실시간 연결 (WebSocket → Durable Object)
       if (path === "/api/ws") {
@@ -194,7 +326,7 @@ export default {
         if (!(await hit(env, "login-ip:" + ip, 30, 600000)) || !(await hit(env, "login-id:" + login, 10, 600000))) {
           return fail("rate_limited", 429, cors);
         }
-        const u = await env.DB.prepare("SELECT id, login, nickname, pw_hash, pw_salt, pw_iter FROM users WHERE login = ?").bind(login).first();
+        const u = await env.DB.prepare("SELECT id, login, nickname, avatar_id, pw_hash, pw_salt, pw_iter FROM users WHERE login = ?").bind(login).first();
         if (!u) {
           await pbkdf2(pw, crypto.getRandomValues(new Uint8Array(16)), PBKDF2_ITER); // 시간 차 줄이기
           return fail("invalid_credentials", 401, cors);
@@ -223,6 +355,7 @@ export default {
         if (!nick) return fail("invalid_nickname", 400, cors);
         if (!(await hit(env, "nick:" + user.id, 20, 600000))) return fail("rate_limited", 429, cors);
         await env.DB.prepare("UPDATE users SET nickname = ? WHERE id = ?").bind(nick, user.id).run();
+        broadcast(env, ctx, { type: "profile", user: { id: user.id, nickname: nick, avatarId: user.avatar_id || null } });
         return json({ user: { ...publicUser(user), nickname: nick } }, 200, cors);
       }
 
@@ -232,30 +365,100 @@ export default {
         if (after !== null) {
           const a = Number(after);
           if (!Number.isInteger(a) || a < 0) return fail("bad_request", 400, cors);
-          rows = await env.DB.prepare(
-            "SELECT id, user_id, nickname, text, created_at FROM messages WHERE id > ? ORDER BY id ASC LIMIT 200"
-          ).bind(a).all();
+          rows = await env.DB.prepare(MSG_SELECT + " WHERE m.id > ? ORDER BY m.id ASC LIMIT 200").bind(a).all();
           return json({ messages: rows.results.map(publicMsg) }, 200, cors);
         }
-        rows = await env.DB.prepare(
-          "SELECT id, user_id, nickname, text, created_at FROM messages ORDER BY id DESC LIMIT ?"
-        ).bind(RECENT_LIMIT).all();
+        rows = await env.DB.prepare(MSG_SELECT + " ORDER BY m.id DESC LIMIT ?").bind(RECENT_LIMIT).all();
         return json({ messages: rows.results.reverse().map(publicMsg) }, 200, cors);
       }
 
+      // 텍스트 또는 이모티콘 메시지
       if (path === "/api/messages" && req.method === "POST") {
         const body = await readJson(req);
-        const text = body && normText(body.text);
-        if (!text) return fail("invalid_message", 400, cors);
+        if (!body) return fail("bad_request", 400, cors);
         if (!user.nickname) return fail("nickname_required", 400, cors);
+        if (body.emoticonId !== undefined) {
+          const eid = Number(body.emoticonId);
+          if (!Number.isInteger(eid) || eid <= 0) return fail("bad_request", 400, cors);
+          const emo = await env.DB.prepare("SELECT id, name, image_id FROM emoticons WHERE id = ?").bind(eid).first();
+          if (!emo) return fail("emoticon_not_found", 404, cors);
+          if (!(await hit(env, "post:" + user.id, 30, 60000))) return fail("rate_limited", 429, cors);
+          const msg = await insertMessage(env, user, "emoticon", emo.name, emo.image_id);
+          broadcast(env, ctx, { type: "message", message: msg });
+          return json({ message: msg }, 201, cors);
+        }
+        const text = normText(body.text);
+        if (!text) return fail("invalid_message", 400, cors);
         if (!(await hit(env, "post:" + user.id, 30, 60000))) return fail("rate_limited", 429, cors);
-        const m = await env.DB.prepare(
-          "INSERT INTO messages (user_id, nickname, text, created_at) VALUES (?, ?, ?, ?) RETURNING id, user_id, nickname, text, created_at"
-        ).bind(user.id, user.nickname, text, now()).first();
-        const msg = publicMsg(m);
-        const stub = env.ROOM.get(env.ROOM.idFromName("main"));
-        ctx.waitUntil(stub.fetch("https://room/broadcast", { method: "POST", body: JSON.stringify({ type: "message", message: msg }) }).catch(() => {}));
+        const msg = await insertMessage(env, user, "text", text, null);
+        broadcast(env, ctx, { type: "message", message: msg });
         return json({ message: msg }, 201, cors);
+      }
+
+      // 사진 메시지 (본문 = 이미지 바이트)
+      if (path === "/api/photos" && req.method === "POST") {
+        if (!user.nickname) return fail("nickname_required", 400, cors);
+        if (!(await hit(env, "upload:" + user.id, 30, 600000)) || !(await hit(env, "upload-day:" + user.id, 300, 86400000))) return fail("rate_limited", 429, cors);
+        const img = await readImage(req, "photo");
+        if (img.error) return fail(img.error, img.status, cors);
+        const id = await storeImage(env, user.id, "photo", img);
+        if (!id) return fail("storage_full", 507, cors);
+        const msg = await insertMessage(env, user, "image", "", id);
+        broadcast(env, ctx, { type: "message", message: msg });
+        return json({ message: msg }, 201, cors);
+      }
+
+      // 프로필 사진 등록·변경 / 삭제
+      if (path === "/api/avatar" && (req.method === "POST" || req.method === "DELETE")) {
+        if (!(await hit(env, "avatar:" + user.id, 10, 600000))) return fail("rate_limited", 429, cors);
+        let id = null;
+        if (req.method === "POST") {
+          const img = await readImage(req, "avatar");
+          if (img.error) return fail(img.error, img.status, cors);
+          id = await storeImage(env, user.id, "avatar", img);
+          if (!id) return fail("storage_full", 507, cors);
+        }
+        await env.DB.prepare("UPDATE users SET avatar_id = ? WHERE id = ?").bind(id, user.id).run();
+        await dropImageIfUnused(env, user.avatar_id);
+        const pu = { ...publicUser(user), avatarId: id };
+        broadcast(env, ctx, { type: "profile", user: { id: pu.id, nickname: pu.nickname, avatarId: id } });
+        return json({ user: pu }, 200, cors);
+      }
+
+      // 이모티콘 목록 (mine | all)
+      if (path === "/api/emoticons" && req.method === "GET") {
+        const scope = url.searchParams.get("scope") === "all" ? "all" : "mine";
+        const sql = `SELECT e.id, e.user_id, e.name, e.image_id, e.created_at, u.nickname FROM emoticons e LEFT JOIN users u ON u.id = e.user_id`;
+        const rows = scope === "all"
+          ? await env.DB.prepare(sql + " ORDER BY e.id DESC LIMIT 500").all()
+          : await env.DB.prepare(sql + " WHERE e.user_id = ? ORDER BY e.id DESC").bind(user.id).all();
+        return json({ emoticons: rows.results.map(publicEmo), max: MAX_EMOTICONS }, 200, cors);
+      }
+
+      // 이모티콘 만들기 (본문 = 이미지 바이트, 이름은 ?name=)
+      if (path === "/api/emoticons" && req.method === "POST") {
+        const name = normEmoName(url.searchParams.get("name"));
+        if (!name) return fail("invalid_emoticon_name", 400, cors);
+        if (!(await hit(env, "emo:" + user.id, 30, 3600000))) return fail("rate_limited", 429, cors);
+        const cnt = await env.DB.prepare("SELECT COUNT(*) AS c FROM emoticons WHERE user_id = ?").bind(user.id).first();
+        if (cnt.c >= MAX_EMOTICONS) return fail("emoticon_limit", 409, cors);
+        const img = await readImage(req, "emoticon");
+        if (img.error) return fail(img.error, img.status, cors);
+        const imageId = await storeImage(env, user.id, "emoticon", img);
+        if (!imageId) return fail("storage_full", 507, cors);
+        const e = await env.DB.prepare(
+          "INSERT INTO emoticons (user_id, name, image_id, created_at) VALUES (?, ?, ?, ?) RETURNING id, user_id, name, image_id, created_at"
+        ).bind(user.id, name, imageId, now()).first();
+        return json({ emoticon: publicEmo({ ...e, nickname: user.nickname }) }, 201, cors);
+      }
+
+      // 내 이모티콘 삭제 (이미 보낸 메시지의 이모티콘은 그대로 남음)
+      const emoDel = /^\/api\/emoticons\/(\d{1,12})$/.exec(path);
+      if (emoDel && req.method === "DELETE") {
+        const e = await env.DB.prepare("DELETE FROM emoticons WHERE id = ? AND user_id = ? RETURNING image_id").bind(Number(emoDel[1]), user.id).first();
+        if (!e) return fail("emoticon_not_found", 404, cors);
+        await dropImageIfUnused(env, e.image_id);
+        return json({ ok: true }, 200, cors);
       }
 
       return fail("not_found", 404, cors);

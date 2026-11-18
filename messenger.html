@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
   <meta name="robots" content="noindex">
+  <meta http-equiv="Content-Security-Policy" content="img-src 'self' https://gaecheonbak-chat.oaoaoaoartrt.workers.dev blob: data:">
   <meta name="description" content="개천박컴퍼니 사내메신저">
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://oaoaoaoartrt-creator.github.io/gaecheonbak/messenger.html">
@@ -130,8 +131,19 @@
     .log-empty { margin: 40px auto; text-align: center; font-size: 14px; color: var(--muted); }
     .day { display: flex; align-items: center; gap: 12px; margin: 18px 0 14px; font-size: 12px; color: var(--muted); letter-spacing: 0.04em; }
     .day::before, .day::after { content: ""; flex: 1; height: 1px; background: var(--line); }
-    .msg { display: flex; flex-direction: column; align-items: flex-start; margin-bottom: 12px; max-width: 100%; }
-    .msg.mine { align-items: flex-end; }
+    .msg { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 12px; max-width: 100%; }
+    .msg-body { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; }
+    .msg.mine .msg-body { align-items: flex-end; }
+    .msg.follow .avatar { visibility: hidden; height: 0; border-width: 0; }
+    .avatar { flex: none; width: 36px; height: 36px; border-radius: 50%; overflow: hidden; display: inline-grid; place-items: center; background: var(--paper-deep); border: 1px solid var(--line); color: var(--ink-soft); font-family: var(--font-serif); font-size: 14px; font-weight: 600; line-height: 1; user-select: none; }
+    .avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .avatar.sm { width: 28px; height: 28px; font-size: 12px; }
+    .avatar.lg { width: 96px; height: 96px; font-size: 32px; }
+    .channel .me { display: inline-flex; align-items: center; gap: 8px; }
+    .photo { appearance: none; display: block; padding: 0; margin: 0; border: 1px solid var(--line); border-radius: var(--radius); background: var(--paper-deep); cursor: zoom-in; overflow: hidden; max-width: 100%; }
+    .photo img { display: block; width: 100%; height: 100%; object-fit: cover; }
+    .sticker { display: block; width: 120px; height: 120px; object-fit: contain; }
+    .img-missing { padding: 9px 13px; font-size: 13px; color: var(--muted); border: 1px dashed var(--line-strong); border-radius: var(--radius); }
     .meta { display: flex; align-items: baseline; gap: 8px; margin-bottom: 3px; font-size: 12px; color: var(--muted); }
     .meta .who { font-weight: 600; color: var(--ink-soft); }
     .msg.mine .meta { flex-direction: row-reverse; }
@@ -143,6 +155,44 @@
     .composer textarea { flex: 1 1 auto; min-width: 0; width: 100%; display: block; resize: none; min-height: 44px; max-height: 160px; padding: 10px 12px; font: inherit; font-size: 16px; line-height: 1.5; color: var(--ink); background: #fff; border: 1px solid var(--line-strong); border-radius: var(--radius); }
     .composer textarea:focus { outline: none; border-color: var(--ink); }
     .composer .btn { flex: none; height: 44px; white-space: nowrap; }
+    .tool { appearance: none; flex: none; width: 40px; height: 44px; display: inline-grid; place-items: center; padding: 0; border: 1px solid var(--line-strong); border-radius: var(--radius); background: transparent; color: var(--ink-soft); cursor: pointer; }
+    .tool:hover, .tool[aria-expanded="true"] { background: var(--paper-deep); color: var(--ink); border-color: var(--ink-soft); }
+    .tool:disabled { opacity: 0.5; cursor: default; }
+    .tool svg { width: 20px; height: 20px; }
+    .composer .tools { flex: none; display: flex; gap: 6px; }
+    .chat.drop-on { outline: 2px dashed var(--accent); outline-offset: -6px; }
+    .composer-foot .info { color: var(--muted); }
+
+    /* 이모티콘 패널 (채팅 카드 안에서 메시지 영역만 줄어듦) */
+    .emo-panel { flex: none; display: flex; flex-direction: column; height: 236px; max-height: 45%; min-height: 150px; border-top: 1px solid var(--line); background: var(--paper); }
+    .emo-head { flex: none; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--line); }
+    .emo-tabs { display: flex; }
+    .emo-tab { appearance: none; border: 0; border-bottom: 2px solid transparent; background: transparent; padding: 4px 8px; font: inherit; font-size: 13px; color: var(--muted); cursor: pointer; }
+    .emo-tab[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--ink); font-weight: 600; }
+    .emo-actions { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
+    .btn-xs { padding: 4px 9px; font-size: 12px; }
+    .btn-line.on { background: var(--ink); color: var(--surface); border-color: var(--ink); }
+    .emo-grid { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; display: grid; grid-template-columns: repeat(auto-fill, minmax(72px, 1fr)); gap: 6px; padding: 10px 12px; align-content: start; }
+    .emo-tile { appearance: none; position: relative; aspect-ratio: 1; padding: 6px; border: 1px solid transparent; border-radius: var(--radius); background: transparent; cursor: pointer; display: grid; place-items: center; }
+    .emo-tile:hover { background: var(--surface); border-color: var(--line); }
+    .emo-tile img { width: 100%; height: 100%; object-fit: contain; display: block; }
+    .emo-tile.add { border: 1px dashed var(--line-strong); color: var(--muted); font-size: 12px; line-height: 1.4; text-align: center; }
+    .emo-tile.add b { display: block; font-size: 20px; font-weight: 400; color: var(--ink-soft); }
+    .emo-grid.editing .emo-tile.own { border-color: var(--accent); }
+    .emo-grid.editing .emo-tile.own::after { content: "삭제"; position: absolute; right: 2px; top: 2px; padding: 0 4px; font-size: 10px; line-height: 16px; color: #fff; background: var(--accent); border-radius: var(--radius); }
+    .emo-empty { grid-column: 1 / -1; margin: 16px 0; font-size: 13px; color: var(--muted); text-align: center; }
+
+    /* 미리보기 / 크게 보기 */
+    .preview-box { display: grid; place-items: center; margin-bottom: 16px; min-height: 140px; max-height: 50vh; overflow: hidden; border: 1px solid var(--line); border-radius: var(--radius); background-color: #fff; background-image: linear-gradient(45deg, #eee 25%, transparent 25%), linear-gradient(-45deg, #eee 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #eee 75%), linear-gradient(-45deg, transparent 75%, #eee 75%); background-size: 16px 16px; background-position: 0 0, 0 8px, 8px -8px, -8px 0; }
+    .preview-box img { display: block; max-width: 100%; max-height: 50vh; object-fit: contain; }
+    .preview-box.emo img { width: 120px; height: 120px; }
+    .preview-box .placeholder { font-size: 13px; color: var(--muted); }
+    .profile-photo { display: flex; align-items: center; gap: 16px; margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid var(--line); }
+    .profile-photo .btns { display: flex; flex-wrap: wrap; gap: 6px; }
+    .dlg-actions { display: flex; gap: 8px; justify-content: flex-end; }
+    .lightbox { position: fixed; inset: 0; z-index: 80; display: flex; align-items: center; justify-content: center; padding: 56px 16px 24px; background: rgba(28, 27, 24, 0.92); }
+    .lightbox img { max-width: 100%; max-height: 100%; object-fit: contain; display: block; background: #fff; }
+    .lightbox-close { position: absolute; top: calc(12px + var(--safe-top)); right: 12px; appearance: none; border: 1px solid rgba(255,255,255,0.4); background: transparent; color: #fff; padding: 6px 12px; font: inherit; font-size: 13px; border-radius: var(--radius); cursor: pointer; }
     .composer-foot { flex: none; display: flex; justify-content: space-between; gap: 12px; padding: 0 16px 10px; font-size: 12px; color: var(--muted); }
     .composer-foot .err { color: var(--accent); }
 
@@ -192,7 +242,14 @@
       .chat-head { padding: 12px 14px; }
       .log { padding: 14px; }
       .bubble { max-width: 88%; }
-      .composer { padding: 10px; }
+      .composer { padding: 10px; gap: 6px; }
+      .composer .btn { padding: 11px 12px; }
+      .tool { width: 38px; }
+      .avatar { width: 32px; height: 32px; font-size: 13px; }
+      .msg { gap: 8px; }
+      .emo-grid { grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); }
+      .emo-head { padding: 6px 10px; }
+      .head-actions .btn-line { padding: 6px 10px; }
       .composer-foot { padding: 0 10px 8px; }
       body.in-chat .page-head, body.in-chat .footer { display: none; }
       body.in-chat .wrap.chat-wrap { width: 100%; padding: 0; }
@@ -201,6 +258,11 @@
       html.kb-open body.in-chat .composer-foot { padding-bottom: 8px; }
       body.in-chat .chat .install:not([hidden]) { display: flex; }
       .composer-foot { flex-wrap: wrap; }
+    }
+    @media (max-width: 400px) {
+      .nav-inner { gap: 8px; }
+      .logo { font-size: 15px; white-space: nowrap; }
+      .nav-links a { padding: 6px 4px; font-size: 11.5px; white-space: nowrap; }
     }
   </style>
 </head>
@@ -291,10 +353,10 @@
         <div class="chat-head">
           <div class="channel">
             <h2># 전체 채널</h2>
-            <span class="me"><b id="me-name"></b> 님</span>
+            <span class="me"><span class="avatar sm" id="me-avatar" aria-hidden="true"></span><span><b id="me-name"></b> 님</span></span>
           </div>
           <div class="head-actions">
-            <button class="btn btn-line" type="button" id="btn-rename">닉네임 변경</button>
+            <button class="btn btn-line" type="button" id="btn-rename">프로필</button>
             <button class="btn btn-line" type="button" id="btn-logout">로그아웃</button>
           </div>
         </div>
@@ -309,12 +371,30 @@
         <div class="log" id="log" aria-live="polite" aria-label="메시지 목록">
           <p class="log-empty" id="log-empty">아직 대화가 없습니다. 첫 메시지를 남겨 보세요.</p>
         </div>
+        <div class="emo-panel" id="emo-panel" hidden>
+          <div class="emo-head">
+            <div class="emo-tabs" role="tablist" aria-label="이모티콘 종류">
+              <button class="emo-tab" type="button" role="tab" data-scope="mine" aria-selected="true">내 이모티콘</button>
+              <button class="emo-tab" type="button" role="tab" data-scope="all" aria-selected="false">전체</button>
+            </div>
+            <div class="emo-actions">
+              <span id="emo-count"></span>
+              <button class="btn btn-line btn-xs" type="button" id="emo-edit">편집</button>
+            </div>
+          </div>
+          <div class="emo-grid" id="emo-grid" role="list"></div>
+        </div>
         <form class="composer" id="composer">
+          <div class="tools">
+            <button class="tool" type="button" id="btn-attach" aria-label="사진 보내기" title="사진 보내기"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4.5" width="18" height="15" rx="1.5"/><circle cx="8.5" cy="9.5" r="1.6"/><path d="M21 16l-5.2-5.2L6 19.5"/></svg></button>
+            <button class="tool" type="button" id="btn-emo" aria-label="이모티콘" title="이모티콘" aria-expanded="false" aria-controls="emo-panel"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M8.5 14.2c.9 1.3 2.1 2 3.5 2s2.6-.7 3.5-2"/><path d="M9 9.8v.4M15 9.8v.4"/></svg></button>
+          </div>
           <textarea id="msg-input" aria-label="메시지" rows="1" maxlength="500" placeholder="메시지를 입력하세요"></textarea>
           <button class="btn" type="submit" id="btn-send">보내기</button>
         </form>
         <div class="composer-foot">
           <span id="send-error" class="err" role="alert"></span>
+          <input type="file" id="file-photo" accept="image/jpeg,image/png,image/webp,image/gif" hidden>
           <span>Enter 보내기 · Shift+Enter 줄바꿈 · <span id="count">0</span>/500</span>
         </div>
       </div>
@@ -323,8 +403,20 @@
 
   <div class="dialog-bg" id="rename-dialog" hidden role="dialog" aria-modal="true" aria-labelledby="rename-title">
     <div class="card">
-      <h2 id="rename-title">닉네임 변경</h2>
-      <p class="lead">새 닉네임은 이후 보내는 메시지부터 적용됩니다.</p>
+      <h2 id="rename-title">프로필 설정</h2>
+      <p class="lead">프로필 사진은 바로 적용되고, 새 닉네임은 이후 보내는 메시지부터 적용됩니다.</p>
+      <div class="profile-photo">
+        <span class="avatar lg" id="profile-avatar" aria-hidden="true"></span>
+        <div>
+          <div class="btns">
+            <button class="btn btn-line" type="button" id="avatar-pick">사진 변경</button>
+            <button class="btn btn-line" type="button" id="avatar-remove">사진 삭제</button>
+          </div>
+          <p class="hint" style="margin:8px 0 0">가운데를 정사각형으로 잘라 저장합니다.</p>
+          <p class="error" id="avatar-error" role="alert" style="margin-top:4px"></p>
+          <input type="file" id="file-avatar" accept="image/jpeg,image/png,image/webp,image/gif" hidden>
+        </div>
+      </div>
       <form id="rename-form" novalidate>
         <label class="field">
           <span>닉네임</span>
@@ -332,12 +424,51 @@
         </label>
         <p class="hint">1자 이상 20자 이하로 입력해 주세요.</p>
         <div style="display:flex; gap:8px; justify-content:flex-end;">
-          <button class="btn btn-line" type="button" id="rename-cancel">취소</button>
-          <button class="btn" type="submit" id="rename-submit">저장</button>
+          <button class="btn btn-line" type="button" id="rename-cancel">닫기</button>
+          <button class="btn" type="submit" id="rename-submit">닉네임 저장</button>
         </div>
         <p class="error" id="rename-error" role="alert"></p>
       </form>
     </div>
+  </div>
+
+  <div class="dialog-bg" id="emo-dialog" hidden role="dialog" aria-modal="true" aria-labelledby="emo-title">
+    <div class="card">
+      <h2 id="emo-title">이모티콘 만들기</h2>
+      <p class="lead">이미지를 올리고 이름을 붙이면 나만의 이모티콘이 됩니다. 다른 임직원도 전체 탭에서 쓸 수 있습니다.</p>
+      <form id="emo-form" novalidate>
+        <div class="preview-box emo" id="emo-preview"><span class="placeholder">이미지를 선택해 주세요</span></div>
+        <div style="margin:-4px 0 16px"><button class="btn btn-line" type="button" id="emo-pick">이미지 선택</button></div>
+        <input type="file" id="file-emo" accept="image/jpeg,image/png,image/webp,image/gif" hidden>
+        <label class="field">
+          <span>이름</span>
+          <input type="text" id="emo-name" maxlength="20" required placeholder="예: 수고하셨습니다">
+        </label>
+        <p class="hint">160px 크기로 줄여 저장하며 투명 배경은 유지됩니다. 500KB 이하 GIF는 움직이는 그대로 등록됩니다. 1인당 50개까지 만들 수 있습니다.</p>
+        <div class="dlg-actions">
+          <button class="btn btn-line" type="button" id="emo-cancel">취소</button>
+          <button class="btn" type="submit" id="emo-submit">등록</button>
+        </div>
+        <p class="error" id="emo-error" role="alert"></p>
+      </form>
+    </div>
+  </div>
+
+  <div class="dialog-bg" id="photo-dialog" hidden role="dialog" aria-modal="true" aria-labelledby="photo-title">
+    <div class="card">
+      <h2 id="photo-title">사진 보내기</h2>
+      <p class="lead">이 사진을 전체 채널에 보낼까요?</p>
+      <div class="preview-box" id="photo-preview"></div>
+      <div class="dlg-actions">
+        <button class="btn btn-line" type="button" id="photo-cancel">취소</button>
+        <button class="btn" type="button" id="photo-send">보내기</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="lightbox" id="lightbox" hidden role="dialog" aria-modal="true" aria-label="사진 크게 보기">
+    <button class="lightbox-close" type="button" id="lightbox-close">닫기</button>
+    <img id="lightbox-img" alt="사진">
   </div>
 
   <footer class="footer">
@@ -372,7 +503,15 @@
       rate_limited: "시도가 너무 많습니다. 잠시 후 다시 시도해 주세요.",
       unauthorized: "로그인이 만료되었습니다. 다시 로그인해 주세요.",
       network: "네트워크 연결을 확인해 주세요.",
-      server_error: "서버에 문제가 생겼습니다. 잠시 후 다시 시도해 주세요."
+      server_error: "서버에 문제가 생겼습니다. 잠시 후 다시 시도해 주세요.",
+      unsupported_type: "JPG, PNG, WEBP, GIF 이미지만 올릴 수 있습니다.",
+      too_large: "이미지 용량이 너무 큽니다. 더 작은 이미지를 골라 주세요.",
+      length_required: "이미지를 올리지 못했습니다. 다시 시도해 주세요.",
+      storage_full: "저장 공간이 가득 찼습니다. 관리자에게 문의해 주세요.",
+      emoticon_limit: "이모티콘은 1인당 50개까지 만들 수 있습니다. 쓰지 않는 이모티콘을 삭제해 주세요.",
+      invalid_emoticon_name: "이모티콘 이름은 1자 이상 20자 이하로 입력해 주세요.",
+      emoticon_not_found: "삭제되었거나 없는 이모티콘입니다.",
+      bad_image: "이미지를 읽을 수 없습니다. 다른 파일을 골라 주세요."
     };
     function errText(e) { return ERRORS[e && e.code] || "알 수 없는 오류가 발생했습니다. 잠시 후 다시 시도해 주세요."; }
 
@@ -393,11 +532,12 @@
       opts = opts || {};
       var headers = {};
       if (opts.body !== undefined) headers["Content-Type"] = "application/json";
+      if (opts.raw) headers["Content-Type"] = opts.raw.type;
       if (token && opts.auth !== false) headers["Authorization"] = "Bearer " + token;
       return fetch(API + path, {
         method: opts.method || "GET",
         headers: headers,
-        body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
+        body: opts.raw ? opts.raw : (opts.body !== undefined ? JSON.stringify(opts.body) : undefined),
         cache: "no-store"
       }).then(function (res) {
         netStatus(true);
@@ -469,12 +609,118 @@
       return api("/api/nickname", { method: "POST", body: { nickname: nick } }).then(function (data) {
         myNick = data.user.nickname;
         $("me-name").textContent = myNick;
+        paintMyAvatar();
+      });
+    }
+
+    /* ---------- 이미지 공통 ---------- */
+    var IMG_ID_RE = /^[0-9a-f]{32}$/;
+    // 이미지 주소는 항상 채팅 서버(워커) 주소로만 만듦
+    function imgUrl(id) { return typeof id === "string" && IMG_ID_RE.test(id) ? API + "/img/" + id : ""; }
+    var avatars = {};   // userId -> avatarId (최신)
+    function fillAvatar(el, avatarId, name) {
+      el.replaceChildren();
+      var src = imgUrl(avatarId);
+      if (src) {
+        var im = document.createElement("img");
+        im.src = src; im.alt = ""; im.decoding = "async"; im.draggable = false;
+        el.appendChild(im);
+      } else {
+        el.textContent = Array.from(String(name || "").trim())[0] || "?";
+      }
+    }
+    function paintMyAvatar() {
+      if (!me) return;
+      fillAvatar($("me-avatar"), me.avatarId, myNick);
+      fillAvatar($("profile-avatar"), me.avatarId, myNick);
+      $("avatar-remove").hidden = !me.avatarId;
+    }
+
+    function loadBitmap(file) {
+      if (window.createImageBitmap) {
+        return createImageBitmap(file).catch(function () { return loadImgEl(file); });
+      }
+      return loadImgEl(file);
+    }
+    function loadImgEl(file) {
+      return new Promise(function (resolve, reject) {
+        var url = URL.createObjectURL(file);
+        var im = new Image();
+        im.onload = function () { URL.revokeObjectURL(url); resolve(im); };
+        im.onerror = function () { URL.revokeObjectURL(url); var e = new Error("bad_image"); e.code = "bad_image"; reject(e); };
+        im.src = url;
+      });
+    }
+    function dims(b) { return { w: b.naturalWidth || b.width, h: b.naturalHeight || b.height }; }
+    function toBlob(canvas, type, q) {
+      return new Promise(function (resolve) { canvas.toBlob(function (b) { resolve(b); }, type, q); });
+    }
+    // WEBP를 못 만드는 브라우저(구형 Safari)는 대체 형식으로
+    function encode(canvas, prefer, q, fallback) {
+      return toBlob(canvas, prefer, q).then(function (b) {
+        if (b && b.type === prefer) return b;
+        return toBlob(canvas, fallback, q);
+      });
+    }
+    function draw(bmp, sx, sy, sw, sh, dw, dh, bg) {
+      var c = document.createElement("canvas");
+      c.width = dw; c.height = dh;
+      var g = c.getContext("2d");
+      if (bg) { g.fillStyle = bg; g.fillRect(0, 0, dw, dh); }
+      g.imageSmoothingEnabled = true; g.imageSmoothingQuality = "high";
+      g.drawImage(bmp, sx, sy, sw, sh, 0, 0, dw, dh);
+      return c;
+    }
+    var OK_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+    function badType(file) { return !file || OK_TYPES.indexOf(file.type) === -1; }
+    function typeErr() { var e = new Error("unsupported_type"); e.code = "unsupported_type"; return e; }
+
+    // 프로필 사진: 가운데 정사각형 → 256px
+    function makeAvatar(file) {
+      if (badType(file)) return Promise.reject(typeErr());
+      return loadBitmap(file).then(function (b) {
+        var d = dims(b), side = Math.min(d.w, d.h), out = Math.min(256, side);
+        var c = draw(b, (d.w - side) / 2, (d.h - side) / 2, side, side, out, out, "#ffffff");
+        return encode(c, "image/webp", 0.86, "image/jpeg");
+      });
+    }
+    // 이모티콘: 160px 안으로, 투명 유지. 작은 GIF는 그대로(움직임 유지)
+    function makeEmoticon(file) {
+      if (badType(file)) return Promise.reject(typeErr());
+      return loadBitmap(file).then(function (b) {
+        var d = dims(b);
+        if (file.type === "image/gif" && file.size <= 500 * 1024 && d.w <= 512 && d.h <= 512) return file;
+        var k = Math.min(1, 160 / Math.max(d.w, d.h));
+        var c = draw(b, 0, 0, d.w, d.h, Math.max(1, Math.round(d.w * k)), Math.max(1, Math.round(d.h * k)), null);
+        return encode(c, "image/webp", 0.9, "image/png");
+      });
+    }
+    // 사진: 긴 변 1280px, JPEG 80%. 1MB가 넘으면 더 줄임. 1MB 이하 GIF는 그대로
+    var PHOTO_MAX = 1024 * 1024;
+    function makePhoto(file) {
+      if (badType(file)) return Promise.reject(typeErr());
+      return loadBitmap(file).then(function (b) {
+        var d = dims(b);
+        if (file.type === "image/gif" && file.size <= PHOTO_MAX && d.w <= 4096 && d.h <= 4096) return file;
+        var tries = [[1280, 0.8], [1280, 0.65], [1024, 0.6], [800, 0.55]];
+        function attempt(i) {
+          var t = tries[i], k = Math.min(1, t[0] / Math.max(d.w, d.h));
+          var c = draw(b, 0, 0, d.w, d.h, Math.max(1, Math.round(d.w * k)), Math.max(1, Math.round(d.h * k)), "#ffffff");
+          return toBlob(c, "image/jpeg", t[1]).then(function (blob) {
+            if (blob && blob.size <= PHOTO_MAX) return blob;
+            if (i + 1 < tries.length) return attempt(i + 1);
+            var e = new Error("too_large"); e.code = "too_large"; throw e;
+          });
+        }
+        return attempt(0);
       });
     }
 
     function afterLogin(user) {
       me = user;
       myNick = user.nickname || "";
+      avatars[user.id] = user.avatarId || null;
+      paintMyAvatar();
       if (myNick) { $("me-name").textContent = myNick; enterChat(); }
       else { $("nick-input").value = ""; $("nick-error").textContent = ""; show("view-nick"); $("nick-input").focus(); }
     }
@@ -495,6 +741,8 @@
     $("btn-rename").addEventListener("click", function () {
       $("rename-input").value = myNick;
       $("rename-error").textContent = "";
+      $("avatar-error").textContent = "";
+      paintMyAvatar();
       dlg.hidden = false;
       $("rename-input").focus();
       $("rename-input").select();
@@ -502,7 +750,38 @@
     function closeDlg() { dlg.hidden = true; $("msg-input").focus(); }
     $("rename-cancel").addEventListener("click", closeDlg);
     dlg.addEventListener("click", function (e) { if (e.target === dlg) closeDlg(); });
-    document.addEventListener("keydown", function (e) { if (e.key === "Escape" && !dlg.hidden) closeDlg(); });
+    document.addEventListener("keydown", function (e) {
+      if (e.key !== "Escape") return;
+      if (!$("lightbox").hidden) closeLightbox();
+      else if (!$("photo-dialog").hidden) closePhotoDlg();
+      else if (!$("emo-dialog").hidden) closeEmoDlg();
+      else if (!dlg.hidden) closeDlg();
+      else if (!$("emo-panel").hidden) toggleEmo(false);
+    });
+
+    /* 프로필 사진 */
+    $("avatar-pick").addEventListener("click", function () { $("file-avatar").click(); });
+    $("file-avatar").addEventListener("change", function () {
+      var f = this.files && this.files[0];
+      this.value = "";
+      if (!f) return;
+      var err = $("avatar-error");
+      err.textContent = "";
+      $("avatar-pick").disabled = true;
+      makeAvatar(f)
+        .then(function (blob) { return api("/api/avatar", { method: "POST", raw: blob }); })
+        .then(function (d) { me.avatarId = d.user.avatarId; avatars[me.id] = me.avatarId; paintMyAvatar(); render(); })
+        .catch(function (e) { err.textContent = errText(e); })
+        .then(function () { $("avatar-pick").disabled = false; });
+    });
+    $("avatar-remove").addEventListener("click", function () {
+      if (!confirm("프로필 사진을 삭제할까요?")) return;
+      var err = $("avatar-error");
+      err.textContent = "";
+      api("/api/avatar", { method: "DELETE" })
+        .then(function () { me.avatarId = null; avatars[me.id] = null; paintMyAvatar(); render(); })
+        .catch(function (e) { err.textContent = errText(e); });
+    });
     $("rename-form").addEventListener("submit", function (ev) {
       ev.preventDefault();
       var nick = $("rename-input").value.trim();
@@ -517,8 +796,10 @@
     function resetToAuth(message) {
       stopLive();
       setToken(null);
-      me = null; myNick = ""; msgs = []; seen = {}; lastId = 0;
+      me = null; myNick = ""; msgs = []; seen = {}; lastId = 0; avatars = {}; emo.mine = null; emo.all = null;
       dlg.hidden = true;
+      $("emo-dialog").hidden = true; $("photo-dialog").hidden = true; $("lightbox").hidden = true;
+      toggleEmo(false);
       setMode("login");
       show("view-auth");
       $("auth-error").textContent = message || "";
@@ -547,6 +828,7 @@
         if (!m || typeof m.id !== "number" || seen[m.id]) return;
         seen[m.id] = true;
         msgs.push(m);
+        if ("avatarId" in m) avatars[m.userId] = m.avatarId || null;
         if (m.id > lastId) lastId = m.id;
         added = true;
       });
@@ -581,8 +863,18 @@
         }
         var row = document.createElement("div");
         row.className = "msg";
-        if (me && m.userId === me.id) row.classList.add("mine");
+        var mine = !!(me && m.userId === me.id);
+        if (mine) row.classList.add("mine");
         if (m.userId === lastUid && date - lastTs < 3 * 60 * 1000) row.classList.add("follow");
+        if (!mine) {
+          var av = document.createElement("span");
+          av.className = "avatar";
+          av.setAttribute("aria-hidden", "true");
+          fillAvatar(av, avatars[m.userId], m.nickname);
+          row.appendChild(av);
+        }
+        var body = document.createElement("div");
+        body.className = "msg-body";
 
         var meta = document.createElement("div");
         meta.className = "meta";
@@ -594,17 +886,286 @@
         when.textContent = timeFmt.format(date);
         meta.append(who, when);
 
-        var bubble = document.createElement("div");
-        bubble.className = "bubble";
-        bubble.textContent = String(m.text || "");
-        bubble.title = timeFmt.format(date);
-
-        row.append(meta, bubble);
+        body.append(meta, messageContent(m, date));
+        row.appendChild(body);
         log.appendChild(row);
         lastDay = day; lastUid = m.userId; lastTs = date;
       });
       if (nearBottom || forceScroll) log.scrollTop = log.scrollHeight;
     }
+
+    var imgNodes = {};   // 같은 이미지를 다시 그릴 때 깜빡임 방지
+    function messageContent(m, date) {
+      var kind = m.kind || "text";
+      var src = m.image ? imgUrl(m.image.id) : "";
+      if ((kind === "image" || kind === "emoticon") && !src) {
+        var miss = document.createElement("div");
+        miss.className = "img-missing";
+        miss.textContent = kind === "emoticon" ? "이모티콘을 불러올 수 없습니다." : "사진을 불러올 수 없습니다.";
+        return miss;
+      }
+      if (kind === "emoticon") {
+        var key = "e" + m.id, st = imgNodes[key];
+        if (!st) {
+          st = document.createElement("img");
+          st.className = "sticker";
+          st.width = 120; st.height = 120;
+          st.decoding = "async";
+          st.alt = "이모티콘 " + String(m.text || "");
+          st.title = String(m.text || "");
+          st.src = src;
+          imgNodes[key] = st;
+        }
+        return st;
+      }
+      if (kind === "image") {
+        var k2 = "p" + m.id, btn = imgNodes[k2];
+        if (!btn) {
+          var w = Number(m.image.w) || 240, h = Number(m.image.h) || 240;
+          var maxW = window.matchMedia("(max-width: 560px)").matches ? 210 : 260;
+          var sc = Math.min(1, maxW / w, 320 / h);
+          btn = document.createElement("button");
+          btn.type = "button";
+          btn.className = "photo";
+          btn.setAttribute("aria-label", "사진 크게 보기");
+          btn.style.width = Math.max(60, Math.round(w * sc)) + "px";
+          btn.style.height = Math.max(60, Math.round(h * sc)) + "px";
+          var im = document.createElement("img");
+          im.alt = "사진"; im.decoding = "async"; im.src = src;
+          btn.appendChild(im);
+          btn.addEventListener("click", function () { openLightbox(src); });
+          imgNodes[k2] = btn;
+        }
+        return btn;
+      }
+      var bubble = document.createElement("div");
+      bubble.className = "bubble";
+      bubble.textContent = String(m.text || "");
+      bubble.title = timeFmt.format(date);
+      return bubble;
+    }
+
+    /* 크게 보기 */
+    function openLightbox(src) {
+      if (!src || src.indexOf(API + "/img/") !== 0) return;
+      $("lightbox-img").src = src;
+      $("lightbox").hidden = false;
+      $("lightbox-close").focus();
+    }
+    function closeLightbox() { $("lightbox").hidden = true; $("lightbox-img").removeAttribute("src"); }
+    $("lightbox-close").addEventListener("click", closeLightbox);
+    $("lightbox").addEventListener("click", function (e) { if (e.target === this) closeLightbox(); });
+
+    /* 상태 문구 (보내는 중 / 오류) */
+    function note(text, isErr) {
+      var el = $("send-error");
+      el.textContent = text || "";
+      el.className = isErr === false ? "info" : "err";
+    }
+
+    /* 사진 보내기 */
+    var uploading = false;
+    function sendPhoto(file) {
+      if (uploading || !file) return;
+      if (badType(file)) { note(ERRORS.unsupported_type); return; }
+      uploading = true;
+      $("btn-attach").disabled = true;
+      note("사진을 보내는 중입니다.", false);
+      makePhoto(file)
+        .then(function (blob) { return api("/api/photos", { method: "POST", raw: blob }); })
+        .then(function (d) { note(""); addMessages([d.message], true); })
+        .catch(function (e) { if (e.code !== "unauthorized") note(errText(e)); })
+        .then(function () { uploading = false; $("btn-attach").disabled = false; });
+    }
+    $("btn-attach").addEventListener("click", function () { $("file-photo").click(); });
+    $("file-photo").addEventListener("change", function () {
+      var f = this.files && this.files[0];
+      this.value = "";
+      if (f) sendPhoto(f);
+    });
+    // 붙여넣기·끌어다 놓기는 미리 보고 보내기
+    var pendingPhoto = null, pendingUrl = null;
+    function askPhoto(file) {
+      if (badType(file)) { note(ERRORS.unsupported_type); return; }
+      pendingPhoto = file;
+      if (pendingUrl) URL.revokeObjectURL(pendingUrl);
+      pendingUrl = URL.createObjectURL(file);
+      var im = document.createElement("img");
+      im.alt = "보낼 사진 미리보기"; im.src = pendingUrl;
+      $("photo-preview").replaceChildren(im);
+      $("photo-dialog").hidden = false;
+      $("photo-send").focus();
+    }
+    function closePhotoDlg() {
+      $("photo-dialog").hidden = true;
+      $("photo-preview").replaceChildren();
+      if (pendingUrl) { URL.revokeObjectURL(pendingUrl); pendingUrl = null; }
+      pendingPhoto = null;
+      input.focus();
+    }
+    $("photo-cancel").addEventListener("click", closePhotoDlg);
+    $("photo-dialog").addEventListener("click", function (e) { if (e.target === this) closePhotoDlg(); });
+    $("photo-send").addEventListener("click", function () { var f = pendingPhoto; closePhotoDlg(); sendPhoto(f); });
+    function firstImage(list) {
+      for (var i = 0; list && i < list.length; i++) {
+        var it = list[i];
+        var f = it.getAsFile ? (it.kind === "file" ? it.getAsFile() : null) : it;
+        if (f && /^image\//.test(f.type)) return f;
+      }
+      return null;
+    }
+    $("msg-input").addEventListener("paste", function (e) {
+      var f = e.clipboardData && firstImage(e.clipboardData.items);
+      if (f) { e.preventDefault(); askPhoto(f); }
+    });
+    var chatCard = document.querySelector(".chat"), dragDepth = 0;
+    function hasFiles(e) { return e.dataTransfer && Array.prototype.indexOf.call(e.dataTransfer.types || [], "Files") !== -1; }
+    chatCard.addEventListener("dragenter", function (e) { if (!hasFiles(e)) return; e.preventDefault(); dragDepth++; chatCard.classList.add("drop-on"); });
+    chatCard.addEventListener("dragover", function (e) { if (hasFiles(e)) e.preventDefault(); });
+    chatCard.addEventListener("dragleave", function () { if (--dragDepth <= 0) { dragDepth = 0; chatCard.classList.remove("drop-on"); } });
+    chatCard.addEventListener("drop", function (e) {
+      if (!hasFiles(e)) return;
+      e.preventDefault();
+      dragDepth = 0; chatCard.classList.remove("drop-on");
+      var f = firstImage(e.dataTransfer.files);
+      if (f) askPhoto(f); else note(ERRORS.unsupported_type);
+    });
+
+    /* 이모티콘 */
+    var emo = { scope: "mine", mine: null, all: null, edit: false, max: 50, busy: false };
+    function toggleEmo(open) {
+      var panel = $("emo-panel");
+      if (open === undefined) open = panel.hidden;
+      panel.hidden = !open;
+      $("btn-emo").setAttribute("aria-expanded", String(open));
+      if (open) { loadEmo(emo.scope); log.scrollTop = log.scrollHeight; }
+      else { emo.edit = false; $("emo-edit").classList.remove("on"); $("emo-edit").textContent = "편집"; $("emo-grid").classList.remove("editing"); }
+    }
+    $("btn-emo").addEventListener("click", function () { toggleEmo(); });
+    Array.prototype.forEach.call(document.querySelectorAll(".emo-tab"), function (t) {
+      t.addEventListener("click", function () {
+        emo.scope = t.getAttribute("data-scope");
+        Array.prototype.forEach.call(document.querySelectorAll(".emo-tab"), function (x) { x.setAttribute("aria-selected", String(x === t)); });
+        loadEmo(emo.scope);
+      });
+    });
+    $("emo-edit").addEventListener("click", function () {
+      emo.edit = !emo.edit;
+      this.classList.toggle("on", emo.edit);
+      this.textContent = emo.edit ? "완료" : "편집";
+      $("emo-grid").classList.toggle("editing", emo.edit);
+    });
+    function loadEmo(scope) {
+      paintEmo();
+      api("/api/emoticons?scope=" + scope)
+        .then(function (d) { emo[scope] = d.emoticons || []; emo.max = d.max || 50; if (scope === "mine") emo.mineCount = emo.mine.length; paintEmo(); })
+        .catch(function (e) { if (e.code !== "unauthorized") note(errText(e)); });
+    }
+    function paintEmo() {
+      var grid = $("emo-grid"), list = emo[emo.scope];
+      grid.replaceChildren();
+      var mineTab = emo.scope === "mine";
+      $("emo-edit").hidden = !mineTab;
+      $("emo-count").textContent = mineTab && emo.mine ? emo.mine.length + "/" + emo.max : "";
+      if (mineTab) {
+        var add = document.createElement("button");
+        add.type = "button"; add.className = "emo-tile add";
+        add.innerHTML = "<span><b>+</b>만들기</span>";
+        add.addEventListener("click", openEmoDlg);
+        grid.appendChild(add);
+      }
+      if (!list) return;
+      if (!list.length) {
+        var p = document.createElement("p");
+        p.className = "emo-empty";
+        p.textContent = mineTab ? "아직 만든 이모티콘이 없습니다. 이미지를 올려 나만의 이모티콘을 만들어 보세요." : "아직 등록된 이모티콘이 없습니다.";
+        grid.appendChild(p);
+        return;
+      }
+      list.forEach(function (e) {
+        var src = imgUrl(e.imageId);
+        if (!src) return;
+        var b = document.createElement("button");
+        b.type = "button"; b.className = "emo-tile";
+        b.setAttribute("role", "listitem");
+        var own = me && e.userId === me.id;
+        if (own) b.classList.add("own");
+        b.title = mineTab || !e.nickname ? e.name : e.name + " · " + e.nickname;
+        b.setAttribute("aria-label", "이모티콘 " + e.name);
+        var im = document.createElement("img");
+        im.alt = ""; im.loading = "lazy"; im.decoding = "async"; im.src = src;
+        b.appendChild(im);
+        b.addEventListener("click", function () {
+          if (emo.edit && mineTab && own) deleteEmo(e); else sendEmo(e);
+        });
+        grid.appendChild(b);
+      });
+    }
+    function sendEmo(e) {
+      if (emo.busy) return;
+      emo.busy = true;
+      note("");
+      api("/api/messages", { method: "POST", body: { emoticonId: e.id } })
+        .then(function (d) { addMessages([d.message], true); })
+        .catch(function (err) {
+          if (err.code === "unauthorized") return;
+          note(errText(err));
+          if (err.code === "emoticon_not_found") loadEmo(emo.scope);
+        })
+        .then(function () { emo.busy = false; });
+    }
+    function deleteEmo(e) {
+      if (!confirm("'" + e.name + "' 이모티콘을 삭제할까요? 이미 보낸 메시지는 그대로 남습니다.")) return;
+      api("/api/emoticons/" + e.id, { method: "DELETE" })
+        .then(function () { emo.all = null; loadEmo("mine"); })
+        .catch(function (err) { if (err.code !== "unauthorized") note(errText(err)); });
+    }
+    var emoBlob = null, emoUrl = null;
+    function openEmoDlg() {
+      emoBlob = null;
+      $("emo-preview").innerHTML = '<span class="placeholder">이미지를 선택해 주세요</span>';
+      $("emo-name").value = "";
+      $("emo-error").textContent = "";
+      $("emo-dialog").hidden = false;
+      $("emo-pick").focus();
+    }
+    function closeEmoDlg() {
+      $("emo-dialog").hidden = true;
+      if (emoUrl) { URL.revokeObjectURL(emoUrl); emoUrl = null; }
+      emoBlob = null;
+    }
+    $("emo-cancel").addEventListener("click", closeEmoDlg);
+    $("emo-dialog").addEventListener("click", function (e) { if (e.target === this) closeEmoDlg(); });
+    $("emo-pick").addEventListener("click", function () { $("file-emo").click(); });
+    $("file-emo").addEventListener("change", function () {
+      var f = this.files && this.files[0];
+      this.value = "";
+      if (!f) return;
+      $("emo-error").textContent = "";
+      makeEmoticon(f).then(function (blob) {
+        emoBlob = blob;
+        if (emoUrl) URL.revokeObjectURL(emoUrl);
+        emoUrl = URL.createObjectURL(blob);
+        var im = document.createElement("img");
+        im.alt = "이모티콘 미리보기"; im.src = emoUrl;
+        $("emo-preview").replaceChildren(im);
+        if (!$("emo-name").value) $("emo-name").value = f.name.replace(/\.[^.]+$/, "").slice(0, 20);
+        $("emo-name").focus();
+      }).catch(function (e) { emoBlob = null; $("emo-error").textContent = errText(e); });
+    });
+    $("emo-form").addEventListener("submit", function (ev) {
+      ev.preventDefault();
+      var err = $("emo-error"), name = $("emo-name").value.trim();
+      err.textContent = "";
+      if (!emoBlob) { err.textContent = "이미지를 선택해 주세요."; return; }
+      var n = Array.from(name).length;
+      if (n < 1 || n > 20) { err.textContent = ERRORS.invalid_emoticon_name; return; }
+      $("emo-submit").disabled = true;
+      api("/api/emoticons?name=" + encodeURIComponent(name), { method: "POST", raw: emoBlob })
+        .then(function () { closeEmoDlg(); emo.all = null; emo.scope = "mine"; Array.prototype.forEach.call(document.querySelectorAll(".emo-tab"), function (x) { x.setAttribute("aria-selected", String(x.getAttribute("data-scope") === "mine")); }); loadEmo("mine"); })
+        .catch(function (e) { err.textContent = errText(e); })
+        .then(function () { $("emo-submit").disabled = false; });
+    });
 
     /* 실시간: WebSocket, 끊기면 3초마다 새 메시지 확인 */
     var ws = null, wsReady = false, live = false, retry = 0, retryTimer = null, pollTimer = null, catching = false;
@@ -634,6 +1195,11 @@
         var data; try { data = JSON.parse(ev.data); } catch (e) { return; }
         if (data.type === "ready") { wsReady = true; retry = 0; stopPolling(); catchUp(); }
         else if (data.type === "message") addMessages([data.message]);
+        else if (data.type === "profile" && data.user && typeof data.user.id === "number") {
+          avatars[data.user.id] = data.user.avatarId || null;
+          if (me && data.user.id === me.id) { me.avatarId = data.user.avatarId || null; paintMyAvatar(); }
+          render();
+        }
         else if (data.type === "unauthorized") expired();
       };
       sock.onclose = function () {
@@ -659,7 +1225,7 @@
       show("view-chat");
       stopLive();
       live = true;
-      msgs = []; seen = {}; lastId = 0;
+      msgs = []; seen = {}; lastId = 0; imgNodes = {};
       render(true);
       api("/api/messages")
         .then(function (d) { addMessages(d.messages, true); })
