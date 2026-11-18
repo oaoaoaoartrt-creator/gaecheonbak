@@ -158,6 +158,10 @@
     .meta { display: flex; align-items: baseline; gap: 8px; margin-bottom: 3px; font-size: 12px; color: var(--muted); }
     .meta .who { font-weight: 600; color: var(--ink-soft); }
     .msg.mine .meta { flex-direction: row-reverse; }
+    .jump-wrap { position: relative; height: 0; z-index: 5; }
+    .jump { position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%); padding: 7px 14px; font: inherit; font-size: 13px; font-weight: 600; color: var(--ink); background: var(--surface); border: 1px solid var(--line-strong); border-radius: 999px; box-shadow: 0 2px 8px rgba(28, 27, 24, 0.12); cursor: pointer; white-space: nowrap; }
+    .jump:hover { background: #fff; }
+    .jump[hidden] { display: none; }
     #log > .msg { content-visibility: auto; contain-intrinsic-size: auto 64px; }
     .bubble { max-width: min(560px, 82%); padding: 9px 13px; font-size: 15px; line-height: 1.6; white-space: pre-wrap; word-break: break-word; overflow-wrap: anywhere; background: #fff; border: 1px solid var(--line); border-radius: var(--radius); }
     .msg.mine .bubble { background: var(--ink); color: var(--surface); border-color: var(--ink); }
@@ -820,6 +824,7 @@
         <div class="log" id="log" aria-live="polite" aria-label="메시지 목록">
           <p class="log-empty" id="log-empty">아직 대화가 없습니다. 첫 메시지를 남겨 보세요.</p>
         </div>
+        <div class="jump-wrap"><button class="jump" type="button" id="jump-new" hidden>새 메시지 <span aria-hidden="true">↓</span></button></div>
         <div class="emo-panel" id="emo-panel" hidden>
           <div class="emo-head">
             <div class="emo-tabs" role="tablist" aria-label="이모티콘 종류">
@@ -1545,6 +1550,7 @@
       });
       if (!added) return;
       if (fresh) onChatIncoming(fresh, freshMsg);
+      if (fresh && !forceScroll && !stick && !$("view-chat").hidden) $("jump-new").hidden = false;
       msgs.sort(function (a, b) { return a.id - b.id; });
       if (msgs.length > 300) {
         msgs.splice(0, msgs.length - 300).forEach(function (m) { delete seen[m.id]; });
@@ -1554,11 +1560,10 @@
 
     var rendered = { ids: [], day: "", uid: null, ts: 0 };
     function render(forceScroll, appendOk) {
-      var nearBottom = log.scrollHeight - log.scrollTop - log.clientHeight < 120;
       var ri = rendered.ids, start = 0;
       // 새 메시지가 뒤에 붙기만 했으면 기존 화면은 그대로 두고 덧붙임 (재생 중인 영상이 끊기지 않게)
       if (appendOk && ri.length && ri.length <= msgs.length && msgs[0].id === ri[0] && msgs[ri.length - 1].id === ri[ri.length - 1] && log.querySelector(".msg")) start = ri.length;
-      if (!start) { log.replaceChildren(); rendered = { ids: [], day: "", uid: null, ts: 0 }; }
+      if (!start) { log.replaceChildren(); rendered = { ids: [], day: "", uid: null, ts: 0 }; if (logRO) { logRO.disconnect(); logRO.observe(log); } }
       if (!msgs.length) {
         var p = document.createElement("p");
         p.className = "log-empty";
@@ -1616,12 +1621,33 @@
         bindLongPress(body, m);
         row.appendChild(body);
         log.appendChild(row);
+        if (logRO) logRO.observe(row);
         lastDay = day; lastUid = m.userId; lastTs = date;
         rendered.ids.push(m.id);
       });
       rendered.day = lastDay; rendered.uid = lastUid; rendered.ts = lastTs;
-      if (nearBottom || forceScroll) log.scrollTop = log.scrollHeight;
+      if (forceScroll) toBottom(); else if (stick) log.scrollTop = log.scrollHeight;
     }
+
+    /* 맨 아래(최신 메시지) 고정: 사진·영상·링크 카드가 늦게 불러와져 높이가 바뀌어도 맨 아래 유지.
+       사용자가 위로 올려 읽는 중이면 끌어내리지 않고 '새 메시지 ↓' 버튼만 보여 줌 */
+    var stick = true, userScrollTs = 0, pinRaf = 0;
+    function atBottom() { return log.scrollHeight - log.scrollTop - log.clientHeight < 80; }
+    function hideJump() { $("jump-new").hidden = true; }
+    function toBottom() { stick = true; log.scrollTop = log.scrollHeight; hideJump(); }
+    function pin() {
+      if (!stick || pinRaf) return;
+      pinRaf = requestAnimationFrame(function () { pinRaf = 0; if (stick) log.scrollTop = log.scrollHeight; });
+    }
+    ["wheel", "touchstart", "touchmove", "keydown", "pointerdown"].forEach(function (t) { log.addEventListener(t, function () { userScrollTs = Date.now(); }, { passive: true }); });
+    log.addEventListener("scroll", function () {
+      if (atBottom()) { stick = true; hideJump(); }
+      else if (Date.now() - userScrollTs < 1500) stick = false;
+    }, { passive: true });
+    log.addEventListener("load", pin, true);
+    var logRO = "ResizeObserver" in window ? new ResizeObserver(pin) : null;
+    if (logRO) logRO.observe(log);
+    $("jump-new").addEventListener("click", function () { toBottom(); });
 
     var imgNodes = {};   // 같은 이미지를 다시 그릴 때 깜빡임 방지
     function messageContent(m, date) {
@@ -2023,7 +2049,8 @@
     });
     function showChat() {
       show("view-chat");
-      log.scrollTop = log.scrollHeight;
+      toBottom();
+      requestAnimationFrame(toBottom);
       if (!window.matchMedia("(max-width: 560px)").matches) $("msg-input").focus();
     }
 
@@ -3393,7 +3420,7 @@
       root.classList.toggle("kb-open", !!kb);
       if (document.body.classList.contains("in-chat") && window.matchMedia("(max-width: 560px)").matches) {
         if (window.scrollY !== 0) window.scrollTo(0, 0);
-        log.scrollTop = log.scrollHeight;
+        if (stick) log.scrollTop = log.scrollHeight;
       }
     }
     if (vv) {
