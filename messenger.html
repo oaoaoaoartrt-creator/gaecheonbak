@@ -457,6 +457,26 @@
     .pf .crown { position: absolute; z-index: 2; left: 50%; top: calc(var(--s) * -0.4); width: calc(var(--s) * 0.62); height: auto; transform: translateX(-66%) rotate(-12deg); transform-origin: 50% 100%; overflow: visible; pointer-events: none; filter: drop-shadow(0 0.6px 0.5px rgba(28, 27, 24, 0.28)); }
     .pf.xs .crown { width: 15px; top: -9px; }
     .pf.lg .crown { width: calc(var(--s) * 0.5); top: calc(var(--s) * -0.33); }
+    .pf.lg > .fx-frame {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 200%;
+      height: 200%;
+      max-width: none;
+      max-height: none;
+      transform: translate(-50%, -50%);
+      z-index: 2;
+      pointer-events: none;
+      user-select: none;
+    }
+    .pf.lg.has-fx.metal::before,
+    .pf.lg.has-fx.metal::after { display: none; }
+    .pf.lg.has-fx { overflow: visible; }
+    .pf.lg.has-fx > .avatar { border: none; box-shadow: 0 0 0 2px var(--ring-bg); }
+    .profile-photo .pf.lg.has-fx { margin-top: 48px; }
+    .profile-photo { overflow: visible; }
+
     .role { display: inline-block; padding: 0 5px; font-size: 11px; font-weight: 500; line-height: 17px; letter-spacing: 0.02em; color: var(--muted); border: 1px solid var(--line); border-radius: var(--radius); background: var(--paper); white-space: nowrap; }
     .role.r-ceo { color: #4e5866; border-color: #c3c9d1; }
     .role.r-vp { color: #7a5c25; border-color: #d9c79c; }
@@ -1377,7 +1397,13 @@
       av.className = "avatar";
       fillAvatar(av, info.avatarId, name);
       el.appendChild(av);
-      if (frame !== "basic") el.insertAdjacentHTML("beforeend", crownSvg(frame));
+      if (size === "lg" && (frame === "platinum_crown" || frame === "gold_crown")) {
+        var src = frame === "platinum_crown" ? "images/frames/seolpyo.svg" : "images/frames/taste.svg";
+        el.classList.add("has-fx", "framed");
+        el.insertAdjacentHTML("beforeend", '<img class="fx-frame" src="' + src + '" alt="" aria-hidden="true">');
+      } else if (frame !== "basic") {
+        el.insertAdjacentHTML("beforeend", crownSvg(frame));
+      }
       if (frame === "platinum_crown") el.insertAdjacentHTML("beforeend", '<span class="sparks" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></span>');
       el.title = frame === "platinum_crown" ? "다이아몬드 왕관 테두리" : frame === "gold_crown" ? "황금 왕관 테두리" : "";
       return el;

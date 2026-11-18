@@ -298,7 +298,7 @@
     .people {
       display: grid;
       grid-template-columns: repeat(4, minmax(0, 1fr));
-      gap: 32px 24px;
+      gap: 20px 16px;
     }
     @media (max-width: 900px) and (min-width: 801px) {
       .people { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -307,7 +307,10 @@
     .person {
       display: flex;
       align-items: center;
-      gap: 20px;
+      gap: 28px;
+      position: relative;
+      overflow: visible;
+      padding: 32px 4px 28px;
     }
 
     .avatar {
@@ -360,96 +363,79 @@
       height: 100%;
       z-index: 1;
     }
-    .pf:not(.metal) > .avatar {
+    .pf:not(.framed) > .avatar {
       box-shadow: 0 0 0 1.5px var(--ring-bg), 0 0 0 2.5px #c8c0b2;
     }
-    .pf.metal::before,
-    .pf.metal::after {
-      content: "";
+    .pf.framed {
+      overflow: visible;
+    }
+    .pf.framed > .avatar {
+      border: none;
+      box-shadow: 0 0 0 1px rgba(28, 27, 24, 0.18);
+    }
+    .pf.framed > .fx-frame {
       position: absolute;
-      inset: calc(var(--band) * -1);
-      border-radius: 50%;
-      z-index: 0;
-    }
-    .pf.metal::before {
-      background: var(--metal);
-      box-shadow: 0 0 0 0.6px var(--edge), inset 0 0 0 0.6px var(--edge-in);
-    }
-    .pf.metal::after {
-      background: conic-gradient(from 0deg, transparent 0 62%, rgba(255,255,255,0.55) 70%, transparent 78% 100%);
-      animation: pf-sheen 9s linear infinite;
-    }
-    .pf.f-platinum_crown::after {
-      animation-duration: 6s;
-    }
-    .pf.metal > .avatar {
-      border: 1.5px solid var(--inner);
-      box-shadow: 0 0 0 2px var(--ring-bg);
-    }
-    .pf.f-platinum_crown {
-      --metal: conic-gradient(from 210deg, #ffffff, #c5e6f5 8%, #f8fdff 16%, #9cc9e0 24%, #ffffff 34%, #d7eef8 42%, #8ebad2 52%, #f4fbff 62%, #b3d6e8 72%, #ffffff 82%, #cfe8f4 90%, #ffffff);
-      --edge: rgba(90, 132, 156, 0.5);
-      --edge-in: rgba(255, 255, 255, 0.88);
-      --inner: #9dbcd0;
-    }
-    .pf.f-gold_crown {
-      --metal: conic-gradient(from 200deg, #eedcaa, #b08a44 14%, #e3c785 27%, #8d6a2e 41%, #d8b874 55%, #a17d3a 70%, #ecd8a2 84%, #eedcaa);
-      --edge: rgba(92, 66, 26, 0.6);
-      --edge-in: rgba(255, 246, 222, 0.55);
-      --inner: #a98540;
+      left: 50%;
+      top: 50%;
+      width: 200%;
+      height: 200%;
+      max-width: none;
+      max-height: none;
+      transform: translate(-50%, -50%);
+      z-index: 2;
+      pointer-events: none;
+      user-select: none;
     }
     @keyframes pf-sheen { to { transform: rotate(360deg); } }
-    .pf.f-platinum_crown::after {
-      background: conic-gradient(from 0deg, transparent 0 58%, rgba(160, 216, 240, 0.28) 64%, rgba(255,255,255,0.9) 70%, rgba(200, 230, 255, 0.35) 74%, transparent 82% 100%);
-    }
-    .pf.f-platinum_crown .crown { filter: drop-shadow(0 0.6px 0.5px rgba(70, 110, 130, 0.28)); }
-    .pf.f-platinum_crown .sparks { position: absolute; inset: calc(var(--band) * -2.2); z-index: 3; pointer-events: none; overflow: visible; }
-    .pf.f-platinum_crown .sparks i {
-      position: absolute; display: block; width: calc(var(--s) * 0.09); height: calc(var(--s) * 0.09);
-      background: #fff; clip-path: polygon(50% 0%, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%);
-      filter: drop-shadow(0 0 1.1px rgba(200, 236, 255, 0.95)); opacity: 0;
-      animation: pf-twinkle 3.6s ease-in-out infinite;
-    }
-    .pf.f-platinum_crown .sparks i:nth-child(1) { top: 2%; left: 78%; animation-duration: 3.4s; animation-delay: 0.15s; }
-    .pf.f-platinum_crown .sparks i:nth-child(2) { top: -6%; left: 22%; width: calc(var(--s) * 0.07); height: calc(var(--s) * 0.07); animation-duration: 4.1s; animation-delay: 1.15s; }
-    .pf.f-platinum_crown .sparks i:nth-child(3) { bottom: 6%; right: 0; animation-duration: 3.8s; animation-delay: 2.05s; }
-    .pf.f-platinum_crown .sparks i:nth-child(4) { top: 42%; left: -6%; width: calc(var(--s) * 0.06); height: calc(var(--s) * 0.06); animation-duration: 4.4s; animation-delay: 0.75s; }
     @keyframes pf-twinkle {
       0%, 62%, 100% { opacity: 0; transform: scale(0.35); }
       70% { opacity: 1; transform: scale(1); }
       78% { opacity: 0.25; transform: scale(0.6); }
       86% { opacity: 0.95; transform: scale(1.08); }
     }
-    /* ---------- 왕관 테두리 강화: 다이아(사장)·황금(부사장) ---------- */
-    .pf.f-platinum_crown::before {
-      background: repeating-conic-gradient(from 6deg, rgba(255,255,255,.5) 0 2.5deg, rgba(255,255,255,0) 4deg 6.5deg, rgba(96,152,190,.2) 7.5deg 9deg, rgba(255,255,255,0) 10.5deg 12deg), var(--metal);
-      box-shadow: 0 0 0 .6px var(--edge), inset 0 0 0 .6px var(--edge-in), 0 0 calc(var(--band) * 2.4) rgba(140, 210, 245, .6);
-    }
-    .pf.f-platinum_crown::after {
-      background: conic-gradient(from 0deg, transparent 0 55%, rgba(160,216,240,.35) 62%, #fff 69%, rgba(200,232,255,.5) 74%, transparent 81% 100%), conic-gradient(from 180deg, transparent 0 63%, rgba(255,255,255,.75) 69%, transparent 75% 100%);
-    }
-    .pf.f-platinum_crown .crown { filter: drop-shadow(0 0 1.6px rgba(170, 228, 255, .95)) drop-shadow(0 .6px .5px rgba(70, 110, 130, .3)); }
-    .pf.f-platinum_crown .sparks i {
-      position: absolute; display: block; width: calc(var(--s) * 0.11); height: calc(var(--s) * 0.11);
-      background: #fff; clip-path: polygon(50% 0%, 58% 42%, 100% 50%, 58% 58%, 50% 100%, 42% 58%, 0 50%, 42% 42%);
-      filter: drop-shadow(0 0 1.4px rgba(200, 236, 255, 1)); opacity: 0;
-    }
-    .pf.f-platinum_crown .sparks i:nth-child(5) { top: 70%; left: 88%; width: calc(var(--s) * 0.08); height: calc(var(--s) * 0.08); animation-duration: 3.2s; animation-delay: 1.6s; }
-    .pf.f-platinum_crown .sparks i:nth-child(6) { top: 86%; left: 18%; width: calc(var(--s) * 0.07); height: calc(var(--s) * 0.07); animation-duration: 3.9s; animation-delay: 2.6s; }
-    .pf .crown {
+    .pf.f-seolpyo::after {
+      content: "";
       position: absolute;
-      z-index: 2;
-      left: 50%;
-      top: calc(var(--s) * -0.33);
-      width: calc(var(--s) * 0.5);
-      height: auto;
-      transform: translateX(-66%) rotate(-12deg);
-      transform-origin: 50% 100%;
-      overflow: visible;
+      inset: -10%;
+      border-radius: 50%;
+      z-index: 3;
       pointer-events: none;
-      filter: drop-shadow(0 0.6px 0.5px rgba(28, 27, 24, 0.28));
+      background: conic-gradient(from 0deg, transparent 0 55%, rgba(160,216,240,.35) 62%, #fff 69%, rgba(200,232,255,.5) 74%, transparent 81% 100%), conic-gradient(from 180deg, transparent 0 63%, rgba(255,255,255,.75) 69%, transparent 75% 100%);
+      animation: pf-sheen 6s linear infinite;
+      -webkit-mask: radial-gradient(closest-side, transparent 52%, #000 58%, #000 78%, transparent 86%);
+              mask: radial-gradient(closest-side, transparent 52%, #000 58%, #000 78%, transparent 86%);
+      mix-blend-mode: screen;
+      opacity: 0.85;
     }
-    #panel-people .people { padding-top: 16px; }
+    .pf.f-seolpyo .sparks {
+      position: absolute;
+      inset: -55%;
+      z-index: 4;
+      pointer-events: none;
+      overflow: visible;
+    }
+    .pf.f-seolpyo .sparks i {
+      position: absolute; display: block;
+      width: calc(var(--s) * 0.11); height: calc(var(--s) * 0.11);
+      background: #fff;
+      clip-path: polygon(50% 0%, 58% 42%, 100% 50%, 58% 58%, 50% 100%, 42% 58%, 0 50%, 42% 42%);
+      filter: drop-shadow(0 0 1.4px rgba(200, 236, 255, 1));
+      opacity: 0;
+      animation: pf-twinkle 3.6s ease-in-out infinite;
+    }
+    .pf.f-seolpyo .sparks i:nth-child(1) { top: 6%; left: 62%; animation-duration: 3.4s; animation-delay: 0.15s; }
+    .pf.f-seolpyo .sparks i:nth-child(2) { top: 0; left: 30%; width: calc(var(--s) * 0.08); height: calc(var(--s) * 0.08); animation-duration: 4.1s; animation-delay: 1.15s; }
+    .pf.f-seolpyo .sparks i:nth-child(3) { bottom: 8%; right: 18%; animation-duration: 3.8s; animation-delay: 2.05s; }
+    .pf.f-seolpyo .sparks i:nth-child(4) { top: 38%; left: 4%; width: calc(var(--s) * 0.07); height: calc(var(--s) * 0.07); animation-duration: 4.4s; animation-delay: 0.75s; }
+    .pf.f-seolpyo .sparks i:nth-child(5) { top: 22%; left: 80%; width: calc(var(--s) * 0.08); height: calc(var(--s) * 0.08); animation-duration: 3.2s; animation-delay: 1.6s; }
+    .pf.f-seolpyo .sparks i:nth-child(6) { top: 78%; left: 22%; width: calc(var(--s) * 0.07); height: calc(var(--s) * 0.07); animation-duration: 3.9s; animation-delay: 2.6s; }
+
+    #panel-people {
+      overflow: visible;
+    }
+    #panel-people .people {
+      padding: 40px 8px 36px;
+    }
 
     .person-role {
       margin: 0 0 4px;
@@ -791,10 +777,10 @@
       .bn-card h3 { transition: none; }
       .bn-card:hover { transform: none; box-shadow: none; }
       .bn-card:hover h3 { background-size: 0 1px; }
-      .pf.metal::after { animation: none; transform: rotate(-40deg); }
-      .pf.f-platinum_crown .sparks i { animation: none; opacity: 0; }
-      .pf.f-platinum_crown .sparks i:nth-child(1) { opacity: 0.65; }
-      .pf.f-platinum_crown .sparks i:nth-child(3) { opacity: 0.35; }
+      .pf.f-seolpyo::after { animation: none; transform: rotate(-40deg); }
+      .pf.f-seolpyo .sparks i { animation: none; opacity: 0; }
+      .pf.f-seolpyo .sparks i:nth-child(1) { opacity: 0.65; }
+      .pf.f-seolpyo .sparks i:nth-child(3) { opacity: 0.35; }
     }
 
     /* ---------- Responsive ---------- */
@@ -963,33 +949,12 @@
             <p class="panel-label">인원 소개</p>
             <div class="people">
               <article class="person">
-                <div class="pf metal f-platinum_crown" title="다이아몬드 왕관 테두리">
+                <div class="pf framed f-seolpyo" title="다이아몬드 왕관 테두리">
                   <div class="avatar">
                     <img src="images/seolpyo.jpg" alt="사장 설표">
                     <span aria-hidden="true">설</span>
                   </div>
-                  <svg class="crown" viewBox="0 0 40 27" aria-hidden="true" focusable="false">
-                    <path d="M6.2 20.4 L3.4 8.8 L12.3 14.7 L20 4.6 L27.7 14.7 L36.6 8.8 L33.8 20.4 Q20 22.2 6.2 20.4Z" fill="url(#cr-platinum_crown-body)" stroke="#6d8ea3" stroke-width=".8" stroke-linejoin="round"/>
-                    <path d="M6.2 20.4 L3.4 8.8 L12.3 14.7 L13.6 19.6Z" fill="#9ec9e0" fill-opacity=".28"/>
-                    <path d="M12.3 14.7 L20 4.6 L20 19.9 L13.6 19.6Z" fill="#fff" fill-opacity=".35"/>
-                    <path d="M20 4.6 L27.7 14.7 L26.4 19.6 L20 19.9Z" fill="#c5e6f5" fill-opacity=".3"/>
-                    <path d="M27.7 14.7 L36.6 8.8 L33.8 20.4 L26.4 19.6Z" fill="#fff" fill-opacity=".18"/>
-                    <path d="M12.3 14.7 L13.6 19.6 M27.7 14.7 L26.4 19.6 M20 4.6 L20 19.9" stroke="#fff" stroke-opacity=".55" stroke-width=".55" fill="none"/>
-                    <path d="M3.4 8.8 L12.3 14.7 L20 4.6 L27.7 14.7 L36.6 8.8" stroke="#c8eaf8" stroke-opacity=".5" stroke-width=".4" fill="none"/>
-                    <polygon points="3.4,5.4 5.5,7.5 3.4,9.7 1.3,7.5" fill="url(#cr-platinum_crown-ice)" stroke="#6d8ea3" stroke-width=".6" stroke-linejoin="round"/>
-                    <path d="M3.4 5.4 L3.4 9.7 M1.3 7.5 L5.5 7.5" stroke="#fff" stroke-opacity=".7" stroke-width=".4" fill="none"/>
-                    <polygon points="20,1 22.5,3.3 20,5.7 17.5,3.3" fill="url(#cr-platinum_crown-ice)" stroke="#6d8ea3" stroke-width=".6" stroke-linejoin="round"/>
-                    <path d="M20 1 L20 5.7 M17.5 3.3 L22.5 3.3" stroke="#fff" stroke-opacity=".75" stroke-width=".4" fill="none"/>
-                    <polygon points="36.6,5.4 38.7,7.5 36.6,9.7 34.5,7.5" fill="url(#cr-platinum_crown-ice)" stroke="#6d8ea3" stroke-width=".6" stroke-linejoin="round"/>
-                    <path d="M36.6 5.4 L36.6 9.7 M34.5 7.5 L38.7 7.5" stroke="#fff" stroke-opacity=".7" stroke-width=".4" fill="none"/>
-                    <path d="M5.7 19.5 Q20 21.7 34.3 19.5 L33.9 23.5 Q20 25.7 6.1 23.5Z" fill="url(#cr-platinum_crown-band)" stroke="#6d8ea3" stroke-width=".8" stroke-linejoin="round"/>
-                    <path d="M7 20.6 Q20 22.6 33 20.6" stroke="#fff" stroke-opacity=".55" stroke-width=".5" fill="none"/>
-                    <polygon points="12.4,21 13.3,22.1 12.4,23.2 11.5,22.1" fill="#f6fcff" stroke="#7aa3b8" stroke-width=".35" stroke-linejoin="round"/>
-                    <polygon points="27.6,21 28.5,22.1 27.6,23.2 26.7,22.1" fill="#f6fcff" stroke="#7aa3b8" stroke-width=".35" stroke-linejoin="round"/>
-                    <polygon points="20,20.6 22.4,22.4 20,24.5 17.6,22.4" fill="url(#cr-platinum_crown-ice)" stroke="#5e849c" stroke-width=".5" stroke-linejoin="round"/>
-                    <path d="M20 20.6 L20 24.5 M17.6 22.4 L22.4 22.4" stroke="#fff" stroke-opacity=".8" stroke-width=".4" fill="none"/>
-                    <circle cx="19.4" cy="21.8" r=".35" fill="#fff"/>
-                  </svg>
+                  <img class="fx-frame" src="images/frames/seolpyo.svg" alt="" aria-hidden="true">
                   <span class="sparks" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></span>
                 </div>
                 <div>
@@ -999,23 +964,12 @@
               </article>
 
               <article class="person">
-                <div class="pf metal f-gold_crown" title="황금 왕관 테두리">
+                <div class="pf framed f-taste" title="황금 왕관 테두리">
                   <div class="avatar">
                     <img src="images/taste.jpg" alt="부사장 테이스트">
                     <span aria-hidden="true">테</span>
                   </div>
-                  <svg class="crown" viewBox="0 0 40 27" aria-hidden="true" focusable="false">
-                    <path d="M6.2 20.4 L3.4 8.8 L12.3 14.7 L20 4.6 L27.7 14.7 L36.6 8.8 L33.8 20.4 Q20 22.2 6.2 20.4Z" fill="url(#cr-gold_crown-body)" stroke="#6a4c1c" stroke-width=".8" stroke-linejoin="round"/>
-                    <path d="M12.3 14.7 L13.6 19.6 M27.7 14.7 L26.4 19.6 M20 4.6 L20 19.9" stroke="#fff" stroke-opacity=".35" stroke-width=".55" fill="none"/>
-                    <circle cx="3.4" cy="7.5" r="1.9" fill="url(#cr-gold_crown-body)" stroke="#6a4c1c" stroke-width=".7"/>
-                    <circle cx="20" cy="3.3" r="2.2" fill="url(#cr-gold_crown-body)" stroke="#6a4c1c" stroke-width=".7"/>
-                    <circle cx="36.6" cy="7.5" r="1.9" fill="url(#cr-gold_crown-body)" stroke="#6a4c1c" stroke-width=".7"/>
-                    <path d="M5.7 19.5 Q20 21.7 34.3 19.5 L33.9 23.5 Q20 25.7 6.1 23.5Z" fill="url(#cr-gold_crown-band)" stroke="#6a4c1c" stroke-width=".8" stroke-linejoin="round"/>
-                    <path d="M7 20.6 Q20 22.6 33 20.6" stroke="#fff" stroke-opacity=".4" stroke-width=".5" fill="none"/>
-                    <circle cx="12.4" cy="22.1" r=".8" fill="#fff" fill-opacity=".75"/><circle cx="27.6" cy="22.1" r=".8" fill="#fff" fill-opacity=".75"/>
-                    <ellipse cx="20" cy="22.5" rx="2.1" ry="1.4" fill="#8a3a2b" stroke="#57211a" stroke-width=".5"/>
-                    <ellipse cx="19.3" cy="22" rx=".75" ry=".35" fill="#fff" fill-opacity=".7"/>
-                  </svg>
+                  <img class="fx-frame" src="images/frames/taste.svg" alt="" aria-hidden="true">
                 </div>
                 <div>
                   <p class="person-role">부사장</p>
@@ -1024,11 +978,12 @@
               </article>
 
               <article class="person">
-                <div class="pf">
+                <div class="pf framed f-hoqueen">
                   <div class="avatar">
                     <img src="images/staff1.jpg" alt="사원 호퀸">
                     <span aria-hidden="true">호</span>
                   </div>
+                  <img class="fx-frame" src="images/frames/hoqueen.svg" alt="" aria-hidden="true">
                 </div>
                 <div>
                   <p class="person-role">사원</p>
@@ -1037,11 +992,12 @@
               </article>
 
               <article class="person">
-                <div class="pf">
+                <div class="pf framed f-bbunin">
                   <div class="avatar">
                     <img src="images/staff2.jpg" alt="사원 쀼닌">
                     <span aria-hidden="true">쀼</span>
                   </div>
+                  <img class="fx-frame" src="images/frames/bbunin.svg" alt="" aria-hidden="true">
                 </div>
                 <div>
                   <p class="person-role">사원</p>
@@ -1050,11 +1006,12 @@
               </article>
 
               <article class="person">
-                <div class="pf">
+                <div class="pf framed f-red">
                   <div class="avatar">
                     <img src="images/staff3.jpg" alt="노예 RED">
                     <span aria-hidden="true">R</span>
                   </div>
+                  <img class="fx-frame" src="images/frames/red.svg" alt="" aria-hidden="true">
                 </div>
                 <div>
                   <p class="person-role">노예</p>
@@ -1063,11 +1020,12 @@
               </article>
 
               <article class="person">
-                <div class="pf">
+                <div class="pf framed f-geommeomwoyo">
                   <div class="avatar">
                     <img src="images/staff4.jpg" alt="노예 검은뭐요">
                     <span aria-hidden="true">검</span>
                   </div>
+                  <img class="fx-frame" src="images/frames/geommeomwoyo.svg" alt="" aria-hidden="true">
                 </div>
                 <div>
                   <p class="person-role">노예</p>
@@ -1076,11 +1034,12 @@
               </article>
 
               <article class="person">
-                <div class="pf">
+                <div class="pf framed f-mobai">
                   <div class="avatar">
                     <img src="images/staff5.jpg" alt="비상식량 모바이">
                     <span aria-hidden="true">모</span>
                   </div>
+                  <img class="fx-frame" src="images/frames/mobai.svg" alt="" aria-hidden="true">
                 </div>
                 <div>
                   <p class="person-role">비상식량</p>
@@ -1089,11 +1048,12 @@
               </article>
 
               <article class="person">
-                <div class="pf">
+                <div class="pf framed f-seommyeol">
                   <div class="avatar">
                     <img src="images/staff6.jpg" alt="비상식량 섬멸">
                     <span aria-hidden="true">섬</span>
                   </div>
+                  <img class="fx-frame" src="images/frames/seommyeol.svg" alt="" aria-hidden="true">
                 </div>
                 <div>
                   <p class="person-role">비상식량</p>
