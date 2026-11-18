@@ -285,6 +285,10 @@
     .gnp { width: min(440px, 100%); max-height: calc(100dvh - 32px); display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--line-strong); box-shadow: 0 12px 32px rgba(28, 27, 24, .18); }
     .gnp-img { display: block; flex: 1 1 auto; min-height: 0; padding: 0; border: 0; background: none; cursor: pointer; overflow: auto; }
     .gnp-img img { display: block; width: 100%; height: auto; }
+    .gnp-pager { flex: none; display: flex; align-items: center; justify-content: space-between; padding: 6px 8px; border-bottom: 1px solid var(--line); background: var(--surface); font-size: 12.5px; color: var(--muted); font-variant-numeric: tabular-nums; letter-spacing: .04em; }
+    .gnp-pager button { width: 32px; height: 28px; padding: 0; font: inherit; font-size: 18px; line-height: 1; color: var(--ink-soft); background: none; border: 1px solid var(--line); border-radius: var(--radius); cursor: pointer; }
+    .gnp-pager button:disabled { opacity: .35; cursor: default; }
+    .gnp-img[hidden], .gnp-bar button[hidden] { display: none; }
     .gnp-bar { flex: none; display: flex; justify-content: space-between; align-items: stretch; border-top: 1px solid var(--line); background: var(--paper-deep); }
     .gnp-bar button { padding: 12px 16px; font: inherit; font-size: 13px; color: var(--ink-soft); background: none; border: 0; cursor: pointer; }
     .gnp-bar button:hover { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
@@ -1065,6 +1069,8 @@
 
   <div class="gnp-bg" id="notice" hidden role="dialog" aria-modal="true" aria-label="공지사항">
     <div class="gnp">
+      <div class="gnp-pager"><button type="button" id="notice-prev" aria-label="이전 공지">‹</button><span id="notice-page">1 / 2</span><button type="button" id="notice-next" aria-label="다음 공지">›</button></div>
+      <button class="gnp-img" type="button" id="notice-install-img" aria-label="앱 설치 안내" hidden><img src="images/notice-install.png" width="520" height="640" alt="개천박 공지: 메신저를 앱으로 설치해 바로 열어 보세요. 안드로이드 Chrome은 메뉴에서 앱 설치, PC Chrome·Edge는 주소창의 설치 아이콘이나 메뉴의 앱 설치, 아이폰 Safari는 공유 버튼에서 홈 화면에 추가를 누릅니다." loading="lazy"></button>
       <button class="gnp-img" type="button" id="notice-open" aria-label="알림 설정 열기"><img src="images/notice-notifications.png" width="520" height="640" alt="개천박 공지: 중요한 메시지를 놓치지 않도록 알림을 켜 주세요. 메신저 상단의 종 버튼을 눌러 알림 받기를 켜고 허용을 누릅니다. 휴대폰은 Chrome 메뉴의 앱 설치로 먼저 설치하면 알림이 더 안정적으로 도착합니다."></button>
       <div class="gnp-bar">
         <button type="button" id="notice-week">일주일간 보지 않기</button>
@@ -3094,7 +3100,7 @@
       if (noticeShown) return;
       var until = 0; try { until = Number(localStorage.getItem(NOTICE_KEY)) || 0; } catch (e) {}
       if (until > Date.now()) return;
-      noticeShown = true; $("notice").hidden = false;
+      noticeShown = true; noticePage(0); $("notice").hidden = false;
     }
     function closeNotice(week) {
       if (week) { try { localStorage.setItem(NOTICE_KEY, String(Date.now() + 7 * 86400000)); } catch (e) {} }
@@ -3102,8 +3108,29 @@
     }
     $("notice-week").addEventListener("click", function () { closeNotice(true); });
     $("notice-close").addEventListener("click", function () { closeNotice(false); });
-    function noticeGo() { closeNotice(false); $("notify-dialog").hidden = false; paintNotify(); }
+    var noticeIdx = 0;
+    function noticePage(i) {
+      noticeIdx = Math.max(0, Math.min(1, i));
+      $("notice-open").hidden = noticeIdx !== 0; $("notice-install-img").hidden = noticeIdx !== 1;
+      $("notice-page").textContent = (noticeIdx + 1) + " / 2";
+      $("notice-prev").disabled = noticeIdx === 0; $("notice-next").disabled = noticeIdx === 1;
+      var go = $("notice-go");
+      if (noticeIdx === 0) { go.textContent = "알림 켜기"; go.hidden = false; }
+      else { go.textContent = "앱 설치"; go.hidden = !deferredPrompt; }
+    }
+    $("notice-prev").addEventListener("click", function () { noticePage(noticeIdx - 1); });
+    $("notice-next").addEventListener("click", function () { noticePage(noticeIdx + 1); });
+    function noticeGo() {
+      if (noticeIdx === 1) {
+        if (!deferredPrompt) return;
+        var pr = deferredPrompt; deferredPrompt = null; pr.prompt();
+        (pr.userChoice || Promise.resolve()).then(function () { hideInstall(); noticePage(1); }, function () {});
+        return;
+      }
+      closeNotice(false); $("notify-dialog").hidden = false; paintNotify();
+    }
     $("notice-go").addEventListener("click", noticeGo);
+    $("notice-install-img").addEventListener("click", function () { if (deferredPrompt) noticeGo(); });
     $("notice-open").addEventListener("click", noticeGo);
     document.addEventListener("keydown", function (e) { if (e.key === "Escape" && !$("notice").hidden) closeNotice(false); });
     $("nt-close").addEventListener("click", closeNotify);
@@ -3863,6 +3890,7 @@
       e.preventDefault();
       deferredPrompt = e;
       showInstall("prompt");
+      if (!$("notice").hidden) noticePage(noticeIdx);
     });
     window.addEventListener("appinstalled", function () { deferredPrompt = null; hideInstall(); });
     installBoxes.forEach(function (box) {
