@@ -160,3 +160,15 @@ CREATE TABLE IF NOT EXISTS profile_post_media (
   PRIMARY KEY (post_id, media_id)
 );
 CREATE INDEX IF NOT EXISTS idx_ppm_media ON profile_post_media(media_id);
+
+-- 푸시 (0007)
+CREATE TABLE IF NOT EXISTS push_subs (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,
+  endpoint TEXT NOT NULL UNIQUE,
+  p256dh TEXT NOT NULL,
+  auth TEXT NOT NULL,
+  chat INTEGER NOT NULL DEFAULT 1,
+  created_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_push_subs_user ON push_subs(user_id);

@@ -12,6 +12,8 @@
   },
   "migrations": [ { "tag": "v1", "new_sqlite_classes": ["ChatRoom"] } ],
   "vars": {
+    "VAPID_PUBLIC": "BHeawv3TNsHTfkISfPJQVIJEhO34vUdtOJIDS61PIzAqXhqUlhSbVZ9rgZlhjwWB3ebJtOk80g2aj82UZmZ0b1o",
+    "VAPID_SUBJECT": "https://oaoaoaoartrt-creator.github.io/gaecheonbak/",
     "ALLOWED_ORIGINS": "https://oaoaoaoartrt-creator.github.io,http://localhost:8000,http://127.0.0.1:8000,http://localhost:8787"
   }
 }

@@ -592,6 +592,53 @@
       .pp-compose { padding: 12px; }
       .pp-row .sz-hint { display: none; }
     }
+
+    /* 알림 */
+    .app-tabs a { position: relative; }
+    .tab-dot { display: inline-flex; align-items: center; justify-content: center; min-width: 17px; height: 17px; margin-left: 6px; padding: 0 5px; font-size: 10.5px; font-weight: 700; line-height: 1; color: #fff; background: #c8331f; border-radius: 9px; }
+    .tab-dot[hidden] { display: none; }
+    .bell { appearance: none; position: relative; display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 100%; padding: 0; border: 0; background: transparent; color: var(--muted); cursor: pointer; }
+    .bell:hover { color: var(--ink); }
+    .bell svg { width: 18px; height: 18px; }
+    .bell.on { color: var(--ink); }
+    .nt-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding: 14px 0; border-top: 1px solid var(--line); }
+    .nt-row:first-of-type { border-top: 0; }
+    .nt-row b { display: block; font-size: 14.5px; font-weight: 600; }
+    .nt-row small { display: block; margin-top: 2px; font-size: 12.5px; color: var(--muted); line-height: 1.5; }
+    .switch { position: relative; flex: none; width: 42px; height: 24px; margin-top: 2px; }
+    .switch input { position: absolute; inset: 0; opacity: 0; margin: 0; cursor: pointer; z-index: 1; }
+    .switch span { position: absolute; inset: 0; background: var(--line-strong); border-radius: 12px; transition: background .15s; }
+    .switch span::after { content: ""; position: absolute; left: 3px; top: 3px; width: 18px; height: 18px; background: #fff; border-radius: 50%; transition: transform .15s; }
+    .switch input:checked + span { background: var(--ink); }
+    .switch input:checked + span::after { transform: translateX(18px); }
+    .switch input:disabled + span { opacity: 0.45; }
+    .switch input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 2px; }
+    .nt-note { margin: 4px 0 0; padding: 10px 12px; font-size: 12.5px; line-height: 1.6; color: var(--ink-soft); background: var(--paper); border: 1px solid var(--line); }
+    .nt-note:empty { display: none; }
+    .toast { position: fixed; right: 20px; bottom: 20px; z-index: 70; max-width: 340px; padding: 12px 16px 12px 14px; background: var(--surface); border: 1px solid var(--line-strong); border-left: 3px solid #c8331f; border-radius: var(--radius); box-shadow: 0 8px 24px rgba(28, 27, 24, 0.14); cursor: pointer; font-size: 13px; line-height: 1.5; }
+    .toast b { display: block; font-size: 13.5px; }
+    .toast span { color: var(--muted); }
+    @media (max-width: 560px) { .toast { left: 12px; right: 12px; bottom: calc(12px + var(--safe-bottom)); max-width: none; } .bell { width: 44px; flex: none; } }
+
+    /* ---------- 상단 메뉴 (모든 페이지 공통: 간격 고정, 선택 표시는 밑줄·색만) ---------- */
+    .nav-inner { gap: 24px; }
+    .logo { font-size: 17px; white-space: nowrap; }
+    .nav-links { gap: 12px; }
+    .nav-links a { padding: 6px 10px; font-size: 13px; font-weight: 400; letter-spacing: 0.02em; white-space: nowrap; border: 0; box-shadow: none; }
+    .nav-links a[aria-current="page"] { color: var(--ink); border: 0; box-shadow: inset 0 -1px 0 var(--ink); }
+    @media (max-width: 560px) {
+      .nav-inner { gap: 12px; }
+      .nav-links { gap: 12px; }
+      .nav-links a { padding: 6px 6px; font-size: 12px; }
+    }
+    @media (max-width: 400px) {
+      .nav-inner { gap: 12px; }
+      .logo { font-size: 17px; }
+      .nav-links { gap: 12px; }
+      .nav-links a { padding: 6px 6px; font-size: 12px; }
+    }
+    /* 앱 탭: 선택해도 글자 폭이 변하지 않게 굵기 대신 그림자로 강조 */
+    .app-tabs a[aria-current="page"] { font-weight: 400; text-shadow: 0 0 0.65px currentColor, 0 0 0.65px currentColor; }
   </style>
 </head>
 <body>
@@ -631,9 +678,10 @@
         <div class="app-bar-inner">
           <p class="app-title">사내 메신저 <small>임직원 전용</small></p>
           <nav class="app-tabs" aria-label="메신저 메뉴">
-            <a href="#/chat" data-tab="chat">채팅</a>
-            <a href="#/board" data-tab="board">사내 게시판</a>
+            <a href="#/chat" data-tab="chat">채팅<span class="tab-dot" id="dot-chat" hidden></span></a>
+            <a href="#/board" data-tab="board">사내 게시판<span class="tab-dot" id="dot-board" hidden></span></a>
             <a href="#/u/me" data-tab="profile">내 프로필</a>
+            <button class="bell" type="button" id="btn-notify" aria-label="알림 설정" title="알림 설정"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 16.5V11a6 6 0 0 1 12 0v5.5l1.5 2H4.5z"/><path d="M10 20.5a2 2 0 0 0 4 0"/></svg></button>
           </nav>
         </div>
         <p class="offline-note" role="status">오프라인 상태입니다. 인터넷에 다시 연결되면 자동으로 이어집니다.</p>
@@ -859,6 +907,27 @@
     </div>
   </div>
 
+  <div class="dialog-bg" id="notify-dialog" hidden role="dialog" aria-modal="true" aria-labelledby="notify-title">
+    <div class="card">
+      <h2 id="notify-title">알림 설정</h2>
+      <p class="lead">새 메시지와 내 글에 달린 댓글을 알려 드립니다. 설정은 기기마다 따로 저장됩니다.</p>
+      <div class="nt-row">
+        <div><b>이 기기로 알림 받기</b><small>앱을 닫아 두어도 휴대폰 알림창이나 PC 알림으로 받습니다.</small></div>
+        <label class="switch"><input type="checkbox" id="nt-push" aria-label="이 기기로 알림 받기"><span></span></label>
+      </div>
+      <div class="nt-row">
+        <div><b>모든 채팅 메시지</b><small>끄면 내게 온 답장과 게시판 댓글만 알려 드립니다.</small></div>
+        <label class="switch"><input type="checkbox" id="nt-chat" aria-label="모든 채팅 메시지 알림"><span></span></label>
+      </div>
+      <div class="nt-row">
+        <div><b>알림 소리</b><small>앱을 열어 둔 채 다른 창을 보고 있을 때 회사 알림음이 울립니다. <button class="linkbtn" type="button" id="nt-preview" style="padding:0">미리 듣기</button></small></div>
+        <label class="switch"><input type="checkbox" id="nt-sound" aria-label="알림 소리"><span></span></label>
+      </div>
+      <p class="nt-note" id="nt-note"></p>
+      <div class="dlg-actions"><button class="btn" type="button" id="nt-close">닫기</button></div>
+    </div>
+  </div>
+
   <div class="lightbox" id="lightbox" hidden role="dialog" aria-modal="true" aria-label="사진 크게 보기">
     <button class="lightbox-close" type="button" id="lightbox-close">닫기</button>
     <img id="lightbox-img" alt="사진">
@@ -934,7 +1003,8 @@
       media_too_large: "파일이 너무 큽니다. 사진 1MB(자동 축소), GIF 5MB, 동영상 15MB까지 올릴 수 있습니다.",
       bad_media: "첨부 파일을 확인해 주세요. 포스트마다 4개까지 올릴 수 있습니다.",
       invalid_ppost: "내용을 입력하거나 사진·동영상을 첨부해 주세요. 글은 1,000자까지 쓸 수 있습니다.",
-      ppost_not_found: "삭제되었거나 없는 포스트입니다."
+      ppost_not_found: "삭제되었거나 없는 포스트입니다.",
+      bad_subscription: "알림을 켜지 못했습니다. 잠시 후 다시 시도해 주세요."
     };
     function errText(e) { return ERRORS[e && e.code] || "알 수 없는 오류가 발생했습니다. 잠시 후 다시 시도해 주세요."; }
 
@@ -1226,7 +1296,7 @@
       myNick = user.nickname || "";
       remember(user.id, user);
       paintMyAvatar();
-      if (myNick) { $("me-name").textContent = myNick; enterChat(); }
+      if (myNick) { $("me-name").textContent = myNick; enterChat(); syncPush(); }
       else { $("nick-input").value = ""; $("nick-error").textContent = ""; show("view-nick"); $("nick-input").focus(); }
     }
 
@@ -1362,6 +1432,7 @@
     $("btn-logout").addEventListener("click", function () {
       var t = token;
       if (t) {
+        pushUnsubscribeOnLogout(t);
         fetch(API + "/api/logout", { method: "POST", keepalive: true, headers: { "Authorization": "Bearer " + t } }).catch(function () {});
       }
       resetToAuth("");
@@ -1375,17 +1446,21 @@
     var seen = {};
     var lastId = 0;
 
+    var chatPrimed = false;
     function addMessages(list, forceScroll) {
-      var added = false;
+      var added = false, fresh = 0, freshMsg = null;
+      var primed = chatPrimed;
       (list || []).forEach(function (m) {
         if (!m || typeof m.id !== "number" || seen[m.id]) return;
         seen[m.id] = true;
+        if (primed && m.id > lastId && !(me && m.userId === me.id)) { fresh++; freshMsg = m; }
         msgs.push(m);
         if ("avatarId" in m) remember(m.userId, m);
         if (m.id > lastId) lastId = m.id;
         added = true;
       });
       if (!added) return;
+      if (fresh) onChatIncoming(fresh, freshMsg);
       msgs.sort(function (a, b) { return a.id - b.id; });
       if (msgs.length > 300) {
         msgs.splice(0, msgs.length - 300).forEach(function (m) { delete seen[m.id]; });
@@ -1766,6 +1841,7 @@
           if (me && data.user.id === me.id) { me.avatarId = data.user.avatarId || null; if (data.user.frame) me.frame = data.user.frame; if ("role" in data.user) me.role = data.user.role || ""; paintMyAvatar(); }
           render();
         }
+        else if (data.type === "notify" && me && Array.isArray(data.to) && data.to.indexOf(me.id) !== -1) onBoardNotify(data);
         else if (data.type === "unauthorized") expired();
       };
       sock.onclose = function () {
@@ -1792,8 +1868,9 @@
       live = true;
       msgs = []; seen = {}; lastId = 0; imgNodes = {};
       render(true);
+      chatPrimed = false;
       api("/api/messages")
-        .then(function (d) { addMessages(d.messages, true); })
+        .then(function (d) { addMessages(d.messages, true); chatPrimed = true; })
         .catch(function (e) { if (e.code !== "unauthorized") $("send-error").textContent = errText(e); });
       startPolling();
       connect();
@@ -2400,6 +2477,219 @@
     }
 
 
+
+
+    /* ---------- 알림: 배지·알림음·웹 푸시 ---------- */
+    var unread = { chat: 0, board: 0 };
+    var baseTitle = document.title;
+    function soundOn() { try { return localStorage.getItem("gcb_sound") !== "0"; } catch (e) { return true; } }
+    function viewing(id) { return !document.hidden && document.hasFocus() && !$(id).hidden; }
+    function onChatIncoming(n, m) {
+      if (viewing("view-chat")) return;
+      unread.chat += n;
+      updateBadges();
+      chime();
+    }
+    var toastTimer = null;
+    function toast(title, body, url) {
+      var old = document.querySelector(".toast"); if (old) old.remove();
+      var t = E("div", "toast"); t.setAttribute("role", "status");
+      t.append(E("b", "", title), E("span", "", body || ""));
+      t.addEventListener("click", function () { t.remove(); if (url) location.hash = url.replace(/^messenger\.html/, ""); });
+      document.body.appendChild(t);
+      clearTimeout(toastTimer); toastTimer = setTimeout(function () { t.remove(); }, 6000);
+    }
+    function onBoardNotify(d) {
+      var here = typeof d.url === "string" && location.hash === d.url.replace(/^messenger\.html/, "");
+      if (!(here && viewing("view-board"))) { unread.board++; updateBadges(); }
+      chime();
+      if (!document.hidden) toast(String(d.title || "새 알림"), String(d.body || ""), d.url);
+    }
+    function clearSeen() {
+      var ch = false;
+      if (unread.chat && viewing("view-chat")) { unread.chat = 0; ch = true; }
+      if (unread.board && viewing("view-board")) { unread.board = 0; ch = true; }
+      if (ch) updateBadges();
+    }
+    window.addEventListener("focus", clearSeen);
+    document.addEventListener("visibilitychange", clearSeen);
+    window.addEventListener("hashchange", function () { setTimeout(clearSeen, 0); });
+    var favBase = null;
+    function setFavicon(n) {
+      var links = document.querySelectorAll('link[rel="icon"]');
+      if (!n) { links.forEach(function (l) { if (l.dataset.orig) l.href = l.dataset.orig; }); return; }
+      function paint() {
+        var c = document.createElement("canvas"); c.width = c.height = 64;
+        var g = c.getContext("2d");
+        if (favBase && favBase.complete && favBase.naturalWidth) g.drawImage(favBase, 0, 0, 64, 64);
+        g.beginPath(); g.arc(46, 18, 16, 0, Math.PI * 2); g.fillStyle = "#c8331f"; g.fill();
+        g.lineWidth = 3; g.strokeStyle = "#fff"; g.stroke();
+        g.fillStyle = "#fff"; g.font = "bold 20px sans-serif"; g.textAlign = "center"; g.textBaseline = "middle";
+        g.fillText(n > 9 ? "9+" : String(n), 46, 19);
+        var url = c.toDataURL("image/png");
+        links.forEach(function (l) { if (!l.dataset.orig) l.dataset.orig = l.getAttribute("href"); l.href = url; });
+      }
+      if (!favBase) { favBase = new Image(); favBase.onload = paint; favBase.src = "icons/favicon-48.png"; }
+      paint();
+    }
+    function updateBadges() {
+      var total = unread.chat + unread.board;
+      [["dot-chat", unread.chat], ["dot-board", unread.board]].forEach(function (x) {
+        var el = $(x[0]); el.hidden = !x[1]; el.textContent = x[1] > 99 ? "99+" : String(x[1]);
+        el.setAttribute("aria-label", "새 알림 " + x[1] + "개");
+      });
+      document.title = (total ? "(" + (total > 99 ? "99+" : total) + ") " : "") + baseTitle;
+      setFavicon(total);
+      try {
+        if (total && navigator.setAppBadge) navigator.setAppBadge(total).catch(function () {});
+        else if (!total && navigator.clearAppBadge) navigator.clearAppBadge().catch(function () {});
+      } catch (e) {}
+    }
+    // 회사 알림음: 맑은 종소리 세 음 (Web Audio로 합성, 파일 없음)
+    var actx = null, lastChime = 0;
+    function audioCtx() {
+      if (!actx) { var AC = window.AudioContext || window.webkitAudioContext; if (!AC) return null; actx = new AC(); }
+      return actx;
+    }
+    function unlockAudio() {
+      var c = audioCtx(); if (c && c.state === "suspended") c.resume().catch(function () {});
+      document.removeEventListener("pointerdown", unlockAudio, true);
+      document.removeEventListener("keydown", unlockAudio, true);
+    }
+    document.addEventListener("pointerdown", unlockAudio, true);
+    document.addEventListener("keydown", unlockAudio, true);
+    function chime(force) {
+      if (!force && !soundOn()) return;
+      var t0 = Date.now(); if (!force && t0 - lastChime < 1500) return; lastChime = t0;
+      var c = audioCtx(); if (!c || c.state !== "running") return;
+      var now = c.currentTime + 0.02;
+      var master = c.createGain(); master.gain.value = 0.22;
+      var lp = c.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 5200;
+      master.connect(lp); lp.connect(c.destination);
+      // 솔 → 시 → 미(높은) : 짧고 단정한 상행 차임
+      [[783.99, 0, 0.9], [987.77, 0.12, 0.9], [1318.51, 0.24, 1.4]].forEach(function (n) {
+        [[1, 1], [2.01, 0.18], [3.98, 0.05]].forEach(function (pt) {
+          var o = c.createOscillator(), g = c.createGain();
+          o.type = "sine"; o.frequency.value = n[0] * pt[0];
+          var st = now + n[1], amp = pt[1] * (pt[0] === 1 ? 1 : 0.9);
+          g.gain.setValueAtTime(0.0001, st);
+          g.gain.exponentialRampToValueAtTime(amp, st + 0.008);
+          g.gain.exponentialRampToValueAtTime(0.0001, st + n[2] / pt[0]);
+          o.connect(g); g.connect(master);
+          o.start(st); o.stop(st + n[2] + 0.05);
+        });
+      });
+    }
+    // 서비스 워커 메시지 (알림 클릭 → 해당 화면으로)
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.addEventListener("message", function (e) {
+        var d = e.data || {};
+        if (d.type === "open" && typeof d.url === "string") {
+          var i = d.url.indexOf("#"); if (i !== -1) location.hash = d.url.slice(i);
+        }
+      });
+    }
+    // 웹 푸시 구독
+    var pushKey = null;
+    function pushSupported() { return "serviceWorker" in navigator && "PushManager" in window && "Notification" in window; }
+    function isIOS() { return /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1); }
+    function chatPref() { try { return localStorage.getItem("gcb_push_chat") !== "0"; } catch (e) { return true; } }
+    function b64uToBytes(s) {
+      var b = atob(s.replace(/-/g, "+").replace(/_/g, "/") + "===".slice((s.length + 3) % 4));
+      var a = new Uint8Array(b.length); for (var i = 0; i < b.length; i++) a[i] = b.charCodeAt(i); return a;
+    }
+    function getReg() {
+      return navigator.serviceWorker.getRegistration("./").then(function (r) { return r || navigator.serviceWorker.register("./sw.js", { scope: "./" }); })
+        .then(function () { return navigator.serviceWorker.ready; });
+    }
+    function currentSub() {
+      if (!pushSupported()) return Promise.resolve(null);
+      return getReg().then(function (reg) { return reg.pushManager.getSubscription(); }).catch(function () { return null; });
+    }
+    function sendSub(sub) {
+      var j = sub.toJSON();
+      return api("/api/push/subscribe", { method: "POST", body: { endpoint: j.endpoint, keys: j.keys, chat: chatPref() } });
+    }
+    function syncPush() {
+      if (!pushSupported() || Notification.permission !== "granted") return;
+      currentSub().then(function (sub) { if (sub) sendSub(sub).catch(function () {}); });
+    }
+    function enablePush() {
+      if (!pushSupported()) return Promise.reject({ code: "unsupported" });
+      return Notification.requestPermission().then(function (perm) {
+        if (perm !== "granted") throw { code: "denied" };
+        return pushKey ? pushKey : api("/api/push/key").then(function (d) { pushKey = d.key; return d.key; });
+      }).then(function (key) {
+        if (!key) throw { code: "server_error" };
+        return getReg().then(function (reg) {
+          return reg.pushManager.getSubscription().then(function (sub) {
+            return sub || reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64uToBytes(key) });
+          });
+        });
+      }).then(sendSub);
+    }
+    function disablePush() {
+      return currentSub().then(function (sub) {
+        if (!sub) return;
+        var ep = sub.endpoint;
+        return api("/api/push/unsubscribe", { method: "POST", body: { endpoint: ep } }).catch(function () {}).then(function () { return sub.unsubscribe(); });
+      });
+    }
+    function pushUnsubscribeOnLogout(t) {
+      currentSub().then(function (sub) {
+        if (!sub) return;
+        fetch(API + "/api/push/unsubscribe", { method: "POST", keepalive: true, headers: { "Authorization": "Bearer " + t, "Content-Type": "application/json" }, body: JSON.stringify({ endpoint: sub.endpoint }) }).catch(function () {});
+      });
+    }
+    function ntNote(text) { $("nt-note").textContent = text || ""; }
+    function paintNotify() {
+      $("nt-sound").checked = soundOn();
+      $("nt-chat").checked = chatPref();
+      var push = $("nt-push");
+      if (!pushSupported()) {
+        push.checked = false; push.disabled = true; $("nt-chat").disabled = true;
+        ntNote(isIOS() ? "아이폰·아이패드는 Safari에서 공유 버튼 → '홈 화면에 추가'로 설치한 앱에서만 알림을 받을 수 있습니다(iOS 16.4 이상). 설치한 앱에서 이 설정을 다시 열어 주세요." : "이 브라우저는 알림을 지원하지 않습니다. Chrome, Edge, Firefox, Safari 최신 버전을 사용해 주세요.");
+        return;
+      }
+      if (Notification.permission === "denied") {
+        push.checked = false; push.disabled = true;
+        ntNote("브라우저에서 이 사이트의 알림이 차단되어 있습니다. 주소창 왼쪽의 사이트 설정에서 알림을 '허용'으로 바꾼 뒤 다시 켜 주세요.");
+        return;
+      }
+      push.disabled = false; ntNote("");
+      currentSub().then(function (sub) {
+        push.checked = !!sub && Notification.permission === "granted";
+        $("nt-chat").disabled = !push.checked;
+        $("btn-notify").classList.toggle("on", push.checked);
+      });
+    }
+    $("btn-notify").addEventListener("click", function () { $("notify-dialog").hidden = false; paintNotify(); });
+    function closeNotify() { $("notify-dialog").hidden = true; }
+    $("nt-close").addEventListener("click", closeNotify);
+    $("notify-dialog").addEventListener("click", function (e) { if (e.target === this) closeNotify(); });
+    $("nt-sound").addEventListener("change", function () {
+      try { localStorage.setItem("gcb_sound", this.checked ? "1" : "0"); } catch (e) {}
+      if (this.checked) { unlockAudio(); setTimeout(function () { chime(true); }, 60); }
+    });
+    $("nt-preview").addEventListener("click", function () { unlockAudio(); setTimeout(function () { chime(true); }, 60); });
+    $("nt-push").addEventListener("change", function () {
+      var on = this.checked, el = this;
+      el.disabled = true; ntNote(on ? "알림을 켜는 중입니다…" : "");
+      (on ? enablePush() : disablePush()).then(function () {
+        ntNote(on ? "알림을 켰습니다. 앱을 닫아 두어도 새 메시지를 알려 드립니다." : "이 기기의 알림을 껐습니다.");
+      }).catch(function (e) {
+        el.checked = false;
+        ntNote(e && e.code === "denied" ? "알림 권한을 허용해야 받을 수 있습니다. 브라우저의 사이트 설정에서 알림을 허용해 주세요." : e && e.code === "unsupported" ? "이 브라우저는 알림을 지원하지 않습니다." : e && e.name && !e.code ? "이 브라우저에서 알림을 등록하지 못했습니다. 시크릿 창이 아닌 일반 창(또는 설치한 앱)에서 다시 시도해 주세요." : errText(e));
+      }).then(function () {
+        el.disabled = false; $("nt-chat").disabled = !el.checked; $("btn-notify").classList.toggle("on", el.checked);
+        if (Notification.permission === "denied") paintNotify();
+      });
+    });
+    $("nt-chat").addEventListener("change", function () {
+      try { localStorage.setItem("gcb_push_chat", this.checked ? "1" : "0"); } catch (e) {}
+      currentSub().then(function (sub) { if (sub) sendSub(sub).catch(function (e) { ntNote(errText(e)); }); });
+    });
+    if (pushSupported() && Notification.permission === "granted") currentSub().then(function (sub) { $("btn-notify").classList.toggle("on", !!sub); });
 
     /* ---------- 프로필 (#/u/아이디) ---------- */
     document.addEventListener("click", function (e) {

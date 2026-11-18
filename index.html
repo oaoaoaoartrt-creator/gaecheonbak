@@ -600,6 +600,24 @@
       .recruit { padding: 36px 0 64px; }
       .action { padding: 22px 20px; }
     }
+
+    /* ---------- 상단 메뉴 (모든 페이지 공통: 간격 고정, 선택 표시는 밑줄·색만) ---------- */
+    .nav-inner { gap: 24px; }
+    .logo { font-size: 17px; white-space: nowrap; }
+    .nav-links { gap: 12px; }
+    .nav-links a { padding: 6px 10px; font-size: 13px; font-weight: 400; letter-spacing: 0.02em; white-space: nowrap; border: 0; box-shadow: none; }
+    .nav-links a[aria-current="page"] { color: var(--ink); border: 0; box-shadow: inset 0 -1px 0 var(--ink); }
+    @media (max-width: 560px) {
+      .nav-inner { gap: 12px; }
+      .nav-links { gap: 12px; }
+      .nav-links a { padding: 6px 6px; font-size: 12px; }
+    }
+    @media (max-width: 400px) {
+      .nav-inner { gap: 12px; }
+      .logo { font-size: 17px; }
+      .nav-links { gap: 12px; }
+      .nav-links a { padding: 6px 6px; font-size: 12px; }
+    }
   </style>
 </head>
 <body>

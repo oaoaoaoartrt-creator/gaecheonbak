@@ -471,6 +471,7 @@ export default {
           if (!(await hit(env, "post:" + user.id, 30, 60000))) return fail("rate_limited", 429, cors);
           const msg = await insertMessage(env, user, "emoticon", emo.name, emo.image_id, rt);
           broadcast(env, ctx, { type: "message", message: msg });
+          ctx.waitUntil(notifyChat(env, ctx, user, msg));
           return json({ message: msg }, 201, cors);
         }
         const text = normText(body.text);
@@ -480,6 +481,7 @@ export default {
         if (!(await hit(env, "post:" + user.id, 30, 60000))) return fail("rate_limited", 429, cors);
         const msg = await insertMessage(env, user, "text", text, null, rt);
         broadcast(env, ctx, { type: "message", message: msg });
+        ctx.waitUntil(notifyChat(env, ctx, user, msg));
         return json({ message: msg }, 201, cors);
       }
 
@@ -495,6 +497,7 @@ export default {
         if (!id) return fail("storage_full", 507, cors);
         const msg = await insertMessage(env, user, "image", "", id, rt);
         broadcast(env, ctx, { type: "message", message: msg });
+        ctx.waitUntil(notifyChat(env, ctx, user, msg));
         return json({ message: msg }, 201, cors);
       }
 
@@ -555,7 +558,7 @@ export default {
       if (pr) return pr;
 
       if (path.startsWith("/api/board/")) {
-        const r = await board(req, env, url, path, user, cors);
+        const r = await board(req, env, url, path, user, cors, ctx);
         if (r) return r;
       }
 
@@ -750,7 +753,7 @@ async function cons(req, env, url, path, user, cors) {
   return null;
 }
 
-async function board(req, env, url, path, user, cors) {
+async function board(req, env, url, path, user, cors, ctx) {
   const M = req.method;
   if (path.startsWith("/api/board/con")) {
     const r = await cons(req, env, url, path, user, cors);
@@ -902,6 +905,7 @@ async function board(req, env, url, path, user, cors) {
         env.DB.prepare("INSERT INTO comments (post_id, user_id, parent_id, body, created_at) VALUES (?, ?, ?, ?, ?)").bind(id, user.id, parent, text, now()),
         env.DB.prepare("UPDATE posts SET comment_count = comment_count + 1 WHERE id = ?").bind(id),
       ]);
+      if (ctx) ctx.waitUntil(notifyComment(env, ctx, user, id, body.parentId ? Number(body.parentId) : null, text));
       return json({ post: await postDetail(env, id, user) }, 201, cors);
     }
     return fail("not_found", 404, cors);
@@ -957,9 +961,11 @@ export class ChatRoom extends DurableObject {
     }
     if (url.pathname === "/broadcast" && req.method === "POST") {
       const payload = await req.text();
+      let to = null;
+      try { const o = JSON.parse(payload); if (Array.isArray(o.to)) to = o.to; } catch {}
       for (const ws of this.ctx.getWebSockets()) {
         const a = ws.deserializeAttachment() || {};
-        if (a.uid) { try { ws.send(payload); } catch {} }
+        if (a.uid && (!to || to.includes(a.uid))) { try { ws.send(payload); } catch {} }
       }
       return new Response("ok");
     }
@@ -1055,6 +1061,26 @@ const profileOf = (u, posts) => ({
 
 async function profiles(req, env, ctx, url, path, user, cors) {
   const M = req.method;
+  if (path === "/api/push/key" && M === "GET") return json({ key: env.VAPID_PUBLIC || null }, 200, cors);
+  if (path === "/api/push/subscribe" && M === "POST") {
+    const body = await readJson(req, 4096);
+    const ep = body && body.endpoint, k = body && body.keys;
+    if (!pushHostOk(env, ep) || !k || typeof k.p256dh !== "string" || typeof k.auth !== "string" || !/^[A-Za-z0-9_-]{80,100}={0,2}$/.test(k.p256dh) || !/^[A-Za-z0-9_-]{16,32}={0,2}$/.test(k.auth)) return fail("bad_subscription", 400, cors);
+    if (!(await hit(env, "pushsub:" + user.id, 30, 3600000))) return fail("rate_limited", 429, cors);
+    const n = await env.DB.prepare("SELECT COUNT(*) AS c FROM push_subs WHERE user_id = ?").bind(user.id).first();
+    if (n.c >= 10) await env.DB.prepare("DELETE FROM push_subs WHERE id = (SELECT id FROM push_subs WHERE user_id = ? ORDER BY id LIMIT 1)").bind(user.id).run();
+    await env.DB.prepare(
+      `INSERT INTO push_subs (user_id, endpoint, p256dh, auth, chat, created_at) VALUES (?, ?, ?, ?, ?, ?)
+       ON CONFLICT(endpoint) DO UPDATE SET user_id = excluded.user_id, p256dh = excluded.p256dh, auth = excluded.auth, chat = excluded.chat`
+    ).bind(user.id, ep, k.p256dh.replace(/=+$/, ""), k.auth.replace(/=+$/, ""), body.chat === false ? 0 : 1, now()).run();
+    return json({ ok: true }, 200, cors);
+  }
+  if (path === "/api/push/unsubscribe" && M === "POST") {
+    const body = await readJson(req, 4096);
+    if (!body || typeof body.endpoint !== "string") return fail("bad_request", 400, cors);
+    await env.DB.prepare("DELETE FROM push_subs WHERE endpoint = ? AND user_id = ?").bind(body.endpoint, user.id).run();
+    return json({ ok: true }, 200, cors);
+  }
   // 프로필 보기
   let m = /^\/api\/users\/(\d{1,12})$/.exec(path);
   if (m && M === "GET") {
@@ -1181,4 +1207,102 @@ async function profiles(req, env, ctx, url, path, user, cors) {
     return json({ ok: true }, 200, cors);
   }
   return null;
+}
+
+
+/* ---------- 웹 푸시 (VAPID + aes128gcm, RFC 8291/8292) ---------- */
+const PUSH_HOSTS = [/^fcm\.googleapis\.com$/, /^updates\.push\.services\.mozilla\.com$/, /^([a-z0-9-]+\.)*push\.apple\.com$/, /^([a-z0-9-]+\.)*notify\.windows\.com$/, /^([a-z0-9-]+\.)*push\.services\.mozilla\.com$/];
+function pushHostOk(env, ep) {
+  if (typeof ep !== "string" || ep.length > 1024) return false;
+  let u; try { u = new URL(ep); } catch { return false; }
+  const extra = (env.PUSH_TEST_HOSTS || "").split(",").filter(Boolean);
+  if (extra.includes(u.host)) return true;
+  return u.protocol === "https:" && !u.port && PUSH_HOSTS.some((r) => r.test(u.hostname));
+}
+const b64u = (buf) => b64(buf).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+const fromB64u = (s) => fromB64(s.replace(/-/g, "+").replace(/_/g, "/") + "===".slice((s.length + 3) % 4));
+function concat(...parts) {
+  const out = new Uint8Array(parts.reduce((n, p) => n + p.length, 0));
+  let o = 0; for (const p of parts) { out.set(p, o); o += p.length; }
+  return out;
+}
+async function hkdf(salt, ikm, info, len) {
+  const k = await crypto.subtle.importKey("raw", ikm, "HKDF", false, ["deriveBits"]);
+  return new Uint8Array(await crypto.subtle.deriveBits({ name: "HKDF", hash: "SHA-256", salt, info }, k, len * 8));
+}
+let vapidKeyCache = null;
+async function vapidJwt(env, endpoint) {
+  if (!vapidKeyCache) {
+    const jwk = JSON.parse(env.VAPID_PRIVATE_JWK);
+    vapidKeyCache = await crypto.subtle.importKey("jwk", { ...jwk, ext: true }, { name: "ECDSA", namedCurve: "P-256" }, false, ["sign"]);
+  }
+  const aud = new URL(endpoint).origin;
+  const h = b64u(enc.encode(JSON.stringify({ typ: "JWT", alg: "ES256" })));
+  const p = b64u(enc.encode(JSON.stringify({ aud, exp: Math.floor(now() / 1000) + 12 * 3600, sub: env.VAPID_SUBJECT || "https://example.com/" })));
+  const sig = await crypto.subtle.sign({ name: "ECDSA", hash: "SHA-256" }, vapidKeyCache, enc.encode(h + "." + p));
+  return h + "." + p + "." + b64u(sig);
+}
+async function encryptPush(sub, payload) {
+  const ua = fromB64u(sub.p256dh), auth = fromB64u(sub.auth);
+  const uaKey = await crypto.subtle.importKey("raw", ua, { name: "ECDH", namedCurve: "P-256" }, false, []);
+  const eph = await crypto.subtle.generateKey({ name: "ECDH", namedCurve: "P-256" }, true, ["deriveBits"]);
+  const asPub = new Uint8Array(await crypto.subtle.exportKey("raw", eph.publicKey));
+  const secret = new Uint8Array(await crypto.subtle.deriveBits({ name: "ECDH", public: uaKey }, eph.privateKey, 256));
+  const ikm = await hkdf(auth, secret, concat(enc.encode("WebPush: info\0"), ua, asPub), 32);
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const cek = await hkdf(salt, ikm, enc.encode("Content-Encoding: aes128gcm\0"), 16);
+  const nonce = await hkdf(salt, ikm, enc.encode("Content-Encoding: nonce\0"), 12);
+  const key = await crypto.subtle.importKey("raw", cek, "AES-GCM", false, ["encrypt"]);
+  const ct = new Uint8Array(await crypto.subtle.encrypt({ name: "AES-GCM", iv: nonce }, key, concat(enc.encode(payload), new Uint8Array([2]))));
+  const head = new Uint8Array(21); head.set(salt, 0); new DataView(head.buffer).setUint32(16, 4096); head[20] = 65;
+  return concat(head, asPub, ct);
+}
+async function sendPush(env, sub, data) {
+  if (!env.VAPID_PRIVATE_JWK || !env.VAPID_PUBLIC) return;
+  try {
+    const body = await encryptPush(sub, JSON.stringify(data));
+    const res = await fetch(sub.endpoint, {
+      method: "POST",
+      headers: { "Content-Encoding": "aes128gcm", "Content-Type": "application/octet-stream", "TTL": "86400", "Urgency": "high",
+        "Authorization": "vapid t=" + (await vapidJwt(env, sub.endpoint)) + ", k=" + env.VAPID_PUBLIC },
+      body,
+    });
+    if (res.status === 404 || res.status === 410) await env.DB.prepare("DELETE FROM push_subs WHERE id = ?").bind(sub.id).run();
+  } catch (e) { console.error("push", e && e.message); }
+}
+async function pushTo(env, rows, data) {
+  await Promise.all(rows.slice(0, 40).map((r) => sendPush(env, r, data)));
+}
+const snip = (t, n = 80) => { const a = [...String(t || "").replace(/\s+/g, " ").trim()]; return a.length > n ? a.slice(0, n).join("") + "…" : a.join(""); };
+const conText = (t) => String(t || "").replace(/\[\[con:\d+\]\]/g, "(콘)");
+// 채팅: 답장 받은 사람에게는 '답장' 알림, 나머지는 '모든 채팅 알림'을 켠 기기에만
+async function notifyChat(env, ctx, user, msg) {
+  const body = msg.kind === "image" ? "사진을 보냈습니다." : msg.kind === "emoticon" ? "이모티콘을 보냈습니다." : snip(msg.text);
+  const replyUid = msg.reply && !msg.reply.missing && msg.reply.userId !== user.id ? msg.reply.userId : 0;
+  if (replyUid) {
+    const rs = (await env.DB.prepare("SELECT * FROM push_subs WHERE user_id = ?").bind(replyUid).all()).results;
+    await pushTo(env, rs, { title: user.nickname + "님이 답장했습니다", body, url: "messenger.html#/chat", tag: "chat", kind: "reply" });
+  }
+  const rows = (await env.DB.prepare("SELECT * FROM push_subs WHERE chat = 1 AND user_id != ? AND user_id != ?").bind(user.id, replyUid).all()).results;
+  await pushTo(env, rows, { title: user.nickname, body, url: "messenger.html#/chat", tag: "chat", kind: "chat" });
+}
+// 게시판: 내 글에 댓글, 내 댓글에 답글
+async function notifyComment(env, ctx, user, postId, parentId, text) {
+  const post = await env.DB.prepare("SELECT user_id, title FROM posts WHERE id = ?").bind(postId).first();
+  if (!post) return;
+  const targets = new Map();
+  if (parentId) {
+    const pc = await env.DB.prepare("SELECT user_id FROM comments WHERE id = ?").bind(parentId).first();
+    if (pc && pc.user_id !== user.id) targets.set(pc.user_id, user.nickname + "님이 내 댓글에 답글을 남겼습니다");
+  }
+  if (post.user_id !== user.id && !targets.has(post.user_id)) targets.set(post.user_id, user.nickname + "님이 내 글에 댓글을 남겼습니다");
+  if (!targets.size) return;
+  const url = "messenger.html#/board/" + postId;
+  const body = "「" + snip(post.title, 30) + "」 " + snip(conText(text), 60);
+  const stub = env.ROOM.get(env.ROOM.idFromName("main"));
+  for (const [uid, title] of targets) {
+    ctx.waitUntil(stub.fetch("https://room/broadcast", { method: "POST", body: JSON.stringify({ type: "notify", to: [uid], kind: "board", title, body, url }) }).catch(() => {}));
+    const rs = (await env.DB.prepare("SELECT * FROM push_subs WHERE user_id = ?").bind(uid).all()).results;
+    await pushTo(env, rs, { title, body, url, tag: "board-" + postId, kind: "board" });
+  }
 }

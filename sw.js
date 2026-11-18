@@ -3,7 +3,7 @@
  * - HTML은 네트워크 우선: 새 버전이 바로 반영되고, 오프라인일 때만 캐시 사용
  * - 채팅 서버(workers.dev) API와 WebSocket은 절대 캐시하지 않음
  */
-var VERSION = "v9-20261118-profiles";
+var VERSION = "v10-20261118-notify";
 var SHELL_CACHE = "gcb-shell-" + VERSION;
 var FONT_CACHE = "gcb-fonts-" + VERSION;
 
@@ -18,6 +18,7 @@ var SHELL = [
   "./icons/apple-touch-icon.png",
   "./icons/favicon.ico",
   "./icons/favicon-48.png",
+  "./icons/badge-96.png",
   "./images/seolpyo.jpg",
   "./images/taste.jpg",
   "./images/staff1.jpg"
@@ -114,3 +115,45 @@ function cacheFirst(req, name) {
     });
   });
 }
+
+/* ---------- 알림 (웹 푸시) ---------- */
+self.addEventListener("push", function (event) {
+  var data = {};
+  try { data = event.data ? event.data.json() : {}; } catch (e) { data = { title: "개천박컴퍼니", body: event.data ? event.data.text() : "" }; }
+  var title = String(data.title || "개천박컴퍼니 사내 메신저").slice(0, 80);
+  var url = typeof data.url === "string" && /^messenger\.html(#[\w\/?=&%-]*)?$/.test(data.url) ? data.url : "messenger.html";
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then(function (list) {
+      // 앱을 보고 있는 중이면 화면 안에서 알림(소리·배지)만 처리
+      var focused = list.filter(function (c) { return c.visibilityState === "visible" && c.focused; });
+      list.forEach(function (c) { c.postMessage({ type: "push", data: data }); });
+      if (focused.length) return;
+      if (self.navigator && self.navigator.setAppBadge) { try { self.navigator.setAppBadge(); } catch (e) {} }
+      return self.registration.showNotification(title, {
+        body: String(data.body || "").slice(0, 200),
+        icon: "./icons/icon-192.png",
+        badge: "./icons/badge-96.png",
+        tag: data.tag || "gcb",
+        renotify: true,
+        data: { url: url }
+      });
+    })
+  );
+});
+
+self.addEventListener("notificationclick", function (event) {
+  event.notification.close();
+  var target = new URL((event.notification.data && event.notification.data.url) || "messenger.html", self.registration.scope).href;
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then(function (list) {
+      for (var i = 0; i < list.length; i++) {
+        var c = list[i];
+        if (c.url.indexOf(self.registration.scope) === 0 && "focus" in c) {
+          c.postMessage({ type: "open", url: target });
+          return c.focus();
+        }
+      }
+      return self.clients.openWindow(target);
+    })
+  );
+});
