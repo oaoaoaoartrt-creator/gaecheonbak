@@ -304,6 +304,31 @@ const publicMsg = (m) => ({
 const MSG_SELECT = `SELECT m.id, m.channel, m.user_id, COALESCE(NULLIF(u.nickname, ''), m.nickname) AS nickname, m.kind, m.text, m.image_id, m.created_at, m.reply_to, i.w, i.h, u.avatar_id, u.frame, u.role,
     r.id AS r_id, r.user_id AS r_uid, COALESCE(NULLIF(ru.nickname, ''), r.nickname) AS r_nick, r.kind AS r_kind, substr(r.text, 1, 80) AS r_text
   FROM messages m LEFT JOIN users u ON u.id = m.user_id LEFT JOIN images i ON i.id = m.image_id LEFT JOIN messages r ON r.id = m.reply_to LEFT JOIN users ru ON ru.id = r.user_id`;
+/* 멘션: 본문에 <@사용자ID> 토큰으로 저장 (닉네임이 바뀌어도 유지). @everyone 은 채널 전체 */
+const MENTION_RE = /<@(\d{1,12})>/g;
+const EVERYONE_RE = /(^|[^0-9A-Za-z_@])@everyone(?![0-9A-Za-z_])/i;
+async function parseMentions(env, text, ch) {
+  const ids = [...new Set([...text.matchAll(MENTION_RE)].map((m) => Number(m[1])))].slice(0, 20);
+  const found = new Map();
+  if (ids.length) {
+    const rows = (await env.DB.prepare(`SELECT id, nickname, member FROM users WHERE id IN (${ids.map(() => "?").join(",")})`).bind(...ids).all()).results;
+    for (const r of rows) found.set(r.id, r);
+  }
+  const ok = new Set();
+  const out = text.replace(MENTION_RE, (m, id) => {
+    const u = found.get(Number(id));
+    if (u && u.nickname && canSee(u, ch)) { ok.add(u.id); return m; }
+    return "@" + (u && u.nickname ? u.nickname : "알 수 없음");
+  });
+  return { text: out, ids: [...ok], all: EVERYONE_RE.test(out) };
+}
+async function plainMentions(env, text) {
+  const ids = [...new Set([...String(text || "").matchAll(MENTION_RE)].map((m) => Number(m[1])))].slice(0, 20);
+  if (!ids.length) return String(text || "");
+  const rows = (await env.DB.prepare(`SELECT id, nickname FROM users WHERE id IN (${ids.map(() => "?").join(",")})`).bind(...ids).all()).results;
+  const map = new Map(rows.map((r) => [r.id, r.nickname]));
+  return String(text).replace(MENTION_RE, (m, id) => "@" + (map.get(Number(id)) || "알 수 없음"));
+}
 // 답장 대상 확인: undefined/null → 0(답장 아님), 잘못된 값 → -1, 없는 메시지 → -2
 async function replyTarget(env, v, ch) {
   if (v === undefined || v === null || v === "") return 0;
@@ -447,6 +472,16 @@ export default {
         return json({ user: { ...publicUser(user), nickname: nick } }, 200, cors);
       }
 
+      if (path === "/api/channel-members" && req.method === "GET") {
+        const ch = chanOf(url.searchParams.get("channel"));
+        if (!ch) return fail("bad_request", 400, cors);
+        if (!canSee(user, ch)) return fail("members_only", 403, cors);
+        const rows = (await env.DB.prepare("SELECT id, nickname, avatar_id, frame, role FROM users WHERE nickname != ''" + (ch === "company" ? " AND member = 1" : "")).all()).results;
+        let online = [];
+        try { const r = await env.ROOM.get(env.ROOM.idFromName("main")).fetch("https://room/presence"); online = (await r.json()).online || []; } catch {}
+        const on = new Set(online);
+        return json({ members: rows.map((u) => ({ id: u.id, nickname: u.nickname, avatarId: u.avatar_id || null, frame: cleanFrame(u.frame), role: cleanRole(u.role), online: on.has(u.id) })) }, 200, cors);
+      }
       if (path === "/api/unfurl" && req.method === "GET") return unfurl(env, url.searchParams.get("url"), user, ip, cors);
 
       // 사내 메신저 참여코드 (코드는 서버 비밀값의 SHA-256 해시로만 비교)
@@ -499,14 +534,16 @@ export default {
           ctx.waitUntil(notifyChat(env, ctx, user, msg));
           return json({ message: msg }, 201, cors);
         }
-        const text = normText(body.text);
-        if (!text) return fail("invalid_message", 400, cors);
+        const text0 = normText(body.text);
+        if (!text0) return fail("invalid_message", 400, cors);
         const rt = await replyTarget(env, body.replyTo, ch);
         if (rt < 0) return replyFail(rt, cors);
+        const mt = await parseMentions(env, text0, ch);
+        if (mt.all && !isMod(user) && !(await hit(env, "everyone:" + user.id, 3, 600000))) return fail("everyone_limited", 429, cors);
         if (!(await hit(env, "post:" + user.id, 30, 60000))) return fail("rate_limited", 429, cors);
-        const msg = await insertMessage(env, user, "text", text, null, rt, ch);
+        const msg = await insertMessage(env, user, "text", mt.text, null, rt, ch);
         broadcast(env, ctx, { type: "message", message: msg, membersOnly: msg.channel === "company" });
-        ctx.waitUntil(notifyChat(env, ctx, user, msg));
+        ctx.waitUntil(notifyChat(env, ctx, user, msg, mt));
         return json({ message: msg }, 201, cors);
       }
 
@@ -988,6 +1025,7 @@ export class ChatRoom extends DurableObject {
       server.serializeAttachment({ uid: 0, at: Date.now() });
       return new Response(null, { status: 101, webSocket: client });
     }
+    if (url.pathname === "/presence") return new Response(JSON.stringify({ online: [...this.onlineIds(null)] }), { headers: { "Content-Type": "application/json" } });
     if (url.pathname === "/broadcast" && req.method === "POST") {
       const payload = await req.text();
       let to = null, membersOnly = false;
@@ -1014,15 +1052,31 @@ export class ChatRoom extends DurableObject {
     if (msg && msg.type === "auth") {
       const user = await userFromToken(this.env, msg.token);
       if (!user) { try { ws.send('{"type":"unauthorized"}'); } catch {} ws.close(4001, "unauthorized"); return; }
+      const wasOnline = this.onlineIds(null).has(user.id);
       ws.serializeAttachment({ uid: user.id, member: !!user.member, at: a.at || Date.now() });
       ws.send('{"type":"ready"}');
+      if (!wasOnline) this.sendPresence(null);
       return;
     }
     if (!a.uid) ws.close(4001, "unauthorized");
   }
 
-  async webSocketClose(ws, code) { try { ws.close(1000, "bye"); } catch {} }
-  async webSocketError(ws) { try { ws.close(1011, "error"); } catch {} }
+  async webSocketClose(ws, code) { try { ws.close(1000, "bye"); } catch {} this.leave(ws); }
+  async webSocketError(ws) { try { ws.close(1011, "error"); } catch {} this.leave(ws); }
+  // 접속 상태: 연결된 사용자 목록이 바뀌면 모두에게 알림
+  onlineIds(except) {
+    const s = new Set();
+    for (const w of this.ctx.getWebSockets()) { if (w === except) continue; const a = w.deserializeAttachment() || {}; if (a.uid) s.add(a.uid); }
+    return s;
+  }
+  sendPresence(except) {
+    const p = JSON.stringify({ type: "presence", online: [...this.onlineIds(except)] });
+    for (const w of this.ctx.getWebSockets()) { if (w === except) continue; const a = w.deserializeAttachment() || {}; if (a.uid) { try { w.send(p); } catch {} } }
+  }
+  leave(ws) {
+    const a = (() => { try { return ws.deserializeAttachment() || {}; } catch { return {}; } })();
+    if (a.uid && !this.onlineIds(ws).has(a.uid)) this.sendPresence(ws);
+  }
 }
 
 
@@ -1310,19 +1364,31 @@ async function pushTo(env, rows, data) {
 const snip = (t, n = 80) => { const a = [...String(t || "").replace(/\s+/g, " ").trim()]; return a.length > n ? a.slice(0, n).join("") + "…" : a.join(""); };
 const conText = (t) => String(t || "").replace(/\[\[con:\d+\]\]/g, "(콘)");
 // 채팅: 답장 받은 사람에게는 '답장' 알림, 나머지는 '모든 채팅 알림'을 켠 기기에만
-async function notifyChat(env, ctx, user, msg) {
+async function notifyChat(env, ctx, user, msg, mt) {
   const company = msg.channel !== "free";
   const label = company ? "사내 메신저" : "자유 메신저";
   const url = company ? "messenger.html#/chat" : "messenger.html#/free";
   const tag = company ? "chat" : "free";
   const memberSql = company ? " AND user_id IN (SELECT id FROM users WHERE member = 1)" : "";
-  const body = msg.kind === "image" ? "사진을 보냈습니다." : msg.kind === "emoticon" ? "이모티콘을 보냈습니다." : snip(msg.text);
+  const body = msg.kind === "image" ? "사진을 보냈습니다." : msg.kind === "emoticon" ? "이모티콘을 보냈습니다." : snip(await plainMentions(env, msg.text));
+  // @everyone: 채널을 볼 수 있는 모든 사람에게 ("모든 채팅 알림"을 꺼 둔 사람 포함)
+  if (mt && mt.all) {
+    const rs = (await env.DB.prepare("SELECT * FROM push_subs WHERE user_id != ?" + memberSql).bind(user.id).all()).results;
+    await pushTo(env, rs, { title: user.nickname + "님이 모두를 불렀습니다 · " + label, body, url, tag: tag + "-mention", kind: "mention", channel: msg.channel });
+    return;
+  }
+  const mentioned = mt ? mt.ids.filter((id) => id !== user.id) : [];
+  if (mentioned.length) {
+    const rs = (await env.DB.prepare(`SELECT * FROM push_subs WHERE user_id IN (${mentioned.map(() => "?").join(",")})` + memberSql).bind(...mentioned).all()).results;
+    await pushTo(env, rs, { title: user.nickname + "님이 회원님을 언급했습니다 · " + label, body, url, tag: tag + "-mention", kind: "mention", channel: msg.channel });
+  }
   const replyUid = msg.reply && !msg.reply.missing && msg.reply.userId !== user.id ? msg.reply.userId : 0;
-  if (replyUid) {
+  if (replyUid && !mentioned.includes(replyUid)) {
     const rs = (await env.DB.prepare("SELECT * FROM push_subs WHERE user_id = ?" + memberSql).bind(replyUid).all()).results;
     await pushTo(env, rs, { title: user.nickname + "님이 답장했습니다 · " + label, body, url, tag, kind: "reply", channel: msg.channel });
   }
-  const rows = (await env.DB.prepare("SELECT * FROM push_subs WHERE chat = 1 AND user_id != ? AND user_id != ?" + memberSql).bind(user.id, replyUid).all()).results;
+  const skip = [user.id, replyUid, ...mentioned];
+  const rows = (await env.DB.prepare(`SELECT * FROM push_subs WHERE chat = 1 AND user_id NOT IN (${skip.map(() => "?").join(",")})` + memberSql).bind(...skip).all()).results;
   await pushTo(env, rows, { title: user.nickname + " · " + label, body, url, tag, kind: "chat", channel: msg.channel });
 }
 // 게시판: 내 글에 댓글, 내 댓글에 답글
