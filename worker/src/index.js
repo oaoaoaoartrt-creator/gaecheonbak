@@ -273,7 +273,7 @@ async function createSession(env, userId) {
 export async function userFromToken(env, token) {
   if (!token || typeof token !== "string" || !/^[0-9a-f]{64}$/.test(token)) return null;
   const row = await env.DB.prepare(
-    `SELECT u.id, u.login, u.nickname, u.avatar_id, u.frame, u.role, u.status, u.banner_id FROM sessions s JOIN users u ON u.id = s.user_id
+    `SELECT u.id, u.login, u.nickname, u.avatar_id, u.frame, u.role, u.status, u.banner_id, u.member FROM sessions s JOIN users u ON u.id = s.user_id
      WHERE s.token_hash = ? AND s.expires_at > ?`
   ).bind(await sha256Hex(token), now()).first();
   return row || null;
@@ -285,34 +285,37 @@ function bearer(req) {
 }
 const cleanFrame = (f) => (FRAMES.includes(f) ? f : "basic");
 const cleanRole = (r) => (MOD_ROLES.includes(r) ? r : "");
-const publicUser = (u) => ({ id: u.id, login: u.login, nickname: u.nickname || "", avatarId: u.avatar_id || null, frame: cleanFrame(u.frame), role: cleanRole(u.role), status: u.status || "", bannerId: u.banner_id || null });
+const publicUser = (u) => ({ id: u.id, login: u.login, nickname: u.nickname || "", avatarId: u.avatar_id || null, frame: cleanFrame(u.frame), role: cleanRole(u.role), status: u.status || "", bannerId: u.banner_id || null, member: !!u.member });
 // 다른 사람에게 보이는 작성자 정보 (로그인 아이디 제외)
 const author = (r) => ({ id: r.uid, nickname: r.u_nick || "(탈퇴한 사용자)", avatarId: r.u_avatar || null, frame: cleanFrame(r.u_frame), role: cleanRole(r.u_role) });
 const isMod = (u) => MOD_ROLES.includes(u.role);
+const CHANNELS = ["company", "free"];
+const chanOf = (v) => (v === "free" ? "free" : v === "company" || v === undefined || v === null || v === "" ? "company" : null);
+const canSee = (u, ch) => ch === "free" || !!u.member;
 const publicMsg = (m) => ({
-  id: m.id, userId: m.user_id, nickname: m.nickname, kind: m.kind || "text", text: m.text,
+  id: m.id, channel: m.channel || "company", userId: m.user_id, nickname: m.nickname, kind: m.kind || "text", text: m.text,
   image: m.image_id ? { id: m.image_id, w: m.w || 0, h: m.h || 0 } : null,
   avatarId: m.avatar_id || null, frame: cleanFrame(m.frame), role: cleanRole(m.role), createdAt: m.created_at,
   reply: m.reply_to ? (m.r_id
     ? { id: m.r_id, userId: m.r_uid, nickname: m.r_nick, kind: m.r_kind || "text", text: m.r_kind === "image" ? "" : String(m.r_text || "") }
     : { id: m.reply_to, missing: true }) : null,
 });
-const MSG_SELECT = `SELECT m.id, m.user_id, m.nickname, m.kind, m.text, m.image_id, m.created_at, m.reply_to, i.w, i.h, u.avatar_id, u.frame, u.role,
+const MSG_SELECT = `SELECT m.id, m.channel, m.user_id, m.nickname, m.kind, m.text, m.image_id, m.created_at, m.reply_to, i.w, i.h, u.avatar_id, u.frame, u.role,
     r.id AS r_id, r.user_id AS r_uid, r.nickname AS r_nick, r.kind AS r_kind, substr(r.text, 1, 80) AS r_text
   FROM messages m LEFT JOIN users u ON u.id = m.user_id LEFT JOIN images i ON i.id = m.image_id LEFT JOIN messages r ON r.id = m.reply_to`;
 // 답장 대상 확인: undefined/null → 0(답장 아님), 잘못된 값 → -1, 없는 메시지 → -2
-async function replyTarget(env, v) {
+async function replyTarget(env, v, ch) {
   if (v === undefined || v === null || v === "") return 0;
   const n = Number(v);
   if (!Number.isInteger(n) || n <= 0) return -1;
-  const r = await env.DB.prepare("SELECT id FROM messages WHERE id = ?").bind(n).first();
+  const r = await env.DB.prepare("SELECT id FROM messages WHERE id = ? AND channel = ?").bind(n, ch).first();
   return r ? n : -2;
 }
 const replyFail = (rt, cors) => rt === -1 ? fail("bad_request", 400, cors) : fail("reply_not_found", 404, cors);
-async function insertMessage(env, user, kind, text, imageId, replyTo) {
+async function insertMessage(env, user, kind, text, imageId, replyTo, ch) {
   const r = await env.DB.prepare(
-    "INSERT INTO messages (user_id, nickname, text, created_at, kind, image_id, reply_to) VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING id"
-  ).bind(user.id, user.nickname, text, now(), kind, imageId, replyTo || null).first();
+    "INSERT INTO messages (user_id, nickname, text, created_at, kind, image_id, reply_to, channel) VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING id"
+  ).bind(user.id, user.nickname, text, now(), kind, imageId, replyTo || null, ch).first();
   return publicMsg(await env.DB.prepare(MSG_SELECT + " WHERE m.id = ?").bind(r.id).first());
 }
 function broadcast(env, ctx, payload) {
@@ -401,7 +404,7 @@ export default {
         if (!(await hit(env, "login-ip:" + ip, 30, 600000)) || !(await hit(env, "login-id:" + login, 10, 600000))) {
           return fail("rate_limited", 429, cors);
         }
-        const u = await env.DB.prepare("SELECT id, login, nickname, avatar_id, frame, role, status, banner_id, pw_hash, pw_salt, pw_iter FROM users WHERE login = ?").bind(login).first();
+        const u = await env.DB.prepare("SELECT id, login, nickname, avatar_id, frame, role, status, banner_id, member, pw_hash, pw_salt, pw_iter FROM users WHERE login = ?").bind(login).first();
         if (!u) {
           await pbkdf2(pw, crypto.getRandomValues(new Uint8Array(16)), PBKDF2_ITER); // 시간 차 줄이기
           return fail("invalid_credentials", 401, cors);
@@ -443,16 +446,32 @@ export default {
         return json({ user: { ...publicUser(user), nickname: nick } }, 200, cors);
       }
 
+      // 사내 메신저 참여코드 (코드는 서버 비밀값의 SHA-256 해시로만 비교)
+      if (path === "/api/join" && req.method === "POST") {
+        if (user.member) return json({ user: publicUser(user) }, 200, cors);
+        const body = await readJson(req);
+        const code = body && typeof body.code === "string" ? body.code.trim() : "";
+        if (!(await hit(env, "join:" + user.id, 5, 600000)) || !(await hit(env, "join-ip:" + ip, 20, 3600000))) return fail("rate_limited", 429, cors);
+        if (!env.JOIN_CODE_SHA256 || !code || code.length > 32) return fail("wrong_code", 403, cors);
+        const got = await sha256Hex("gcb-join:" + code);
+        if (!timingSafeEqual(enc.encode(got), enc.encode(String(env.JOIN_CODE_SHA256).toLowerCase()))) return fail("wrong_code", 403, cors);
+        await env.DB.prepare("UPDATE users SET member = 1 WHERE id = ?").bind(user.id).run();
+        return json({ user: { ...publicUser(user), member: true } }, 200, cors);
+      }
+
       if (path === "/api/messages" && req.method === "GET") {
+        const ch = chanOf(url.searchParams.get("channel"));
+        if (!ch) return fail("bad_request", 400, cors);
+        if (!canSee(user, ch)) return fail("members_only", 403, cors);
         const after = url.searchParams.get("after");
         let rows;
         if (after !== null) {
           const a = Number(after);
           if (!Number.isInteger(a) || a < 0) return fail("bad_request", 400, cors);
-          rows = await env.DB.prepare(MSG_SELECT + " WHERE m.id > ? ORDER BY m.id ASC LIMIT 200").bind(a).all();
+          rows = await env.DB.prepare(MSG_SELECT + " WHERE m.channel = ? AND m.id > ? ORDER BY m.id ASC LIMIT 200").bind(ch, a).all();
           return json({ messages: rows.results.map(publicMsg) }, 200, cors);
         }
-        rows = await env.DB.prepare(MSG_SELECT + " ORDER BY m.id DESC LIMIT ?").bind(RECENT_LIMIT).all();
+        rows = await env.DB.prepare(MSG_SELECT + " WHERE m.channel = ? ORDER BY m.id DESC LIMIT ?").bind(ch, RECENT_LIMIT).all();
         return json({ messages: rows.results.reverse().map(publicMsg) }, 200, cors);
       }
 
@@ -461,26 +480,29 @@ export default {
         const body = await readJson(req);
         if (!body) return fail("bad_request", 400, cors);
         if (!user.nickname) return fail("nickname_required", 400, cors);
+        const ch = chanOf(body.channel);
+        if (!ch) return fail("bad_request", 400, cors);
+        if (!canSee(user, ch)) return fail("members_only", 403, cors);
         if (body.emoticonId !== undefined) {
           const eid = Number(body.emoticonId);
           if (!Number.isInteger(eid) || eid <= 0) return fail("bad_request", 400, cors);
           const emo = await env.DB.prepare("SELECT id, name, image_id FROM emoticons WHERE id = ?").bind(eid).first();
           if (!emo) return fail("emoticon_not_found", 404, cors);
-          const rt = await replyTarget(env, body.replyTo);
+          const rt = await replyTarget(env, body.replyTo, ch);
           if (rt < 0) return replyFail(rt, cors);
           if (!(await hit(env, "post:" + user.id, 30, 60000))) return fail("rate_limited", 429, cors);
-          const msg = await insertMessage(env, user, "emoticon", emo.name, emo.image_id, rt);
-          broadcast(env, ctx, { type: "message", message: msg });
+          const msg = await insertMessage(env, user, "emoticon", emo.name, emo.image_id, rt, ch);
+          broadcast(env, ctx, { type: "message", message: msg, membersOnly: msg.channel === "company" });
           ctx.waitUntil(notifyChat(env, ctx, user, msg));
           return json({ message: msg }, 201, cors);
         }
         const text = normText(body.text);
         if (!text) return fail("invalid_message", 400, cors);
-        const rt = await replyTarget(env, body.replyTo);
+        const rt = await replyTarget(env, body.replyTo, ch);
         if (rt < 0) return replyFail(rt, cors);
         if (!(await hit(env, "post:" + user.id, 30, 60000))) return fail("rate_limited", 429, cors);
-        const msg = await insertMessage(env, user, "text", text, null, rt);
-        broadcast(env, ctx, { type: "message", message: msg });
+        const msg = await insertMessage(env, user, "text", text, null, rt, ch);
+        broadcast(env, ctx, { type: "message", message: msg, membersOnly: msg.channel === "company" });
         ctx.waitUntil(notifyChat(env, ctx, user, msg));
         return json({ message: msg }, 201, cors);
       }
@@ -488,15 +510,18 @@ export default {
       // 사진 메시지 (본문 = 이미지 바이트)
       if (path === "/api/photos" && req.method === "POST") {
         if (!user.nickname) return fail("nickname_required", 400, cors);
-        const rt = await replyTarget(env, url.searchParams.get("replyTo"));
+        const ch = chanOf(url.searchParams.get("channel"));
+        if (!ch) return fail("bad_request", 400, cors);
+        if (!canSee(user, ch)) return fail("members_only", 403, cors);
+        const rt = await replyTarget(env, url.searchParams.get("replyTo"), ch);
         if (rt < 0) return replyFail(rt, cors);
         if (!(await hit(env, "upload:" + user.id, 30, 600000)) || !(await hit(env, "upload-day:" + user.id, 300, 86400000))) return fail("rate_limited", 429, cors);
         const img = await readImage(req, "photo");
         if (img.error) return fail(img.error, img.status, cors);
         const id = await storeImage(env, user.id, "photo", img);
         if (!id) return fail("storage_full", 507, cors);
-        const msg = await insertMessage(env, user, "image", "", id, rt);
-        broadcast(env, ctx, { type: "message", message: msg });
+        const msg = await insertMessage(env, user, "image", "", id, rt, ch);
+        broadcast(env, ctx, { type: "message", message: msg, membersOnly: msg.channel === "company" });
         ctx.waitUntil(notifyChat(env, ctx, user, msg));
         return json({ message: msg }, 201, cors);
       }
@@ -755,6 +780,7 @@ async function cons(req, env, url, path, user, cors) {
 
 async function board(req, env, url, path, user, cors, ctx) {
   const M = req.method;
+  if (!user.member) return fail("members_only", 403, cors);
   if (path.startsWith("/api/board/con")) {
     const r = await cons(req, env, url, path, user, cors);
     if (r) return r;
@@ -961,11 +987,11 @@ export class ChatRoom extends DurableObject {
     }
     if (url.pathname === "/broadcast" && req.method === "POST") {
       const payload = await req.text();
-      let to = null;
-      try { const o = JSON.parse(payload); if (Array.isArray(o.to)) to = o.to; } catch {}
+      let to = null, membersOnly = false;
+      try { const o = JSON.parse(payload); if (Array.isArray(o.to)) to = o.to; membersOnly = !!o.membersOnly; } catch { return new Response("bad", { status: 400 }); }
       for (const ws of this.ctx.getWebSockets()) {
         const a = ws.deserializeAttachment() || {};
-        if (a.uid && (!to || to.includes(a.uid))) { try { ws.send(payload); } catch {} }
+        if (a.uid && (!to || to.includes(a.uid)) && (!membersOnly || a.member)) { try { ws.send(payload); } catch {} }
       }
       return new Response("ok");
     }
@@ -980,7 +1006,7 @@ export class ChatRoom extends DurableObject {
     if (msg && msg.type === "auth") {
       const user = await userFromToken(this.env, msg.token);
       if (!user) { try { ws.send('{"type":"unauthorized"}'); } catch {} ws.close(4001, "unauthorized"); return; }
-      ws.serializeAttachment({ uid: user.id, at: a.at || Date.now() });
+      ws.serializeAttachment({ uid: user.id, member: !!user.member, at: a.at || Date.now() });
       ws.send('{"type":"ready"}');
       return;
     }
@@ -1277,14 +1303,19 @@ const snip = (t, n = 80) => { const a = [...String(t || "").replace(/\s+/g, " ")
 const conText = (t) => String(t || "").replace(/\[\[con:\d+\]\]/g, "(콘)");
 // 채팅: 답장 받은 사람에게는 '답장' 알림, 나머지는 '모든 채팅 알림'을 켠 기기에만
 async function notifyChat(env, ctx, user, msg) {
+  const company = msg.channel !== "free";
+  const label = company ? "사내 메신저" : "자유 메신저";
+  const url = company ? "messenger.html#/chat" : "messenger.html#/free";
+  const tag = company ? "chat" : "free";
+  const memberSql = company ? " AND user_id IN (SELECT id FROM users WHERE member = 1)" : "";
   const body = msg.kind === "image" ? "사진을 보냈습니다." : msg.kind === "emoticon" ? "이모티콘을 보냈습니다." : snip(msg.text);
   const replyUid = msg.reply && !msg.reply.missing && msg.reply.userId !== user.id ? msg.reply.userId : 0;
   if (replyUid) {
-    const rs = (await env.DB.prepare("SELECT * FROM push_subs WHERE user_id = ?").bind(replyUid).all()).results;
-    await pushTo(env, rs, { title: user.nickname + "님이 답장했습니다", body, url: "messenger.html#/chat", tag: "chat", kind: "reply" });
+    const rs = (await env.DB.prepare("SELECT * FROM push_subs WHERE user_id = ?" + memberSql).bind(replyUid).all()).results;
+    await pushTo(env, rs, { title: user.nickname + "님이 답장했습니다 · " + label, body, url, tag, kind: "reply", channel: msg.channel });
   }
-  const rows = (await env.DB.prepare("SELECT * FROM push_subs WHERE chat = 1 AND user_id != ? AND user_id != ?").bind(user.id, replyUid).all()).results;
-  await pushTo(env, rows, { title: user.nickname, body, url: "messenger.html#/chat", tag: "chat", kind: "chat" });
+  const rows = (await env.DB.prepare("SELECT * FROM push_subs WHERE chat = 1 AND user_id != ? AND user_id != ?" + memberSql).bind(user.id, replyUid).all()).results;
+  await pushTo(env, rows, { title: user.nickname + " · " + label, body, url, tag, kind: "chat", channel: msg.channel });
 }
 // 게시판: 내 글에 댓글, 내 댓글에 답글
 async function notifyComment(env, ctx, user, postId, parentId, text) {
@@ -1301,8 +1332,8 @@ async function notifyComment(env, ctx, user, postId, parentId, text) {
   const body = "「" + snip(post.title, 30) + "」 " + snip(conText(text), 60);
   const stub = env.ROOM.get(env.ROOM.idFromName("main"));
   for (const [uid, title] of targets) {
-    ctx.waitUntil(stub.fetch("https://room/broadcast", { method: "POST", body: JSON.stringify({ type: "notify", to: [uid], kind: "board", title, body, url }) }).catch(() => {}));
-    const rs = (await env.DB.prepare("SELECT * FROM push_subs WHERE user_id = ?").bind(uid).all()).results;
+    ctx.waitUntil(stub.fetch("https://room/broadcast", { method: "POST", body: JSON.stringify({ type: "notify", to: [uid], membersOnly: true, kind: "board", title, body, url }) }).catch(() => {}));
+    const rs = (await env.DB.prepare("SELECT * FROM push_subs WHERE user_id = ? AND user_id IN (SELECT id FROM users WHERE member = 1)").bind(uid).all()).results;
     await pushTo(env, rs, { title, body, url, tag: "board-" + postId, kind: "board" });
   }
 }

@@ -10,7 +10,8 @@ CREATE TABLE IF NOT EXISTS users (
   frame TEXT NOT NULL DEFAULT 'basic',
   role TEXT NOT NULL DEFAULT '',
   status TEXT NOT NULL DEFAULT '',
-  banner_id TEXT
+  banner_id TEXT,
+  member INTEGER NOT NULL DEFAULT 0
 );
 CREATE TABLE IF NOT EXISTS sessions (
   token_hash TEXT PRIMARY KEY,
@@ -27,7 +28,8 @@ CREATE TABLE IF NOT EXISTS messages (
   created_at INTEGER NOT NULL,
   kind TEXT NOT NULL DEFAULT 'text',
   image_id TEXT,
-  reply_to INTEGER
+  reply_to INTEGER,
+  channel TEXT NOT NULL DEFAULT 'company'
 );
 CREATE TABLE IF NOT EXISTS rate_limits (
   key TEXT PRIMARY KEY,
@@ -172,3 +174,5 @@ CREATE TABLE IF NOT EXISTS push_subs (
   created_at INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_push_subs_user ON push_subs(user_id);
+
+CREATE INDEX IF NOT EXISTS idx_messages_channel ON messages(channel, id);
