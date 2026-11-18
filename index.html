@@ -593,14 +593,148 @@
 
 
     /* Benefits */
-    .empty-note {
+    .bn-intro {
+      margin: -8px 0 32px;
+      max-width: 36em;
+      font-size: 1.0625rem;
+      line-height: 1.85;
+      color: var(--ink-soft);
+    }
+    .bn-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+    .bn-card {
+      padding: 26px 24px 24px;
+      border: 1px solid var(--line);
+      background: var(--paper);
+      border-radius: var(--radius);
+      transition: border-color 0.2s ease, transform 0.22s ease, box-shadow 0.22s ease;
+    }
+    .bn-card:hover {
+      border-color: var(--ink);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 18px rgba(28, 27, 24, 0.05);
+    }
+    .bn-icon {
+      width: 40px;
+      height: 40px;
+      display: grid;
+      place-items: center;
+      margin: 0 0 16px;
+      color: var(--accent);
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+    }
+    .bn-icon svg { width: 20px; height: 20px; display: block; }
+    .bn-kicker {
+      margin: 0 0 8px;
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.12em;
+      color: var(--muted);
+    }
+    .bn-card h3 {
+      display: inline-block;
+      margin: 0 0 10px;
+      font-family: var(--font-serif);
+      font-size: 1.25rem;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      line-height: 1.3;
+      background-image: linear-gradient(var(--ink), var(--ink));
+      background-size: 0 1px;
+      background-position: 0 100%;
+      background-repeat: no-repeat;
+      transition: background-size 0.28s ease;
+    }
+    .bn-card:hover h3 { background-size: 100% 1px; }
+    .bn-card p {
+      margin: 0;
+      font-size: 14px;
+      line-height: 1.75;
+      color: var(--ink-soft);
+    }
+
+    .bn-flow {
+      position: relative;
+      display: flex;
+      margin: 16px 0 0;
+      padding: 28px 8px 22px;
+      list-style: none;
+      border: 1px solid var(--line);
+      background: var(--paper);
+      border-radius: var(--radius);
+    }
+    .bn-flow::before,
+    .bn-flow::after {
+      content: "";
+      position: absolute;
+      left: 11%;
+      right: 11%;
+      top: 40px;
+      height: 1px;
+    }
+    .bn-flow::before { background: var(--line); }
+    .bn-flow::after {
+      right: auto;
+      width: 78%;
+      background: var(--accent);
+      transform: scaleX(0);
+      transform-origin: left center;
+    }
+    .bn-step {
+      flex: 1 1 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      padding: 0 12px;
+      min-width: 0;
+    }
+    .bn-step-num {
+      position: relative;
+      z-index: 1;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 24px;
+      height: 24px;
+      margin: 0 0 12px;
+      font-size: 10px;
+      font-weight: 500;
+      letter-spacing: 0.06em;
+      color: var(--ink);
+      background: var(--paper);
+      border: 1px solid var(--line-strong);
+      border-radius: 50%;
+    }
+    .bn-step-name {
       margin: 0;
       font-family: var(--font-serif);
-      font-size: clamp(1.75rem, 4vw, 2.5rem);
+      font-size: 1.0625rem;
       font-weight: 600;
-      letter-spacing: -0.03em;
-      line-height: 1.3;
+      letter-spacing: -0.02em;
+      color: var(--ink);
     }
+    .bn-step-note {
+      margin: 6px 0 0;
+      font-size: 12px;
+      line-height: 1.5;
+      color: var(--muted);
+    }
+
+    #panel-benefits.is-open .bn-intro { animation: fadeSlide 0.45s ease both; }
+    #panel-benefits.is-open .bn-card { animation: fadeSlide 0.5s ease both; }
+    #panel-benefits.is-open .bn-card:nth-child(2) { animation-delay: 0.06s; }
+    #panel-benefits.is-open .bn-card:nth-child(3) { animation-delay: 0.12s; }
+    #panel-benefits.is-open .bn-card:nth-child(4) { animation-delay: 0.18s; }
+    #panel-benefits.is-open .bn-flow { animation: fadeSlide 0.5s ease 0.2s both; }
+    #panel-benefits.is-open .bn-flow::after { animation: bn-draw 0.9s ease 0.45s forwards; }
+    @keyframes bn-draw { to { transform: scaleX(1); } }
+    @keyframes bn-draw-y { to { transform: scaleY(1); } }
 
     /* ---------- Footer ---------- */
     .footer {
@@ -644,8 +778,19 @@
     @media (prefers-reduced-motion: reduce) {
       html { scroll-behavior: auto; }
       .panel.is-open.fx-clean,
+      #panel-benefits.is-open .bn-intro,
+      #panel-benefits.is-open .bn-card,
+      #panel-benefits.is-open .bn-flow {
         animation: none;
       }
+      #panel-benefits.is-open .bn-flow::after {
+        animation: none;
+        transform: none;
+      }
+      .bn-card,
+      .bn-card h3 { transition: none; }
+      .bn-card:hover { transform: none; box-shadow: none; }
+      .bn-card:hover h3 { background-size: 0 1px; }
       .pf.metal::after { animation: none; transform: rotate(-40deg); }
       .pf.f-platinum_crown .sparks i { animation: none; opacity: 0; }
       .pf.f-platinum_crown .sparks i:nth-child(1) { opacity: 0.65; }
@@ -670,6 +815,43 @@
       .work-step:nth-child(2) { border-left: 0; }
       .work-step:nth-child(3),
       .work-step:nth-child(4) { border-top: 1px solid var(--line); }
+
+      .bn-grid { grid-template-columns: 1fr; }
+      .bn-flow {
+        flex-direction: column;
+        align-items: stretch;
+        padding: 10px 20px 12px 22px;
+      }
+      .bn-flow::before,
+      .bn-flow::after {
+        left: 33px;
+        right: auto;
+        top: 22px;
+        bottom: 22px;
+        width: 1px;
+        height: auto;
+      }
+      .bn-flow::after {
+        width: 1px;
+        transform: scaleY(0);
+        transform-origin: top center;
+      }
+      #panel-benefits.is-open .bn-flow::after { animation-name: bn-draw-y; }
+      .bn-step {
+        flex-direction: row;
+        align-items: flex-start;
+        text-align: left;
+        gap: 14px;
+        padding: 12px 0;
+      }
+      .bn-step-num { margin: 0; flex: none; }
+
+      @media (prefers-reduced-motion: reduce) {
+        #panel-benefits.is-open .bn-flow::after {
+          animation: none;
+          transform: none;
+        }
+      }
 
       .panel { padding: 36px 24px; }
 
@@ -997,7 +1179,84 @@
             aria-labelledby="btn-benefits"
             hidden>
             <p class="panel-label">혜택 소개</p>
-            <p class="empty-note">없습니다.</p>
+            <p class="bn-intro">개천박컴퍼니는 채팅 참여를 기준으로 인센티브를 산정하고, 정해진 주기에 맞춰 정산합니다. 집계 기준과 지급 내역은 확인할 수 있게 정리합니다.</p>
+            <div class="bn-grid">
+              <article class="bn-card">
+                <div class="bn-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="5" y="3.8" width="14" height="16.4" rx="1.2"/>
+                    <path d="M8 8.5h8M8 12h8M8 15.5h5"/>
+                  </svg>
+                </div>
+                <p class="bn-kicker">01</p>
+                <h3>집계 기준</h3>
+                <p>대화에 참여한 채팅을 대상으로 집계합니다. 집계에 포함되거나 제외되는 항목은 사전에 안내합니다.</p>
+              </article>
+              <article class="bn-card">
+                <div class="bn-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="7.5"/>
+                    <path d="M12 8.6v6.8M8.6 12h6.8"/>
+                  </svg>
+                </div>
+                <p class="bn-kicker">02</p>
+                <h3>인센티브 적립</h3>
+                <p>집계된 채팅 수에 따라 인센티브가 쌓입니다. 산정은 미리 안내한 기준을 따릅니다.</p>
+              </article>
+              <article class="bn-card">
+                <div class="bn-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="4" y="6" width="16" height="14" rx="1.2"/>
+                    <path d="M8 4.2v3.6M16 4.2v3.6M4 10.2h16"/>
+                  </svg>
+                </div>
+                <p class="bn-kicker">03</p>
+                <h3>정기 정산</h3>
+                <p>적립된 인센티브는 월 단위로 정산합니다. 정산 일정은 사전에 알립니다.</p>
+              </article>
+              <article class="bn-card">
+                <div class="bn-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M7 4.5h7.2L18.5 9v10.5H7z"/>
+                    <path d="M14.2 4.5V9h4.3"/>
+                    <path d="M9.5 12.8h5.2M9.5 16.2h3.6"/>
+                  </svg>
+                </div>
+                <p class="bn-kicker">04</p>
+                <h3>내역 확인</h3>
+                <p>기간별 채팅 집계와 정산 내역을 확인할 수 있습니다. 문의가 있으면 다시 살펴봅니다.</p>
+              </article>
+            </div>
+            <ol class="bn-flow">
+              <li class="bn-step">
+                <span class="bn-step-num">01</span>
+                <div>
+                  <p class="bn-step-name">채팅 집계</p>
+                  <p class="bn-step-note">해당 기간의 대화 참여를 모읍니다.</p>
+                </div>
+              </li>
+              <li class="bn-step">
+                <span class="bn-step-num">02</span>
+                <div>
+                  <p class="bn-step-name">인센티브 산정</p>
+                  <p class="bn-step-note">안내된 기준으로 적립액을 계산합니다.</p>
+                </div>
+              </li>
+              <li class="bn-step">
+                <span class="bn-step-num">03</span>
+                <div>
+                  <p class="bn-step-name">내역 확인</p>
+                  <p class="bn-step-note">집계와 산정 내역을 확인할 수 있게 정리합니다.</p>
+                </div>
+              </li>
+              <li class="bn-step">
+                <span class="bn-step-num">04</span>
+                <div>
+                  <p class="bn-step-name">정산 지급</p>
+                  <p class="bn-step-note">확인이 끝나면 지급합니다.</p>
+                </div>
+              </li>
+            </ol>
           </div>
         </div>
       </div>
