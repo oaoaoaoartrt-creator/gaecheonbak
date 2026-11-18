@@ -8,7 +8,9 @@ CREATE TABLE IF NOT EXISTS users (
   created_at INTEGER NOT NULL,
   avatar_id TEXT,
   frame TEXT NOT NULL DEFAULT 'basic',
-  role TEXT NOT NULL DEFAULT ''
+  role TEXT NOT NULL DEFAULT '',
+  status TEXT NOT NULL DEFAULT '',
+  banner_id TEXT
 );
 CREATE TABLE IF NOT EXISTS sessions (
   token_hash TEXT PRIMARY KEY,
@@ -124,3 +126,37 @@ CREATE TABLE IF NOT EXISTS cons (
 );
 CREATE INDEX IF NOT EXISTS idx_cons_pack ON cons(pack_id);
 CREATE INDEX IF NOT EXISTS idx_cons_image ON cons(image_id);
+
+-- 프로필 (0006)
+CREATE TABLE IF NOT EXISTS media (
+  id TEXT PRIMARY KEY,
+  user_id INTEGER NOT NULL,
+  kind TEXT NOT NULL,
+  mime TEXT NOT NULL,
+  size INTEGER NOT NULL,
+  w INTEGER NOT NULL DEFAULT 0,
+  h INTEGER NOT NULL DEFAULT 0,
+  chunks INTEGER NOT NULL,
+  created_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_media_user ON media(user_id);
+CREATE TABLE IF NOT EXISTS media_chunks (
+  media_id TEXT NOT NULL,
+  idx INTEGER NOT NULL,
+  data BLOB NOT NULL,
+  PRIMARY KEY (media_id, idx)
+);
+CREATE TABLE IF NOT EXISTS profile_posts (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,
+  body TEXT NOT NULL DEFAULT '',
+  created_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_profile_posts_user ON profile_posts(user_id);
+CREATE TABLE IF NOT EXISTS profile_post_media (
+  post_id INTEGER NOT NULL,
+  media_id TEXT NOT NULL,
+  ord INTEGER NOT NULL,
+  PRIMARY KEY (post_id, media_id)
+);
+CREATE INDEX IF NOT EXISTS idx_ppm_media ON profile_post_media(media_id);

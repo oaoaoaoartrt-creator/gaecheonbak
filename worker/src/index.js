@@ -19,6 +19,20 @@ const STORAGE_CAP = 400 * 1024 * 1024;   // D1 무료 DB 한도(500MB) 전에 �
 const IMG_ID_RE = /^[0-9a-f]{32}$/;
 IMG_RULES.board = { maxBytes: 1024 * 1024, maxDim: 4096 };
 IMG_RULES.con = { maxBytes: 512 * 1024, maxDim: 512 };
+IMG_RULES.banner = { maxBytes: 1024 * 1024, maxDim: 3000 };
+
+/* 프로필 포스트 미디어 (D1 값 하나는 2MB 제한 → 1.5MB씩 나눠 저장) */
+const CHUNK = 1536 * 1024;
+const MEDIA_RULES = {
+  image: { types: ["image/jpeg", "image/png", "image/webp"], maxBytes: 1024 * 1024 },
+  gif:   { types: ["image/gif"], maxBytes: 5 * 1024 * 1024 },
+  video: { types: ["video/mp4", "video/webm", "video/quicktime"], maxBytes: 15 * 1024 * 1024 },
+};
+const MEDIA_DAY_BYTES = 150 * 1024 * 1024;  // 1인 하루 업로드 총량
+const MAX_PPOST = 1000;
+const MAX_PPOST_MEDIA = 4;
+const MAX_STATUS = 60;
+const PPOST_PAGE = 20;
 
 /* 게시판 콘 (주제별 묶음) */
 const MAX_CON_PACKS = 20;                // 1인당 주제 수
@@ -174,9 +188,12 @@ async function readImage(req, purpose) {
   if (dim.w > rule.maxDim || dim.h > rule.maxDim) return { error: "too_large", status: 413 };
   return { buf, mime, w: dim.w, h: dim.h };
 }
+async function storageUsed(env) {
+  const r = await env.DB.prepare("SELECT (SELECT COALESCE(SUM(size), 0) FROM images) + (SELECT COALESCE(SUM(size), 0) FROM media) AS s").first();
+  return r.s;
+}
 async function storeImage(env, userId, purpose, img) {
-  const used = await env.DB.prepare("SELECT COALESCE(SUM(size), 0) AS s FROM images").first();
-  if (used.s + img.buf.length > STORAGE_CAP) return null;
+  if ((await storageUsed(env)) + img.buf.length > STORAGE_CAP) return null;
   const id = randomToken(16);
   await env.DB.prepare("INSERT INTO images (id, user_id, purpose, mime, size, w, h, created_at, data) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")
     .bind(id, userId, purpose, img.mime, img.buf.length, img.w, img.h, now(), img.buf).run();
@@ -189,6 +206,7 @@ async function dropImageIfUnused(env, id) {
     `DELETE FROM images WHERE id = ?1
        AND NOT EXISTS (SELECT 1 FROM messages WHERE image_id = ?1)
        AND NOT EXISTS (SELECT 1 FROM users WHERE avatar_id = ?1)
+       AND NOT EXISTS (SELECT 1 FROM users WHERE banner_id = ?1)
        AND NOT EXISTS (SELECT 1 FROM emoticons WHERE image_id = ?1)
        AND NOT EXISTS (SELECT 1 FROM post_images WHERE image_id = ?1)
        AND NOT EXISTS (SELECT 1 FROM cons WHERE image_id = ?1)`
@@ -255,7 +273,7 @@ async function createSession(env, userId) {
 export async function userFromToken(env, token) {
   if (!token || typeof token !== "string" || !/^[0-9a-f]{64}$/.test(token)) return null;
   const row = await env.DB.prepare(
-    `SELECT u.id, u.login, u.nickname, u.avatar_id, u.frame, u.role FROM sessions s JOIN users u ON u.id = s.user_id
+    `SELECT u.id, u.login, u.nickname, u.avatar_id, u.frame, u.role, u.status, u.banner_id FROM sessions s JOIN users u ON u.id = s.user_id
      WHERE s.token_hash = ? AND s.expires_at > ?`
   ).bind(await sha256Hex(token), now()).first();
   return row || null;
@@ -267,7 +285,7 @@ function bearer(req) {
 }
 const cleanFrame = (f) => (FRAMES.includes(f) ? f : "basic");
 const cleanRole = (r) => (MOD_ROLES.includes(r) ? r : "");
-const publicUser = (u) => ({ id: u.id, login: u.login, nickname: u.nickname || "", avatarId: u.avatar_id || null, frame: cleanFrame(u.frame), role: cleanRole(u.role) });
+const publicUser = (u) => ({ id: u.id, login: u.login, nickname: u.nickname || "", avatarId: u.avatar_id || null, frame: cleanFrame(u.frame), role: cleanRole(u.role), status: u.status || "", bannerId: u.banner_id || null });
 // 다른 사람에게 보이는 작성자 정보 (로그인 아이디 제외)
 const author = (r) => ({ id: r.uid, nickname: r.u_nick || "(탈퇴한 사용자)", avatarId: r.u_avatar || null, frame: cleanFrame(r.u_frame), role: cleanRole(r.u_role) });
 const isMod = (u) => MOD_ROLES.includes(u.role);
@@ -335,6 +353,11 @@ export default {
         });
       }
 
+      // 프로필 미디어 제공 (Range 지원: 동영상 탐색)
+      if (path.startsWith("/media/") && (req.method === "GET" || req.method === "HEAD")) {
+        return serveMedia(req, env, path.slice(7), cors);
+      }
+
       // 실시간 연결 (WebSocket → Durable Object)
       if (path === "/api/ws") {
         if (req.headers.get("Upgrade") !== "websocket") return fail("upgrade_required", 426, cors);
@@ -378,7 +401,7 @@ export default {
         if (!(await hit(env, "login-ip:" + ip, 30, 600000)) || !(await hit(env, "login-id:" + login, 10, 600000))) {
           return fail("rate_limited", 429, cors);
         }
-        const u = await env.DB.prepare("SELECT id, login, nickname, avatar_id, frame, role, pw_hash, pw_salt, pw_iter FROM users WHERE login = ?").bind(login).first();
+        const u = await env.DB.prepare("SELECT id, login, nickname, avatar_id, frame, role, status, banner_id, pw_hash, pw_salt, pw_iter FROM users WHERE login = ?").bind(login).first();
         if (!u) {
           await pbkdf2(pw, crypto.getRandomValues(new Uint8Array(16)), PBKDF2_ITER); // 시간 차 줄이기
           return fail("invalid_credentials", 401, cors);
@@ -528,6 +551,9 @@ export default {
         return json({ ok: true }, 200, cors);
       }
 
+      const pr = await profiles(req, env, ctx, url, path, user, cors);
+      if (pr) return pr;
+
       if (path.startsWith("/api/board/")) {
         const r = await board(req, env, url, path, user, cors);
         if (r) return r;
@@ -550,6 +576,11 @@ export default {
       env.DB.prepare(`DELETE FROM images WHERE purpose = 'board' AND created_at <= ?
         AND NOT EXISTS (SELECT 1 FROM post_images p WHERE p.image_id = images.id)`).bind(t - 86400000),
     ]);
+    // 포스트에 붙지 않은 채 하루가 지난 미디어 정리
+    const stale = (await env.DB.prepare(
+      "SELECT id FROM media WHERE created_at <= ? AND NOT EXISTS (SELECT 1 FROM profile_post_media p WHERE p.media_id = media.id) LIMIT 200"
+    ).bind(t - 86400000).all()).results;
+    for (const m of stale) await deleteMedia(env, m.id);
   },
 };
 
@@ -952,4 +983,202 @@ export class ChatRoom extends DurableObject {
 
   async webSocketClose(ws, code) { try { ws.close(1000, "bye"); } catch {} }
   async webSocketError(ws) { try { ws.close(1011, "error"); } catch {} }
+}
+
+
+/* ---------- 프로필 / 프로필 포스트 / 미디어 ---------- */
+function sniffMedia(a) {
+  const img = sniffImage(a);
+  if (img) return img;
+  if (a.length > 12 && String.fromCharCode(...a.subarray(4, 8)) === "ftyp") return "video/iso";
+  if (a[0] === 0x1a && a[1] === 0x45 && a[2] === 0xdf && a[3] === 0xa3) return "video/webm";
+  return null;
+}
+async function deleteMedia(env, id) {
+  await env.DB.batch([
+    env.DB.prepare("DELETE FROM media_chunks WHERE media_id = ?").bind(id),
+    env.DB.prepare("DELETE FROM media WHERE id = ?").bind(id),
+  ]);
+}
+async function serveMedia(req, env, id, cors) {
+  const base = { "X-Content-Type-Options": "nosniff", "Content-Security-Policy": "default-src 'none'; sandbox", "Cross-Origin-Resource-Policy": "cross-origin", ...cors };
+  const nf = () => new Response("not found", { status: 404, headers: { ...base, "Cache-Control": "no-store" } });
+  if (!IMG_ID_RE.test(id)) return nf();
+  const m = await env.DB.prepare("SELECT mime, size, chunks FROM media WHERE id = ?").bind(id).first();
+  if (!m) return nf();
+  let start = 0, end = m.size - 1, partial = false;
+  const range = req.headers.get("Range");
+  if (range) {
+    const r = /^bytes=(\d*)-(\d*)$/.exec(range.trim());
+    if (r && (r[1] || r[2])) {
+      if (r[1]) { start = Number(r[1]); if (r[2]) end = Math.min(Number(r[2]), m.size - 1); }
+      else { start = Math.max(0, m.size - Number(r[2])); }
+      if (start > end || start >= m.size) {
+        return new Response(null, { status: 416, headers: { ...base, "Content-Range": "bytes */" + m.size } });
+      }
+      partial = true;
+    }
+  }
+  const headers = { ...base, "Content-Type": m.mime, "Accept-Ranges": "bytes", "Content-Length": String(end - start + 1), "Cache-Control": "public, max-age=31536000, immutable" };
+  if (partial) headers["Content-Range"] = `bytes ${start}-${end}/${m.size}`;
+  if (req.method === "HEAD") return new Response(null, { status: partial ? 206 : 200, headers });
+  const first = Math.floor(start / CHUNK), last = Math.floor(end / CHUNK);
+  let i = first;
+  const stream = new ReadableStream({
+    async pull(ctl) {
+      if (i > last) { ctl.close(); return; }
+      const row = await env.DB.prepare("SELECT data FROM media_chunks WHERE media_id = ? AND idx = ?").bind(id, i).first();
+      if (!row) { ctl.error(new Error("missing chunk")); return; }
+      let buf = new Uint8Array(row.data);
+      const off = i * CHUNK;
+      const s0 = Math.max(0, start - off), e0 = Math.min(buf.length, end - off + 1);
+      ctl.enqueue(buf.subarray(s0, e0));
+      i++;
+    },
+  });
+  return new Response(stream, { status: partial ? 206 : 200, headers });
+}
+async function mediaInfo(env, postIds) {
+  const out = {};
+  if (!postIds.length) return out;
+  const rows = (await env.DB.prepare(
+    `SELECT p.post_id, m.id, m.kind, m.mime, m.w, m.h FROM profile_post_media p JOIN media m ON m.id = p.media_id
+     WHERE p.post_id IN (${postIds.map(() => "?").join(",")}) ORDER BY p.post_id, p.ord`
+  ).bind(...postIds).all()).results;
+  for (const r of rows) (out[r.post_id] = out[r.post_id] || []).push({ id: r.id, kind: r.kind, mime: r.mime, w: r.w, h: r.h });
+  return out;
+}
+const profileOf = (u, posts) => ({
+  id: u.id, nickname: u.nickname || "", avatarId: u.avatar_id || null, bannerId: u.banner_id || null,
+  status: u.status || "", frame: cleanFrame(u.frame), role: cleanRole(u.role), createdAt: u.created_at, posts,
+});
+
+async function profiles(req, env, ctx, url, path, user, cors) {
+  const M = req.method;
+  // 프로필 보기
+  let m = /^\/api\/users\/(\d{1,12})$/.exec(path);
+  if (m && M === "GET") {
+    const u = await env.DB.prepare("SELECT id, nickname, avatar_id, banner_id, status, frame, role, created_at FROM users WHERE id = ? AND nickname != ''").bind(Number(m[1])).first();
+    if (!u) return fail("user_not_found", 404, cors);
+    const c = await env.DB.prepare("SELECT COUNT(*) AS c FROM profile_posts WHERE user_id = ?").bind(u.id).first();
+    return json({ profile: profileOf(u, c.c) }, 200, cors);
+  }
+  // 프로필 포스트 목록 (최신순, before=마지막 id)
+  m = /^\/api\/users\/(\d{1,12})\/posts$/.exec(path);
+  if (m && M === "GET") {
+    const before = Number(url.searchParams.get("before") || 0);
+    const args = [Number(m[1])];
+    let sql = "SELECT id, user_id, body, created_at FROM profile_posts WHERE user_id = ?";
+    if (Number.isInteger(before) && before > 0) { sql += " AND id < ?"; args.push(before); }
+    const rows = (await env.DB.prepare(sql + " ORDER BY id DESC LIMIT ?").bind(...args, PPOST_PAGE).all()).results;
+    const media = await mediaInfo(env, rows.map((r) => r.id));
+    return json({ posts: rows.map((r) => ({ id: r.id, userId: r.user_id, body: r.body, createdAt: r.created_at, media: media[r.id] || [] })), more: rows.length === PPOST_PAGE }, 200, cors);
+  }
+  // 상태메시지
+  if (path === "/api/profile" && M === "POST") {
+    const body = await readJson(req);
+    if (!body || typeof body.status !== "string") return fail("bad_request", 400, cors);
+    const st = stripCtl(body.status, false).replace(/\s+/g, " ").trim();
+    if (charLen(st) > MAX_STATUS) return fail("invalid_status", 400, cors);
+    if (!(await hit(env, "status:" + user.id, 30, 600000))) return fail("rate_limited", 429, cors);
+    await env.DB.prepare("UPDATE users SET status = ? WHERE id = ?").bind(st, user.id).run();
+    return json({ user: { ...publicUser(user), status: st } }, 200, cors);
+  }
+  // 배너
+  if (path === "/api/banner" && (M === "POST" || M === "DELETE")) {
+    if (!(await hit(env, "banner:" + user.id, 10, 600000))) return fail("rate_limited", 429, cors);
+    let id = null;
+    if (M === "POST") {
+      const img = await readImage(req, "banner");
+      if (img.error) return fail(img.error, img.status, cors);
+      id = await storeImage(env, user.id, "banner", img);
+      if (!id) return fail("storage_full", 507, cors);
+    }
+    await env.DB.prepare("UPDATE users SET banner_id = ? WHERE id = ?").bind(id, user.id).run();
+    await dropImageIfUnused(env, user.banner_id);
+    return json({ user: { ...publicUser(user), bannerId: id } }, 200, cors);
+  }
+  // 미디어 올리기 (본문 = 파일 바이트)
+  if (path === "/api/media" && M === "POST") {
+    const declared = (req.headers.get("Content-Type") || "").split(";")[0].trim().toLowerCase();
+    const kind = Object.keys(MEDIA_RULES).find((k) => MEDIA_RULES[k].types.includes(declared));
+    if (!kind) return fail("unsupported_media", 415, cors);
+    const rule = MEDIA_RULES[kind];
+    const len = Number(req.headers.get("Content-Length"));
+    if (!Number.isFinite(len) || len <= 0) return fail("length_required", 411, cors);
+    if (len > rule.maxBytes) return fail("media_too_large", 413, cors);
+    if (!(await hit(env, "media:" + user.id, 20, 600000)) || !(await hit(env, "media-day:" + user.id, 120, 86400000))) return fail("rate_limited", 429, cors);
+    const today = await env.DB.prepare("SELECT COALESCE(SUM(size), 0) AS s FROM media WHERE user_id = ? AND created_at > ?").bind(user.id, now() - 86400000).first();
+    if (today.s + len > MEDIA_DAY_BYTES) return fail("rate_limited", 429, cors);
+    const buf = new Uint8Array(await req.arrayBuffer());
+    if (!buf.length || buf.length > rule.maxBytes) return fail("media_too_large", 413, cors);
+    const sniff = sniffMedia(buf);
+    const okType = kind === "video" ? (sniff === "video/iso" && declared !== "video/webm") || (sniff === "video/webm" && declared === "video/webm") : sniff === declared;
+    if (!okType) return fail("unsupported_media", 415, cors);
+    let w = 0, h = 0;
+    if (kind !== "video") {
+      const d = imageSize(buf, declared);
+      if (!d || !d.w || !d.h || d.w > 8000 || d.h > 8000) return fail("unsupported_media", 415, cors);
+      w = d.w; h = d.h;
+    } else {
+      w = Math.max(0, Math.min(8000, parseInt(url.searchParams.get("w") || "0", 10) || 0));
+      h = Math.max(0, Math.min(8000, parseInt(url.searchParams.get("h") || "0", 10) || 0));
+    }
+    if ((await storageUsed(env)) + buf.length > STORAGE_CAP) return fail("storage_full", 507, cors);
+    const id = randomToken(16);
+    const mime = declared === "video/quicktime" ? "video/mp4" : declared;
+    const chunks = Math.ceil(buf.length / CHUNK);
+    try {
+      for (let i = 0; i < chunks; i++) {
+        await env.DB.prepare("INSERT INTO media_chunks (media_id, idx, data) VALUES (?, ?, ?)").bind(id, i, buf.slice(i * CHUNK, (i + 1) * CHUNK)).run();
+      }
+      await env.DB.prepare("INSERT INTO media (id, user_id, kind, mime, size, w, h, chunks, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")
+        .bind(id, user.id, kind, mime, buf.length, w, h, chunks, now()).run();
+    } catch (e) {
+      await env.DB.prepare("DELETE FROM media_chunks WHERE media_id = ?").bind(id).run();
+      throw e;
+    }
+    return json({ media: { id, kind, mime, w, h } }, 201, cors);
+  }
+  // 프로필 포스트 쓰기
+  if (path === "/api/pposts" && M === "POST") {
+    if (!user.nickname) return fail("nickname_required", 400, cors);
+    const body = await readJson(req);
+    if (!body) return fail("bad_request", 400, cors);
+    const ids = Array.isArray(body.mediaIds) ? body.mediaIds : [];
+    if (ids.length > MAX_PPOST_MEDIA) return fail("bad_media", 400, cors);
+    let text = "";
+    if (typeof body.body === "string" && body.body.trim()) {
+      text = normLong(body.body, MAX_PPOST);
+      if (!text) return fail("invalid_ppost", 400, cors);
+    }
+    if (!text && !ids.length) return fail("invalid_ppost", 400, cors);
+    const seen = new Set();
+    for (const id of ids) {
+      if (typeof id !== "string" || !IMG_ID_RE.test(id) || seen.has(id)) return fail("bad_media", 400, cors);
+      seen.add(id);
+      const ok = await env.DB.prepare("SELECT 1 FROM media m WHERE m.id = ? AND m.user_id = ? AND NOT EXISTS (SELECT 1 FROM profile_post_media p WHERE p.media_id = m.id)").bind(id, user.id).first();
+      if (!ok) return fail("bad_media", 400, cors);
+    }
+    if (!(await hit(env, "ppost:" + user.id, 15, 600000)) || !(await hit(env, "ppost-day:" + user.id, 100, 86400000))) return fail("rate_limited", 429, cors);
+    const r = await env.DB.prepare("INSERT INTO profile_posts (user_id, body, created_at) VALUES (?, ?, ?) RETURNING id, created_at").bind(user.id, text, now()).first();
+    if (ids.length) await env.DB.batch(ids.map((id, i) => env.DB.prepare("INSERT INTO profile_post_media (post_id, media_id, ord) VALUES (?, ?, ?)").bind(r.id, id, i)));
+    const media = await mediaInfo(env, [r.id]);
+    return json({ post: { id: r.id, userId: user.id, body: text, createdAt: r.created_at, media: media[r.id] || [] } }, 201, cors);
+  }
+  // 프로필 포스트 삭제 (작성자 또는 사장·부사장)
+  m = /^\/api\/pposts\/(\d{1,12})$/.exec(path);
+  if (m && M === "DELETE") {
+    const p = await env.DB.prepare("SELECT id, user_id FROM profile_posts WHERE id = ?").bind(Number(m[1])).first();
+    if (!p) return fail("ppost_not_found", 404, cors);
+    if (p.user_id !== user.id && !isMod(user)) return fail("forbidden", 403, cors);
+    const mids = (await env.DB.prepare("SELECT media_id FROM profile_post_media WHERE post_id = ?").bind(p.id).all()).results.map((x) => x.media_id);
+    await env.DB.batch([
+      env.DB.prepare("DELETE FROM profile_post_media WHERE post_id = ?").bind(p.id),
+      env.DB.prepare("DELETE FROM profile_posts WHERE id = ?").bind(p.id),
+    ]);
+    for (const id of mids) await deleteMedia(env, id);
+    return json({ ok: true }, 200, cors);
+  }
+  return null;
 }
