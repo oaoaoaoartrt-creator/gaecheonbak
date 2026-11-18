@@ -531,6 +531,9 @@
     .cmts-head b { color: var(--accent); }
     .cmt { display: flex; gap: 10px; padding: 12px 18px; border-bottom: 1px solid #ece7de; }
     .cmt.reply { padding-left: 46px; background: #fbfaf7; }
+    .cmt.reply.d2 { padding-left: 74px; }
+    .cmt.reply.d3 { padding-left: 102px; background: #f8f6f1; }
+    .cmt .c-to { color: var(--accent); font-weight: 600; margin-right: 2px; }
     .cmt.reply::before { content: "ㄴ"; flex: none; margin-left: -18px; width: 14px; color: var(--line-strong); font-size: 13px; }
     .cmt .c-main { flex: 1 1 auto; min-width: 0; }
     .cmt .c-top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 12.5px; color: var(--muted); }
@@ -543,6 +546,7 @@
     .cmt-empty { padding: 22px 18px; font-size: 13px; color: var(--muted); }
     .cmt-form { display: flex; gap: 8px; padding: 12px 18px 14px; align-items: flex-end; }
     .cmt-form textarea { flex: 1 1 auto; min-width: 0; resize: vertical; min-height: 64px; max-height: 240px; font-size: 15px; }
+    .cmt-form .btn { white-space: nowrap; flex: none; }
     .cmt-form.inline { padding: 8px 0 0; }
     .cmt-form.inline textarea { min-height: 48px; }
     .cmt-err { padding: 0 18px 10px; font-size: 13px; color: var(--accent); min-height: 0; }
@@ -583,7 +587,7 @@
       .bd-form { padding: 14px; }
       .bd-form .row { flex-wrap: wrap; }
       .bd-form textarea { min-height: 240px; }
-      .cmt { padding: 10px 12px; } .cmt.reply { padding-left: 34px; }
+      .cmt { padding: 10px 12px; } .cmt.reply { padding-left: 34px; } .cmt.reply.d2 { padding-left: 52px; } .cmt.reply.d3 { padding-left: 70px; }
       .cmt-form { padding: 10px 12px; }
       .bd-search { flex-wrap: wrap; }
       .bd-search input { flex: 1 1 140px; width: auto; }
@@ -2735,8 +2739,14 @@
       var hd = E("div", "cmts-head"); hd.append("댓글 ", E("b", "", p.comments));
       box.appendChild(hd);
       if (!list.length) box.appendChild(E("p", "cmt-empty", "아직 댓글이 없습니다."));
-      list.forEach(function (c) {
-        var row = E("div", "cmt" + (c.parentId ? " reply" : "") + (c.deleted ? " gone" : ""));
+      // 댓글 트리: 답글은 윗댓글 바로 아래로, 들여쓰기는 3단계까지
+      var byId = {}, kids = {}, roots = [], ordered = [];
+      list.forEach(function (c) { byId[c.id] = c; });
+      list.forEach(function (c) { if (c.parentId && byId[c.parentId]) (kids[c.parentId] = kids[c.parentId] || []).push(c); else roots.push(c); });
+      (function walk(arr, d) { arr.forEach(function (c) { ordered.push({ c: c, d: d }); if (kids[c.id]) walk(kids[c.id], d + 1); }); })(roots, 0);
+      ordered.forEach(function (o) {
+        var c = o.c, depth = o.d, par = c.parentId ? byId[c.parentId] : null;
+        var row = E("div", "cmt" + (depth ? " reply d" + Math.min(depth, 3) : "") + (c.deleted ? " gone" : ""));
         if (!c.deleted) { var cfc = face(c.author, c.author.nickname, "sm"); cfc.setAttribute("data-uid", c.author.id); row.appendChild(cfc); }
         var main = E("div", "c-main");
         var top = E("div", "c-top");
@@ -2746,7 +2756,7 @@
           top.appendChild(E("span", "", fullDate(c.createdAt) + (c.updatedAt ? " (수정됨)" : "")));
           var ca = E("span", "c-acts");
           var own = me && c.author.id === me.id;
-          if (!c.parentId) {
+          if (true) {
             var rb = E("button", "linkbtn", "답글"); rb.type = "button";
             rb.addEventListener("click", function () {
               if (main.querySelector(".cmt-form")) return;
@@ -2777,6 +2787,7 @@
         }
         main.appendChild(top);
         var body = c.deleted ? E("div", "c-body", "삭제된 댓글입니다.") : richText(E("div", "c-body"), c.body, p.cons);
+        if (!c.deleted && depth > 3 && par) body.insertBefore(E("span", "c-to", "@" + (par.deleted || !par.author ? "삭제된 댓글" : par.author.nickname) + " "), body.firstChild);
         main.appendChild(body);
         row.appendChild(main);
         box.appendChild(row);

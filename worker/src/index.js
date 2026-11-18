@@ -1014,7 +1014,7 @@ async function board(req, env, url, path, user, cors, ctx) {
         if (!Number.isInteger(pid) || pid <= 0) return fail("bad_request", 400, cors);
         const pc = await env.DB.prepare("SELECT id, parent_id FROM comments WHERE id = ? AND post_id = ?").bind(pid, id).first();
         if (!pc) return fail("comment_not_found", 404, cors);
-        parent = pc.parent_id || pc.id;
+        parent = pc.id; // 답글의 답글도 그 댓글 아래에 (여러 단계)
       }
       if (!(await hit(env, "cmt:" + user.id, 30, 600000)) || !(await hit(env, "cmt-day:" + user.id, 300, 86400000))) return fail("rate_limited", 429, cors);
       await env.DB.batch([
@@ -1042,17 +1042,24 @@ async function board(req, env, url, path, user, cors, ctx) {
       await env.DB.prepare("UPDATE comments SET body = ?, updated_at = ? WHERE id = ?").bind(text, now(), cid).run();
     } else {
       if (c.user_id !== user.id && !isMod(user)) return fail("forbidden", 403, cors);
-      const kids = await env.DB.prepare("SELECT COUNT(*) AS n FROM comments WHERE parent_id = ? AND deleted = 0").bind(cid).first();
+      const kids = await env.DB.prepare("SELECT COUNT(*) AS n FROM comments WHERE parent_id = ?").bind(cid).first();
       const ops = [];
       // 답글이 달린 댓글은 '삭제된 댓글입니다'로 자리만 남김
       if (kids.n > 0) ops.push(env.DB.prepare("UPDATE comments SET deleted = 1, body = '' WHERE id = ?").bind(cid));
       else ops.push(env.DB.prepare("DELETE FROM comments WHERE id = ?").bind(cid));
       ops.push(env.DB.prepare("UPDATE posts SET comment_count = MAX(comment_count - 1, 0) WHERE id = ?").bind(c.post_id));
-      // 지워진 부모 댓글에 남은 답글이 없으면 부모 자리도 정리
-      if (c.parent_id) ops.push(env.DB.prepare(
-        "DELETE FROM comments WHERE id = ? AND deleted = 1 AND NOT EXISTS (SELECT 1 FROM comments k WHERE k.parent_id = ? AND k.id != ?)"
-      ).bind(c.parent_id, c.parent_id, cid));
       await env.DB.batch(ops);
+      // 지워진 윗댓글에 남은 답글이 없으면 그 자리도 위로 올라가며 정리
+      if (kids.n === 0) {
+        let anc = c.parent_id;
+        for (let i = 0; anc && i < 50; i++) {
+          const a = await env.DB.prepare("SELECT id, parent_id, deleted FROM comments WHERE id = ?").bind(anc).first();
+          if (!a || !a.deleted) break;
+          const r = await env.DB.prepare("DELETE FROM comments WHERE id = ? AND deleted = 1 AND NOT EXISTS (SELECT 1 FROM comments k WHERE k.parent_id = ?)").bind(a.id, a.id).run();
+          if (!r.meta || !r.meta.changes) break;
+          anc = a.parent_id;
+        }
+      }
     }
     return json({ post: await postDetail(env, c.post_id, user) }, 200, cors);
   }
