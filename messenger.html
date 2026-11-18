@@ -5,14 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
   <meta name="robots" content="noindex">
   <meta http-equiv="Content-Security-Policy" content="img-src 'self' https://gaecheonbak-chat.oaoaoaoartrt.workers.dev blob: data:">
-  <meta name="description" content="개천박컴퍼니 사내메신저">
+  <meta name="description" content="개천박컴퍼니 사내 메신저">
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://oaoaoaoartrt-creator.github.io/gaecheonbak/messenger.html">
-  <meta property="og:title" content="개천박컴퍼니 사내메신저">
-  <meta property="og:description" content="임직원 전용 사내메신저입니다.">
+  <meta property="og:title" content="개천박컴퍼니 사내 메신저">
+  <meta property="og:description" content="임직원 전용 사내 메신저입니다.">
   <meta property="og:image" content="https://oaoaoaoartrt-creator.github.io/gaecheonbak/images/og.jpg">
   <meta name="twitter:card" content="summary_large_image">
-  <title>사내메신저 | 개천박컴퍼니</title>
+  <title>사내 메신저 | 개천박컴퍼니</title>
   <meta name="theme-color" content="#f3f0ea">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icons/favicon.ico" sizes="any">
@@ -469,6 +469,69 @@
       .bd-search { flex-wrap: wrap; }
       .bd-search input { flex: 1 1 140px; width: auto; }
     }
+
+    /* 답장 */
+    .msg { position: relative; }
+    .msg.flash .bubble, .msg.flash .sticker, .msg.flash .photo { box-shadow: 0 0 0 3px rgba(122, 67, 50, 0.35); transition: box-shadow .2s; }
+    .msg-line { display: flex; align-items: center; gap: 6px; width: 100%; }
+    @media (hover: none) { .msg-body { -webkit-touch-callout: none; } }
+    .msg.mine .msg-line { flex-direction: row-reverse; }
+    .reply-act { appearance: none; flex: none; border: 1px solid var(--line); background: var(--surface); color: var(--muted); font: inherit; font-size: 12px; line-height: 1; padding: 6px 8px; border-radius: var(--radius); cursor: pointer; opacity: 0; transition: opacity .12s; }
+    .reply-act:hover { color: var(--ink); border-color: var(--line-strong); }
+    .msg:hover .reply-act, .reply-act:focus-visible { opacity: 1; }
+    @media (hover: none) { .reply-act { display: none; } }
+    .quote { appearance: none; display: block; max-width: min(420px, 82%); margin: 0 0 4px; padding: 5px 10px; text-align: left; font: inherit; font-size: 12.5px; line-height: 1.45; color: var(--muted); background: var(--paper); border: 0; border-left: 2px solid var(--line-strong); border-radius: 0; cursor: pointer; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+    .quote b { color: var(--ink-soft); font-weight: 600; margin-right: 6px; }
+    .quote:hover { background: var(--paper-deep); }
+    .quote.gone { cursor: default; font-style: italic; }
+    .msg.mine .quote { text-align: right; border-left: 0; border-right: 2px solid var(--line-strong); }
+    .reply-bar { flex: none; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 16px; border-top: 1px solid var(--line); background: var(--paper); font-size: 13px; }
+    .reply-bar .rb-text { min-width: 0; }
+    .reply-bar .rb-to { color: var(--ink-soft); }
+    .reply-bar .rb-to b { color: var(--ink); }
+    .reply-bar .rb-snip { margin: 2px 0 0; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .reply-bar button { flex: none; }
+    .msg-menu { position: fixed; z-index: 60; background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--radius); box-shadow: 0 6px 20px rgba(28, 27, 24, 0.12); }
+    .msg-menu button { appearance: none; display: block; width: 100%; padding: 12px 22px; font: inherit; font-size: 14px; background: none; border: 0; color: var(--ink); cursor: pointer; text-align: left; }
+    /* 게시판 뒤로/앞으로 */
+    .bd-nav { display: flex; gap: 6px; margin-bottom: 14px; }
+    .bd-nav button { appearance: none; display: inline-flex; align-items: center; gap: 4px; padding: 6px 11px; font: inherit; font-size: 13px; color: var(--ink-soft); background: transparent; border: 1px solid var(--line-strong); border-radius: var(--radius); cursor: pointer; }
+    .bd-nav button:hover:not(:disabled) { background: var(--paper-deep); color: var(--ink); }
+    .bd-nav button:disabled { opacity: 0.4; cursor: default; }
+    .bd-nav svg { width: 14px; height: 14px; }
+    /* 콘 */
+    img.con { display: inline-block; width: 100px; height: 100px; object-fit: contain; vertical-align: bottom; margin: 2px 2px; }
+    .con-gone { display: inline-flex; align-items: center; justify-content: center; width: 100px; height: 100px; margin: 2px; vertical-align: bottom; font-size: 12px; color: var(--muted); border: 1px dashed var(--line-strong); font-style: normal; white-space: normal; text-align: center; }
+    .con-tools { display: flex; align-items: center; gap: 8px; }
+    .cmt-wrap .con-tools { padding: 0 18px 12px; }
+    .cmt-wrap.inline .con-tools { padding: 6px 0 0; }
+    .con-panel { border: 1px solid var(--line); background: var(--paper); margin-top: 8px; }
+    .cmt-wrap .con-panel { margin: 0 18px 12px; }
+    .cmt-wrap.inline .con-panel { margin: 8px 0 0; }
+    .con-tabs { display: flex; gap: 2px; overflow-x: auto; border-bottom: 1px solid var(--line); padding: 0 8px; }
+    .con-tab { appearance: none; flex: none; border: 0; border-bottom: 2px solid transparent; background: transparent; padding: 8px 10px; font: inherit; font-size: 13px; color: var(--muted); cursor: pointer; white-space: nowrap; }
+    .con-tab[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--ink); font-weight: 600; }
+    .con-tab small { font-weight: 400; color: var(--muted); margin-left: 4px; }
+    .con-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); gap: 6px; padding: 10px; max-height: 260px; overflow-y: auto; }
+    .con-tile { appearance: none; aspect-ratio: 1; padding: 6px; border: 1px solid transparent; background: transparent; border-radius: var(--radius); cursor: pointer; display: grid; place-items: center; }
+    .con-tile:hover { background: var(--surface); border-color: var(--line); }
+    .con-tile img { width: 100%; height: 100%; object-fit: contain; }
+    .con-foot { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 8px 10px; border-top: 1px solid var(--line); font-size: 12px; color: var(--muted); }
+    .con-empty { grid-column: 1 / -1; margin: 14px 0; text-align: center; font-size: 13px; color: var(--muted); }
+    .con-dlg .card { max-width: 640px; width: 100%; max-height: 88vh; overflow-y: auto; }
+    .cm-new { display: flex; gap: 8px; margin-bottom: 18px; }
+    .cm-new input, .cm-pack-head input { flex: 1 1 auto; min-width: 0; font: inherit; font-size: 14px; padding: 7px 9px; border: 1px solid var(--line-strong); border-radius: var(--radius); background: #fff; }
+    .cm-pack { border: 1px solid var(--line); margin-bottom: 12px; background: var(--surface); }
+    .cm-pack-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 10px 12px; border-bottom: 1px solid var(--line); }
+    .cm-pack-head .nm { font-weight: 600; }
+    .cm-pack-head .cnt { font-size: 12px; color: var(--muted); margin-right: auto; }
+    .cm-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 8px; padding: 12px; }
+    .cm-item { text-align: center; font-size: 11.5px; color: var(--muted); }
+    .cm-item img { width: 64px; height: 64px; object-fit: contain; display: block; margin: 0 auto 4px; }
+    .cm-item .cn { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-soft); }
+    .cm-item .linkbtn { font-size: 11.5px; }
+    .cm-full { padding: 0 12px 12px; margin: 0; font-size: 12.5px; color: var(--accent); }
+    .cm-sec { margin: 22px 0 8px; font-size: 13px; font-weight: 600; color: var(--ink-soft); }
   </style>
 </head>
 <body>
@@ -480,7 +543,7 @@
           <li><a href="./#panel-people">인원 소개</a></li>
           <li><a href="./#panel-work">일 소개</a></li>
           <li><a href="./#panel-benefits">혜택 소개</a></li>
-          <li><a href="messenger.html" aria-current="page">사내메신저</a></li>
+          <li><a href="messenger.html" aria-current="page">사내 메신저</a></li>
         </ul>
       </nav>
     </div>
@@ -490,7 +553,7 @@
     <section class="page-head">
       <div class="wrap">
         <p class="kicker">임직원 전용</p>
-        <h1>사내메신저</h1>
+        <h1>사내 메신저</h1>
         <p>개천박컴퍼니 임직원이 업무 연락을 나누는 곳입니다.</p>
         <p class="offline-note" role="status">오프라인 상태입니다. 인터넷에 다시 연결되면 자동으로 이어집니다.</p>
         <div class="install" data-install hidden>
@@ -506,7 +569,7 @@
     <section class="app-bar" id="app-bar" hidden>
       <div class="wrap">
         <div class="app-bar-inner">
-          <p class="app-title">사내메신저 <small>임직원 전용</small></p>
+          <p class="app-title">사내 메신저 <small>임직원 전용</small></p>
           <nav class="app-tabs" aria-label="메신저 메뉴">
             <a href="#/chat" data-tab="chat">채팅</a>
             <a href="#/board" data-tab="board">사내 게시판</a>
@@ -601,6 +664,10 @@
             </div>
           </div>
           <div class="emo-grid" id="emo-grid" role="list"></div>
+        </div>
+        <div class="reply-bar" id="reply-bar" hidden>
+          <div class="rb-text"><p class="rb-to" style="margin:0"><b id="rb-name"></b>님에게 답장</p><p class="rb-snip" id="rb-snip"></p></div>
+          <button class="btn btn-line btn-xs" type="button" id="rb-cancel">취소</button>
         </div>
         <form class="composer" id="composer">
           <div class="tools">
@@ -700,6 +767,17 @@
     </div>
   </div>
 
+  <div class="dialog-bg con-dlg" id="con-dialog" hidden role="dialog" aria-modal="true" aria-labelledby="con-title">
+    <div class="card">
+      <h2 id="con-title">콘 관리</h2>
+      <p class="lead">주제를 만들고 콘을 올리면 사내 게시판 글과 댓글에 쓸 수 있습니다. 주제 하나에 50개까지 담을 수 있고, 가득 차면 새 주제를 만들어 주세요. 다른 임직원도 함께 쓸 수 있습니다.</p>
+      <div id="con-body"></div>
+      <p class="error" id="con-error" role="alert"></p>
+      <div class="dlg-actions"><button class="btn" type="button" id="con-close">닫기</button></div>
+      <input type="file" id="file-con" accept="image/jpeg,image/png,image/webp,image/gif" multiple hidden>
+    </div>
+  </div>
+
   <div class="lightbox" id="lightbox" hidden role="dialog" aria-modal="true" aria-label="사진 크게 보기">
     <button class="lightbox-close" type="button" id="lightbox-close">닫기</button>
     <img id="lightbox-img" alt="사진">
@@ -761,7 +839,14 @@
       already_voted: "이미 이 글에 추천 또는 비추천을 하셨습니다.",
       forbidden: "권한이 없습니다.",
       post_not_found: "삭제되었거나 없는 글입니다.",
-      comment_not_found: "삭제되었거나 없는 댓글입니다."
+      comment_not_found: "삭제되었거나 없는 댓글입니다.",
+      reply_not_found: "답장할 메시지를 찾을 수 없습니다.",
+      invalid_pack_name: "주제 이름은 1자 이상 20자 이하로 입력해 주세요.",
+      pack_limit: "주제는 1인당 20개까지 만들 수 있습니다.",
+      pack_full: "이 주제는 콘 50개가 가득 찼습니다. 새 주제를 만들어 주세요.",
+      pack_not_found: "삭제되었거나 없는 주제입니다.",
+      invalid_con_name: "콘 이름은 1자 이상 20자 이하로 입력해 주세요.",
+      con_not_found: "삭제되었거나 없는 콘입니다."
     };
     function errText(e) { return ERRORS[e && e.code] || "알 수 없는 오류가 발생했습니다. 잠시 후 다시 시도해 주세요."; }
 
@@ -1195,6 +1280,7 @@
         }
         var row = document.createElement("div");
         row.className = "msg";
+        row.setAttribute("data-id", m.id);
         var mine = !!(me && m.userId === me.id);
         if (mine) row.classList.add("mine");
         if (m.userId === lastUid && date - lastTs < 3 * 60 * 1000) row.classList.add("follow");
@@ -1217,7 +1303,17 @@
         if (rt) meta.appendChild(rt);
         meta.appendChild(when);
 
-        body.append(meta, messageContent(m, date));
+        body.appendChild(meta);
+        if (m.reply) body.appendChild(quoteNode(m.reply));
+        var line = document.createElement("div");
+        line.className = "msg-line";
+        var ra = document.createElement("button");
+        ra.type = "button"; ra.className = "reply-act"; ra.textContent = "답장";
+        ra.setAttribute("aria-label", String(m.nickname || "") + "님 메시지에 답장");
+        ra.addEventListener("click", function () { setReply(m); });
+        line.append(messageContent(m, date), ra);
+        body.appendChild(line);
+        bindLongPress(body, m);
         row.appendChild(body);
         log.appendChild(row);
         lastDay = day; lastUid = m.userId; lastTs = date;
@@ -1303,8 +1399,8 @@
       $("btn-attach").disabled = true;
       note("사진을 보내는 중입니다.", false);
       makePhoto(file)
-        .then(function (blob) { return api("/api/photos", { method: "POST", raw: blob }); })
-        .then(function (d) { note(""); addMessages([d.message], true); })
+        .then(function (blob) { return api("/api/photos" + (replyTo ? "?replyTo=" + replyTo.id : ""), { method: "POST", raw: blob }); })
+        .then(function (d) { note(""); clearReply(); addMessages([d.message], true); })
         .catch(function (e) { if (e.code !== "unauthorized") note(errText(e)); })
         .then(function () { uploading = false; $("btn-attach").disabled = false; });
     }
@@ -1436,8 +1532,10 @@
       if (emo.busy) return;
       emo.busy = true;
       note("");
-      api("/api/messages", { method: "POST", body: { emoticonId: e.id } })
-        .then(function (d) { addMessages([d.message], true); })
+      var payload = { emoticonId: e.id };
+      if (replyTo) payload.replyTo = replyTo.id;
+      api("/api/messages", { method: "POST", body: payload })
+        .then(function (d) { clearReply(); addMessages([d.message], true); })
         .catch(function (err) {
           if (err.code === "unauthorized") return;
           note(errText(err));
@@ -1588,6 +1686,72 @@
       }
     });
 
+
+    /* 답장 */
+    var replyTo = null;
+    function snippet(r) {
+      if (r.kind === "image") return "[사진]";
+      if (r.kind === "emoticon") return "[이모티콘] " + String(r.text || "");
+      var t = String(r.text || "").replace(/\s+/g, " ").trim();
+      return Array.from(t).length > 60 ? Array.from(t).slice(0, 60).join("") + "…" : t;
+    }
+    function setReply(m) {
+      replyTo = { id: m.id };
+      $("rb-name").textContent = String(m.nickname || "익명");
+      $("rb-snip").textContent = snippet({ kind: m.kind, text: m.text });
+      $("reply-bar").hidden = false;
+      input.focus();
+    }
+    function clearReply() { replyTo = null; $("reply-bar").hidden = true; }
+    $("rb-cancel").addEventListener("click", function () { clearReply(); input.focus(); });
+    document.addEventListener("keydown", function (e) { if (e.key === "Escape" && replyTo && !$("reply-bar").hidden && document.activeElement === input) clearReply(); });
+    function quoteNode(r) {
+      var q = document.createElement("button");
+      q.type = "button"; q.className = "quote";
+      if (r.missing) { q.classList.add("gone"); q.disabled = true; q.textContent = "삭제되었거나 볼 수 없는 메시지입니다."; return q; }
+      var b = document.createElement("b"); b.textContent = String(r.nickname || "익명");
+      q.append(b, document.createTextNode(snippet(r)));
+      q.title = "원본 메시지로 이동";
+      q.addEventListener("click", function () { jumpTo(r.id); });
+      return q;
+    }
+    function jumpTo(id) {
+      var el = log.querySelector('.msg[data-id="' + Number(id) + '"]');
+      if (!el) { note("원본 메시지가 오래되어 지금 화면에는 없습니다."); return; }
+      el.scrollIntoView({ block: "center", behavior: "smooth" });
+      el.classList.remove("flash"); void el.offsetWidth; el.classList.add("flash");
+      setTimeout(function () { el.classList.remove("flash"); }, 1600);
+    }
+    // 휴대폰: 메시지를 길게 누르면 답장 메뉴
+    var menuEl = null;
+    function closeMenu() { if (menuEl) { menuEl.remove(); menuEl = null; } }
+    document.addEventListener("pointerdown", function (e) { if (menuEl && !menuEl.contains(e.target)) closeMenu(); }, true);
+    log.addEventListener("scroll", closeMenu, { passive: true });
+    function bindLongPress(el, m) {
+      var t = null, sx = 0, sy = 0;
+      el.addEventListener("touchstart", function (e) {
+        var p = e.touches[0]; sx = p.clientX; sy = p.clientY;
+        t = setTimeout(function () {
+          t = null;
+          closeMenu();
+          menuEl = document.createElement("div"); menuEl.className = "msg-menu";
+          var b = document.createElement("button"); b.type = "button"; b.textContent = "답장하기";
+          b.addEventListener("click", function () { closeMenu(); setReply(m); });
+          menuEl.appendChild(b);
+          document.body.appendChild(menuEl);
+          var x = Math.min(window.innerWidth - menuEl.offsetWidth - 8, Math.max(8, sx - 40));
+          var y = Math.max(8, sy - menuEl.offsetHeight - 12);
+          menuEl.style.left = x + "px"; menuEl.style.top = y + "px";
+          if (navigator.vibrate) try { navigator.vibrate(15); } catch (er) {}
+        }, 480);
+      }, { passive: true });
+      function cancel() { if (t) { clearTimeout(t); t = null; } }
+      el.addEventListener("touchmove", function (e) { var p = e.touches[0]; if (Math.abs(p.clientX - sx) > 10 || Math.abs(p.clientY - sy) > 10) cancel(); }, { passive: true });
+      el.addEventListener("touchend", cancel);
+      el.addEventListener("touchcancel", cancel);
+      el.addEventListener("contextmenu", function (e) { if (menuEl) e.preventDefault(); });
+    }
+
     var sending = false;
     $("composer").addEventListener("submit", function (ev) {
       ev.preventDefault();
@@ -1600,10 +1764,13 @@
       $("btn-send").disabled = true;
       input.value = "";
       autosize();
-      api("/api/messages", { method: "POST", body: { text: text } })
-        .then(function (d) { addMessages([d.message], true); })
+      var payload = { text: text };
+      if (replyTo) payload.replyTo = replyTo.id;
+      api("/api/messages", { method: "POST", body: payload })
+        .then(function (d) { clearReply(); addMessages([d.message], true); })
         .catch(function (e) {
           if (e.code === "unauthorized") return;
+          if (e.code === "reply_not_found") clearReply();
           input.value = text;
           autosize();
           $("send-error").textContent = errText(e);
@@ -1664,12 +1831,40 @@
       return "#/board" + (s ? "?" + s : "");
     }
 
+    /* 앱 안 이동 기록 (뒤로/앞으로 버튼 상태). history.state에 순번을 붙여 추적 */
+    var navIdx = -1, navMax = 0;
+    try { navMax = Number(sessionStorage.getItem("gcb_nav_max")) || 0; } catch (e) {}
+    function navTrack() {
+      var st = history.state;
+      if (st && typeof st.gcbIdx === "number") { navIdx = st.gcbIdx; if (navIdx > navMax) navMax = navIdx; }
+      else {
+        navIdx = navIdx < 0 ? 0 : navIdx + 1;
+        navMax = navIdx;
+        try { history.replaceState({ gcbIdx: navIdx }, ""); } catch (e) {}
+      }
+      try { sessionStorage.setItem("gcb_nav_max", String(navMax)); } catch (e) {}
+    }
+    function navBar() {
+      var nav = E("div", "bd-nav"); nav.setAttribute("role", "group"); nav.setAttribute("aria-label", "페이지 이동");
+      var back = E("button"); back.type = "button";
+      back.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg><span>뒤로 가기</span>';
+      var fwd = E("button"); fwd.type = "button";
+      fwd.innerHTML = '<span>앞으로 가기</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>';
+      back.disabled = navIdx <= 0;
+      fwd.disabled = navIdx >= navMax;
+      back.addEventListener("click", function () { if (navIdx > 0) history.back(); });
+      fwd.addEventListener("click", function () { if (navIdx < navMax) history.forward(); });
+      nav.append(back, fwd);
+      return nav;
+    }
+
     function route() {
+      navTrack();
       if (!me || !myNick) return;
       var h = location.hash || "";
       var m = /^#\/board(?:\/(write|\d{1,12})(?:\/(edit))?)?(?:\?(.*))?$/.exec(h);
       if (!m) {
-        if (h && h !== "#/chat" && h.indexOf("#/") === 0) { history.replaceState(null, "", "#/chat"); }
+        if (h && h !== "#/chat" && h.indexOf("#/") === 0) { history.replaceState(history.state, "", "#/chat"); }
         showChat();
         return;
       }
@@ -1685,12 +1880,16 @@
     window.addEventListener("hashchange", route);
 
     function boardHead(sub) {
+      var outer = E("div", "bd-top");
+      outer.appendChild(navBar());
       var head = E("div", "bd-head");
+      outer.appendChild(head);
       var h2 = E("h2");
       h2.appendChild(A("#/board", "", "사내 게시판"));
       head.appendChild(h2);
       if (sub) head.appendChild(sub);
-      return head;
+      outer.head = head;
+      return outer;
     }
 
     /* 목록 */
@@ -1812,7 +2011,7 @@
       r.append(E("span", "", "조회 " + p.views), E("span", "", "추천 " + p.up), E("span", "", "댓글 " + p.comments));
       meta.append(l, r); hd.appendChild(meta);
       art.appendChild(hd);
-      art.appendChild(E("div", "bp-body", p.body));
+      art.appendChild(richText(E("div", "bp-body"), p.body, p.cons));
       if (p.images && p.images.length) {
         var ims = E("div", "bp-images");
         p.images.forEach(function (im) {
@@ -1897,11 +2096,13 @@
         var text = ta.value.replace(/^\s+|\s+$/g, "");
         if (!text) { err.textContent = ERRORS.invalid_comment; return; }
         b.disabled = true;
-        onDone(text).then(function (d) { if (d && d.post) { p.comments = d.post.comments.filter(function (c) { return !c.deleted; }).length; p.commentList = d.post.comments; refreshComments(p); } })
+        onDone(text).then(function (d) { if (d && d.post) { p.cons = d.post.cons || p.cons; p.comments = d.post.comments.filter(function (c) { return !c.deleted; }).length; p.commentList = d.post.comments; refreshComments(p); } })
           .catch(function (e) { err.textContent = errText(e); b.disabled = false; });
       });
       ta.addEventListener("keydown", function (e) { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) f.requestSubmit(); });
-      var wrap = E("div"); wrap.append(f, err);
+      var wrap = E("div", "cmt-wrap" + (inline ? " inline" : ""));
+      var cp = conPicker(ta);
+      wrap.append(f, cp.tools, cp.panel, err);
       return { node: wrap, ta: ta };
     }
     var cmtBox = null;
@@ -1950,7 +2151,7 @@
             db.addEventListener("click", function () {
               if (!confirm("이 댓글을 삭제할까요?")) return;
               api("/api/board/comments/" + c.id, { method: "DELETE" })
-                .then(function (d) { p.comments = d.post.comments.filter(function (x) { return !x.deleted; }).length; p.commentList = d.post.comments; refreshComments(p); })
+                .then(function (d) { p.cons = d.post.cons || p.cons; p.comments = d.post.comments.filter(function (x) { return !x.deleted; }).length; p.commentList = d.post.comments; refreshComments(p); })
                 .catch(function (e) { alert(errText(e)); });
             });
             ca.appendChild(db);
@@ -1958,7 +2159,7 @@
           top.appendChild(ca);
         }
         main.appendChild(top);
-        var body = E("div", "c-body", c.deleted ? "삭제된 댓글입니다." : c.body);
+        var body = c.deleted ? E("div", "c-body", "삭제된 댓글입니다.") : richText(E("div", "c-body"), c.body, p.cons);
         main.appendChild(body);
         row.appendChild(main);
         box.appendChild(row);
@@ -2027,7 +2228,8 @@
       });
       var submit = E("button", "btn", editId ? "수정 완료" : "등록"); submit.type = "submit";
       actions.append(cancel, submit);
-      form.append(row, ta, counter, att, actions, err);
+      var wcp = conPicker(ta);
+      form.append(row, ta, counter, wcp.tools, wcp.panel, att, actions, err);
       form.addEventListener("submit", function (ev) {
         ev.preventDefault();
         err.textContent = "";
@@ -2042,7 +2244,7 @@
           .then(function (r) { draft = null; location.hash = "#/board/" + r.post.id; })
           .catch(function (e) { err.textContent = errText(e); submit.disabled = false; });
       });
-      var h = boardHead(); h.appendChild(E("span", "bd-total", editId ? "글 수정" : "글쓰기"));
+      var h = boardHead(); h.head.appendChild(E("span", "bd-total", editId ? "글 수정" : "글쓰기"));
       if (!editId) { broot.replaceChildren(h, form); title.focus(); return; }
       broot.replaceChildren(h, E("p", "loading", "불러오는 중입니다."));
       api("/api/board/posts/" + editId).then(function (d) {
@@ -2055,6 +2257,192 @@
         broot.replaceChildren(h, form);
       }).catch(function (e) { if (seq === bseq) { broot.replaceChildren(h); boardErr(e); } });
     }
+
+
+    /* ---------- 콘 (게시판 전용, 주제별 최대 50개) ---------- */
+    var CON_RE = /\[\[con:(\d{1,12})\]\]/g;
+    var conData = null, conLoading = null;
+    function loadCons(force) {
+      if (conData && !force) return Promise.resolve(conData);
+      if (conLoading && !force) return conLoading;
+      conLoading = api("/api/board/cons").then(function (d) { conData = d; conLoading = null; return d; }, function (e) { conLoading = null; throw e; });
+      return conLoading;
+    }
+    function richText(el, text, map) {
+      map = map || {};
+      var str = String(text || ""), last = 0, m;
+      CON_RE.lastIndex = 0;
+      while ((m = CON_RE.exec(str))) {
+        if (m.index > last) el.appendChild(document.createTextNode(str.slice(last, m.index)));
+        var c = map[m[1]], src = c && imgUrl(c.imageId);
+        if (src) { var im = E("img", "con"); im.src = src; im.alt = c.name; im.title = c.name; im.loading = "lazy"; im.decoding = "async"; el.appendChild(im); }
+        else el.appendChild(E("span", "con-gone", "삭제된 콘"));
+        last = m.index + m[0].length;
+      }
+      if (last < str.length) el.appendChild(document.createTextNode(str.slice(last)));
+      return el;
+    }
+    function insertAtCursor(ta, txt) {
+      var st = ta.selectionStart == null ? ta.value.length : ta.selectionStart, en = ta.selectionEnd == null ? st : ta.selectionEnd;
+      if (ta.value.length - (en - st) + txt.length > ta.maxLength) return false;
+      ta.value = ta.value.slice(0, st) + txt + ta.value.slice(en);
+      var pos = st + txt.length;
+      try { ta.setSelectionRange(pos, pos); } catch (e) {}
+      ta.dispatchEvent(new Event("input"));
+      return true;
+    }
+    var conTabSel = null;
+    function conPicker(ta) {
+      var tools = E("div", "con-tools");
+      var tg = E("button", "btn btn-line btn-xs", "콘"); tg.type = "button"; tg.setAttribute("aria-expanded", "false");
+      var mg = E("button", "linkbtn", "콘 관리"); mg.type = "button";
+      tools.append(tg, mg);
+      var panel = E("div", "con-panel"); panel.hidden = true;
+      function paint() {
+        panel.replaceChildren();
+        var d = conData;
+        if (!d) { panel.appendChild(E("p", "con-empty", "불러오는 중입니다.")); return; }
+        var packs = (d.packs || []).filter(function (pk) { return pk.cons.length; });
+        if (!packs.length) {
+          var g0 = E("div", "con-grid"); g0.appendChild(E("p", "con-empty", "아직 등록된 콘이 없습니다. '콘 관리'에서 주제를 만들고 콘을 올려 보세요."));
+          panel.appendChild(g0); return;
+        }
+        var cur = packs.filter(function (pk) { return pk.id === conTabSel; })[0] || packs[0];
+        conTabSel = cur.id;
+        var tabs = E("div", "con-tabs"); tabs.setAttribute("role", "tablist");
+        packs.forEach(function (pk) {
+          var t = E("button", "con-tab", pk.name); t.type = "button"; t.setAttribute("role", "tab");
+          t.setAttribute("aria-selected", String(pk === cur));
+          if (!(me && pk.owner.id === me.id)) { t.appendChild(E("small", "", pk.owner.nickname)); }
+          t.addEventListener("click", function () { conTabSel = pk.id; paint(); });
+          tabs.appendChild(t);
+        });
+        var grid = E("div", "con-grid");
+        cur.cons.forEach(function (c) {
+          var src = imgUrl(c.imageId); if (!src) return;
+          var b = E("button", "con-tile"); b.type = "button"; b.title = c.name; b.setAttribute("aria-label", "콘 " + c.name);
+          var im = E("img"); im.src = src; im.alt = ""; im.loading = "lazy"; b.appendChild(im);
+          b.addEventListener("click", function () {
+            var pre = ta.value && !/\s$/.test(ta.value.slice(0, ta.selectionStart || 0)) ? " " : "";
+            if (!insertAtCursor(ta, pre + "[[con:" + c.id + "]]")) alert("글자 수 제한을 넘어 콘을 더 넣을 수 없습니다.");
+          });
+          grid.appendChild(b);
+        });
+        var foot = E("div", "con-foot");
+        foot.appendChild(E("span", "", cur.name + " · " + cur.owner.nickname + " · " + cur.cons.length + "개"));
+        if (isMod() && !(me && cur.owner.id === me.id)) {
+          var del = E("button", "linkbtn", "주제 삭제(관리자)"); del.type = "button";
+          del.addEventListener("click", function () {
+            if (!confirm("관리자 권한으로 '" + cur.name + "' 주제를 삭제할까요? 이 콘을 쓴 글에는 '삭제된 콘'으로 표시됩니다.")) return;
+            api("/api/board/conpacks/" + cur.id, { method: "DELETE" }).then(function () { return loadCons(true); }).then(paint).catch(function (e) { alert(errText(e)); });
+          });
+          foot.appendChild(del);
+        }
+        panel.append(tabs, grid, foot);
+      }
+      tg.addEventListener("click", function () {
+        panel.hidden = !panel.hidden;
+        tg.setAttribute("aria-expanded", String(!panel.hidden));
+        tg.classList.toggle("on", !panel.hidden);
+        if (!panel.hidden) { paint(); loadCons(true).then(paint).catch(function (e) { panel.replaceChildren(E("p", "con-empty", errText(e))); }); }
+      });
+      mg.addEventListener("click", function () { openConMgr(function () { if (!panel.hidden) paint(); }); });
+      return { tools: tools, panel: panel };
+    }
+
+    // 콘 관리 창
+    var conMgrDone = null, conUploadPack = null;
+    function openConMgr(done) {
+      conMgrDone = done; $("con-error").textContent = "";
+      $("con-dialog").hidden = false;
+      paintConMgr();
+      loadCons(true).then(paintConMgr).catch(function (e) { $("con-error").textContent = errText(e); });
+    }
+    function closeConMgr() { $("con-dialog").hidden = true; if (conMgrDone) conMgrDone(); conMgrDone = null; }
+    $("con-close").addEventListener("click", closeConMgr);
+    $("con-dialog").addEventListener("click", function (e) { if (e.target === this) closeConMgr(); });
+    function conErr(e) { if (e && e.code !== "unauthorized") $("con-error").textContent = errText(e); }
+    function refreshMgr() { return loadCons(true).then(paintConMgr).catch(conErr); }
+    function paintConMgr() {
+      var box = $("con-body"); box.replaceChildren();
+      var d = conData;
+      if (!d) { box.appendChild(E("p", "loading", "불러오는 중입니다.")); return; }
+      var mine = (d.packs || []).filter(function (pk) { return me && pk.owner.id === me.id; });
+      var nf = E("form", "cm-new");
+      var ni = E("input"); ni.type = "text"; ni.maxLength = 20; ni.placeholder = "새 주제 이름 (예: 고양이 콘)"; ni.setAttribute("aria-label", "새 주제 이름");
+      var nb = E("button", "btn", "주제 만들기"); nb.type = "submit";
+      nb.disabled = mine.length >= (d.maxPacks || 20);
+      nf.append(ni, nb);
+      nf.addEventListener("submit", function (ev) {
+        ev.preventDefault(); $("con-error").textContent = "";
+        var n = ni.value.trim(); if (!n) { conErr({ code: "invalid_pack_name" }); return; }
+        nb.disabled = true;
+        api("/api/board/conpacks", { method: "POST", body: { name: n } }).then(refreshMgr).catch(function (e) { conErr(e); nb.disabled = false; });
+      });
+      box.appendChild(nf);
+      box.appendChild(E("p", "cm-sec", "내 주제 " + mine.length + "/" + (d.maxPacks || 20)));
+      if (!mine.length) box.appendChild(E("p", "hint", "아직 만든 주제가 없습니다. 위에서 주제를 먼저 만들어 주세요."));
+      var maxPer = d.maxPerPack || 50;
+      mine.forEach(function (pk) {
+        var sec = E("div", "cm-pack");
+        var hd = E("div", "cm-pack-head");
+        hd.append(E("span", "nm", pk.name), E("span", "cnt", pk.cons.length + "/" + maxPer));
+        var add = E("button", "btn btn-xs", "콘 추가"); add.type = "button"; add.disabled = pk.cons.length >= maxPer;
+        add.addEventListener("click", function () { conUploadPack = pk; $("file-con").click(); });
+        var rn = E("button", "btn btn-line btn-xs", "이름 변경"); rn.type = "button";
+        rn.addEventListener("click", function () {
+          var n = prompt("새 주제 이름 (20자 이하)", pk.name); if (n === null) return;
+          api("/api/board/conpacks/" + pk.id, { method: "POST", body: { name: n.trim() } }).then(refreshMgr).catch(conErr);
+        });
+        var dl = E("button", "btn btn-line btn-xs danger", "주제 삭제"); dl.type = "button";
+        dl.addEventListener("click", function () {
+          if (!confirm("'" + pk.name + "' 주제와 콘 " + pk.cons.length + "개를 삭제할까요? 이 콘을 쓴 글에는 '삭제된 콘'으로 표시됩니다.")) return;
+          api("/api/board/conpacks/" + pk.id, { method: "DELETE" }).then(refreshMgr).catch(conErr);
+        });
+        hd.append(add, rn, dl);
+        sec.appendChild(hd);
+        if (pk.cons.length >= maxPer) sec.appendChild(E("p", "cm-full", "이 주제는 가득 찼습니다. 콘을 더 올리려면 새 주제를 만들어 주세요."));
+        var g = E("div", "cm-grid");
+        if (!pk.cons.length) g.appendChild(E("p", "con-empty", "'콘 추가'로 이미지를 올려 주세요. 여러 장을 한 번에 고를 수 있습니다."));
+        pk.cons.forEach(function (c) {
+          var it = E("div", "cm-item");
+          var im = E("img"); im.src = imgUrl(c.imageId); im.alt = c.name; im.loading = "lazy";
+          var r1 = E("button", "linkbtn", "이름"); r1.type = "button";
+          r1.addEventListener("click", function () {
+            var n = prompt("콘 이름 (20자 이하)", c.name); if (n === null) return;
+            api("/api/board/cons/" + c.id, { method: "POST", body: { name: n.trim() } }).then(refreshMgr).catch(conErr);
+          });
+          var d1 = E("button", "linkbtn", "삭제"); d1.type = "button";
+          d1.addEventListener("click", function () {
+            if (!confirm("'" + c.name + "' 콘을 삭제할까요? 이 콘을 쓴 글에는 '삭제된 콘'으로 표시됩니다.")) return;
+            api("/api/board/cons/" + c.id, { method: "DELETE" }).then(refreshMgr).catch(conErr);
+          });
+          var acts = E("span"); acts.append(r1, document.createTextNode(" · "), d1);
+          it.append(im, E("span", "cn", c.name), acts);
+          g.appendChild(it);
+        });
+        sec.appendChild(g);
+        box.appendChild(sec);
+      });
+      box.appendChild(E("p", "hint", "콘은 160px로 줄여 저장하며, 500KB 이하 GIF는 움직이는 그대로 올라갑니다."));
+    }
+    $("file-con").addEventListener("change", function () {
+      var files = Array.prototype.slice.call(this.files || []), pk = conUploadPack;
+      this.value = "";
+      if (!pk || !files.length) return;
+      var room = (conData && conData.maxPerPack || 50) - pk.cons.length;
+      if (files.length > room) { conErr({ code: "pack_full" }); files = files.slice(0, Math.max(0, room)); }
+      $("con-error").textContent = files.length ? "콘을 올리는 중입니다… (0/" + files.length + ")" : $("con-error").textContent;
+      var done = 0;
+      files.reduce(function (pr, f) {
+        return pr.then(function () {
+          var name = (f.name || "콘").replace(/\.[^.]+$/, "").trim().slice(0, 20) || "콘";
+          return makeEmoticon(f).then(function (blob) {
+            return api("/api/board/conpacks/" + pk.id + "/cons?name=" + encodeURIComponent(name), { method: "POST", raw: blob });
+          }).then(function () { done++; $("con-error").textContent = "콘을 올리는 중입니다… (" + done + "/" + files.length + ")"; });
+        });
+      }, Promise.resolve()).then(function () { $("con-error").textContent = ""; }, conErr).then(refreshMgr);
+    });
 
     /* ---------- 오프라인 ---------- */
     var bootPending = false, probeTimer = null;

@@ -18,6 +18,13 @@ const MAX_EMO_NAME = 20;
 const STORAGE_CAP = 400 * 1024 * 1024;   // D1 무료 DB 한도(500MB) 전에 업로드를 막아 텍스트 채팅을 보호
 const IMG_ID_RE = /^[0-9a-f]{32}$/;
 IMG_RULES.board = { maxBytes: 1024 * 1024, maxDim: 4096 };
+IMG_RULES.con = { maxBytes: 512 * 1024, maxDim: 512 };
+
+/* 게시판 콘 (주제별 묶음) */
+const MAX_CON_PACKS = 20;                // 1인당 주제 수
+const MAX_CONS_PER_PACK = 50;            // 주제당 콘 수
+const MAX_PACK_NAME = 20;
+const CON_TOKEN_RE = /\[\[con:(\d{1,12})\]\]/g;
 
 /* 게시판 */
 const BOARD_CATS = ["일반", "질문", "정보", "잡담"];
@@ -183,7 +190,8 @@ async function dropImageIfUnused(env, id) {
        AND NOT EXISTS (SELECT 1 FROM messages WHERE image_id = ?1)
        AND NOT EXISTS (SELECT 1 FROM users WHERE avatar_id = ?1)
        AND NOT EXISTS (SELECT 1 FROM emoticons WHERE image_id = ?1)
-       AND NOT EXISTS (SELECT 1 FROM post_images WHERE image_id = ?1)`
+       AND NOT EXISTS (SELECT 1 FROM post_images WHERE image_id = ?1)
+       AND NOT EXISTS (SELECT 1 FROM cons WHERE image_id = ?1)`
   ).bind(id).run();
 }
 function normEmoName(v) {
@@ -267,13 +275,26 @@ const publicMsg = (m) => ({
   id: m.id, userId: m.user_id, nickname: m.nickname, kind: m.kind || "text", text: m.text,
   image: m.image_id ? { id: m.image_id, w: m.w || 0, h: m.h || 0 } : null,
   avatarId: m.avatar_id || null, frame: cleanFrame(m.frame), role: cleanRole(m.role), createdAt: m.created_at,
+  reply: m.reply_to ? (m.r_id
+    ? { id: m.r_id, userId: m.r_uid, nickname: m.r_nick, kind: m.r_kind || "text", text: m.r_kind === "image" ? "" : String(m.r_text || "") }
+    : { id: m.reply_to, missing: true }) : null,
 });
-const MSG_SELECT = `SELECT m.id, m.user_id, m.nickname, m.kind, m.text, m.image_id, m.created_at, i.w, i.h, u.avatar_id, u.frame, u.role
-  FROM messages m LEFT JOIN users u ON u.id = m.user_id LEFT JOIN images i ON i.id = m.image_id`;
-async function insertMessage(env, user, kind, text, imageId) {
+const MSG_SELECT = `SELECT m.id, m.user_id, m.nickname, m.kind, m.text, m.image_id, m.created_at, m.reply_to, i.w, i.h, u.avatar_id, u.frame, u.role,
+    r.id AS r_id, r.user_id AS r_uid, r.nickname AS r_nick, r.kind AS r_kind, substr(r.text, 1, 80) AS r_text
+  FROM messages m LEFT JOIN users u ON u.id = m.user_id LEFT JOIN images i ON i.id = m.image_id LEFT JOIN messages r ON r.id = m.reply_to`;
+// 답장 대상 확인: undefined/null → 0(답장 아님), 잘못된 값 → -1, 없는 메시지 → -2
+async function replyTarget(env, v) {
+  if (v === undefined || v === null || v === "") return 0;
+  const n = Number(v);
+  if (!Number.isInteger(n) || n <= 0) return -1;
+  const r = await env.DB.prepare("SELECT id FROM messages WHERE id = ?").bind(n).first();
+  return r ? n : -2;
+}
+const replyFail = (rt, cors) => rt === -1 ? fail("bad_request", 400, cors) : fail("reply_not_found", 404, cors);
+async function insertMessage(env, user, kind, text, imageId, replyTo) {
   const r = await env.DB.prepare(
-    "INSERT INTO messages (user_id, nickname, text, created_at, kind, image_id) VALUES (?, ?, ?, ?, ?, ?) RETURNING id"
-  ).bind(user.id, user.nickname, text, now(), kind, imageId).first();
+    "INSERT INTO messages (user_id, nickname, text, created_at, kind, image_id, reply_to) VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING id"
+  ).bind(user.id, user.nickname, text, now(), kind, imageId, replyTo || null).first();
   return publicMsg(await env.DB.prepare(MSG_SELECT + " WHERE m.id = ?").bind(r.id).first());
 }
 function broadcast(env, ctx, payload) {
@@ -422,15 +443,19 @@ export default {
           if (!Number.isInteger(eid) || eid <= 0) return fail("bad_request", 400, cors);
           const emo = await env.DB.prepare("SELECT id, name, image_id FROM emoticons WHERE id = ?").bind(eid).first();
           if (!emo) return fail("emoticon_not_found", 404, cors);
+          const rt = await replyTarget(env, body.replyTo);
+          if (rt < 0) return replyFail(rt, cors);
           if (!(await hit(env, "post:" + user.id, 30, 60000))) return fail("rate_limited", 429, cors);
-          const msg = await insertMessage(env, user, "emoticon", emo.name, emo.image_id);
+          const msg = await insertMessage(env, user, "emoticon", emo.name, emo.image_id, rt);
           broadcast(env, ctx, { type: "message", message: msg });
           return json({ message: msg }, 201, cors);
         }
         const text = normText(body.text);
         if (!text) return fail("invalid_message", 400, cors);
+        const rt = await replyTarget(env, body.replyTo);
+        if (rt < 0) return replyFail(rt, cors);
         if (!(await hit(env, "post:" + user.id, 30, 60000))) return fail("rate_limited", 429, cors);
-        const msg = await insertMessage(env, user, "text", text, null);
+        const msg = await insertMessage(env, user, "text", text, null, rt);
         broadcast(env, ctx, { type: "message", message: msg });
         return json({ message: msg }, 201, cors);
       }
@@ -438,12 +463,14 @@ export default {
       // 사진 메시지 (본문 = 이미지 바이트)
       if (path === "/api/photos" && req.method === "POST") {
         if (!user.nickname) return fail("nickname_required", 400, cors);
+        const rt = await replyTarget(env, url.searchParams.get("replyTo"));
+        if (rt < 0) return replyFail(rt, cors);
         if (!(await hit(env, "upload:" + user.id, 30, 600000)) || !(await hit(env, "upload-day:" + user.id, 300, 86400000))) return fail("rate_limited", 429, cors);
         const img = await readImage(req, "photo");
         if (img.error) return fail(img.error, img.status, cors);
         const id = await storeImage(env, user.id, "photo", img);
         if (!id) return fail("storage_full", 507, cors);
-        const msg = await insertMessage(env, user, "image", "", id);
+        const msg = await insertMessage(env, user, "image", "", id, rt);
         broadcast(env, ctx, { type: "message", message: msg });
         return json({ message: msg }, 201, cors);
       }
@@ -569,8 +596,9 @@ async function postDetail(env, id, user) {
      FROM comments c LEFT JOIN users u ON u.id = c.user_id WHERE c.post_id = ? ORDER BY c.id LIMIT 1000`
   ).bind(id).all();
   const vote = await env.DB.prepare("SELECT v FROM post_votes WHERE post_id = ? AND user_id = ?").bind(id, user.id).first();
+  const cons = await conMap(env, [r.body, ...cm.results.map((c) => c.deleted ? "" : c.body)]);
   return {
-    ...listItem(r), body: r.body, myVote: vote ? vote.v : 0,
+    ...listItem(r), body: r.body, myVote: vote ? vote.v : 0, cons,
     images: imgs.results.map((i) => ({ id: i.id, w: i.w, h: i.h })),
     comments: cm.results.map((c) => c.deleted
       ? { id: c.id, parentId: c.parent_id, deleted: true, body: "", createdAt: c.created_at, author: null }
@@ -578,8 +606,125 @@ async function postDetail(env, id, user) {
   };
 }
 
+// 본문·댓글의 [[con:ID]] 토큰 → { id: { imageId, name } }. 삭제된 콘은 빠짐(화면에서 자리 표시)
+async function conMap(env, texts) {
+  const ids = new Set();
+  for (const t of texts) for (const m of String(t || "").matchAll(CON_TOKEN_RE)) { if (ids.size < 300) ids.add(Number(m[1])); }
+  const out = {};
+  const list = [...ids];
+  for (let i = 0; i < list.length; i += 90) {
+    const part = list.slice(i, i + 90);
+    const rows = await env.DB.prepare(`SELECT id, name, image_id FROM cons WHERE id IN (${part.map(() => "?").join(",")})`).bind(...part).all();
+    for (const c of rows.results) out[c.id] = { imageId: c.image_id, name: c.name };
+  }
+  return out;
+}
+function normPackName(v) {
+  if (typeof v !== "string") return null;
+  const s = stripCtl(v, false).replace(/\s+/g, " ").trim();
+  const n = charLen(s);
+  return n >= 1 && n <= MAX_PACK_NAME ? s : null;
+}
+async function deleteConImages(env, imageIds) { for (const i of imageIds) await dropImageIfUnused(env, i); }
+
+async function cons(req, env, url, path, user, cors) {
+  const M = req.method;
+  // 전체 콘 목록 (내 주제 먼저, 다른 사람 주제도 함께 사용)
+  if (path === "/api/board/cons" && M === "GET") {
+    const packs = (await env.DB.prepare(
+      `SELECT p.id, p.user_id, p.name, p.created_at, u.nickname, u.frame, u.role FROM con_packs p LEFT JOIN users u ON u.id = p.user_id
+       ORDER BY CASE WHEN p.user_id = ? THEN 0 ELSE 1 END, p.id`
+    ).bind(user.id).all()).results;
+    const items = (await env.DB.prepare("SELECT id, pack_id, name, image_id FROM cons ORDER BY id").all()).results;
+    const byPack = {};
+    for (const c of items) (byPack[c.pack_id] = byPack[c.pack_id] || []).push({ id: c.id, name: c.name, imageId: c.image_id });
+    return json({
+      packs: packs.map((p) => ({ id: p.id, name: p.name, createdAt: p.created_at, owner: { id: p.user_id, nickname: p.nickname || "(탈퇴한 사용자)", role: cleanRole(p.role) }, cons: byPack[p.id] || [] })),
+      maxPacks: MAX_CON_PACKS, maxPerPack: MAX_CONS_PER_PACK,
+    }, 200, cors);
+  }
+  // 주제 만들기
+  if (path === "/api/board/conpacks" && M === "POST") {
+    if (!user.nickname) return fail("nickname_required", 400, cors);
+    const body = await readJson(req);
+    const name = body && normPackName(body.name);
+    if (!name) return fail("invalid_pack_name", 400, cors);
+    const cnt = await env.DB.prepare("SELECT COUNT(*) AS c FROM con_packs WHERE user_id = ?").bind(user.id).first();
+    if (cnt.c >= MAX_CON_PACKS) return fail("pack_limit", 409, cors);
+    if (!(await hit(env, "conpack:" + user.id, 20, 3600000))) return fail("rate_limited", 429, cors);
+    const p = await env.DB.prepare("INSERT INTO con_packs (user_id, name, created_at) VALUES (?, ?, ?) RETURNING id").bind(user.id, name, now()).first();
+    return json({ pack: { id: p.id, name } }, 201, cors);
+  }
+  const pk = /^\/api\/board\/conpacks\/(\d{1,12})(\/cons)?$/.exec(path);
+  if (pk) {
+    const pack = await env.DB.prepare("SELECT id, user_id, name FROM con_packs WHERE id = ?").bind(Number(pk[1])).first();
+    if (!pack) return fail("pack_not_found", 404, cors);
+    const own = pack.user_id === user.id;
+    // 콘 추가 (본문 = 이미지 바이트, 이름은 ?name=)
+    if (pk[2] && M === "POST") {
+      if (!own) return fail("forbidden", 403, cors);
+      const name = normEmoName(url.searchParams.get("name"));
+      if (!name) return fail("invalid_con_name", 400, cors);
+      const cnt = await env.DB.prepare("SELECT COUNT(*) AS c FROM cons WHERE pack_id = ?").bind(pack.id).first();
+      if (cnt.c >= MAX_CONS_PER_PACK) return fail("pack_full", 409, cors);
+      if (!(await hit(env, "con:" + user.id, 120, 3600000)) || !(await hit(env, "upload-day:" + user.id, 300, 86400000))) return fail("rate_limited", 429, cors);
+      const img = await readImage(req, "con");
+      if (img.error) return fail(img.error, img.status, cors);
+      const imageId = await storeImage(env, user.id, "con", img);
+      if (!imageId) return fail("storage_full", 507, cors);
+      const c = await env.DB.prepare("INSERT INTO cons (pack_id, user_id, name, image_id, created_at) VALUES (?, ?, ?, ?, ?) RETURNING id")
+        .bind(pack.id, user.id, name, imageId, now()).first();
+      return json({ con: { id: c.id, name, imageId } }, 201, cors);
+    }
+    if (pk[2]) return fail("not_found", 404, cors);
+    // 주제 이름 바꾸기 (만든 사람만)
+    if (M === "POST") {
+      if (!own) return fail("forbidden", 403, cors);
+      const body = await readJson(req);
+      const name = body && normPackName(body.name);
+      if (!name) return fail("invalid_pack_name", 400, cors);
+      await env.DB.prepare("UPDATE con_packs SET name = ? WHERE id = ?").bind(name, pack.id).run();
+      return json({ pack: { id: pack.id, name } }, 200, cors);
+    }
+    // 주제 삭제 (만든 사람 또는 사장·부사장)
+    if (M === "DELETE") {
+      if (!own && !isMod(user)) return fail("forbidden", 403, cors);
+      const imgs = (await env.DB.prepare("SELECT image_id FROM cons WHERE pack_id = ?").bind(pack.id).all()).results.map((x) => x.image_id);
+      await env.DB.batch([
+        env.DB.prepare("DELETE FROM cons WHERE pack_id = ?").bind(pack.id),
+        env.DB.prepare("DELETE FROM con_packs WHERE id = ?").bind(pack.id),
+      ]);
+      await deleteConImages(env, imgs);
+      return json({ ok: true }, 200, cors);
+    }
+    return fail("not_found", 404, cors);
+  }
+  const cm = /^\/api\/board\/cons\/(\d{1,12})$/.exec(path);
+  if (cm && (M === "POST" || M === "DELETE")) {
+    const c = await env.DB.prepare("SELECT c.id, c.image_id, p.user_id FROM cons c JOIN con_packs p ON p.id = c.pack_id WHERE c.id = ?").bind(Number(cm[1])).first();
+    if (!c) return fail("con_not_found", 404, cors);
+    if (M === "POST") {
+      if (c.user_id !== user.id) return fail("forbidden", 403, cors);
+      const body = await readJson(req);
+      const name = body && normEmoName(body.name);
+      if (!name) return fail("invalid_con_name", 400, cors);
+      await env.DB.prepare("UPDATE cons SET name = ? WHERE id = ?").bind(name, c.id).run();
+      return json({ con: { id: c.id, name } }, 200, cors);
+    }
+    if (c.user_id !== user.id && !isMod(user)) return fail("forbidden", 403, cors);
+    await env.DB.prepare("DELETE FROM cons WHERE id = ?").bind(c.id).run();
+    await deleteConImages(env, [c.image_id]);
+    return json({ ok: true }, 200, cors);
+  }
+  return null;
+}
+
 async function board(req, env, url, path, user, cors) {
   const M = req.method;
+  if (path.startsWith("/api/board/con")) {
+    const r = await cons(req, env, url, path, user, cors);
+    if (r) return r;
+  }
 
   // 게시판 이미지 올리기 (글 작성 전에 미리 업로드, 본문 = 이미지 바이트)
   if (path === "/api/board/images" && M === "POST") {

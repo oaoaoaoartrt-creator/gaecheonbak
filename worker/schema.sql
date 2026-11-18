@@ -24,7 +24,8 @@ CREATE TABLE IF NOT EXISTS messages (
   text TEXT NOT NULL,
   created_at INTEGER NOT NULL,
   kind TEXT NOT NULL DEFAULT 'text',
-  image_id TEXT
+  image_id TEXT,
+  reply_to INTEGER
 );
 CREATE TABLE IF NOT EXISTS rate_limits (
   key TEXT PRIMARY KEY,
@@ -104,3 +105,22 @@ CREATE TABLE IF NOT EXISTS comments (
 );
 CREATE INDEX IF NOT EXISTS idx_comments_post ON comments(post_id);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_users_nick_unique ON users(lower(trim(nickname))) WHERE nickname != '';
+
+-- 콘 (0005)
+CREATE TABLE IF NOT EXISTS con_packs (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,
+  name TEXT NOT NULL,
+  created_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_con_packs_user ON con_packs(user_id);
+CREATE TABLE IF NOT EXISTS cons (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  pack_id INTEGER NOT NULL,
+  user_id INTEGER NOT NULL,
+  name TEXT NOT NULL,
+  image_id TEXT NOT NULL,
+  created_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_cons_pack ON cons(pack_id);
+CREATE INDEX IF NOT EXISTS idx_cons_image ON cons(image_id);

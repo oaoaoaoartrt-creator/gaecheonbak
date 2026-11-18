@@ -1,8 +1,8 @@
 {
   "id": "./messenger.html",
-  "name": "개천박컴퍼니 사내메신저",
+  "name": "개천박컴퍼니 사내 메신저",
   "short_name": "개천박",
-  "description": "개천박컴퍼니 임직원 전용 사내메신저",
+  "description": "개천박컴퍼니 임직원 전용 사내 메신저",
   "lang": "ko",
   "dir": "ltr",
   "start_url": "./messenger.html",
