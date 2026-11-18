@@ -290,8 +290,13 @@ const publicUser = (u) => ({ id: u.id, login: u.login, nickname: u.nickname || "
 const author = (r) => ({ id: r.uid, nickname: r.u_nick || "(탈퇴한 사용자)", avatarId: r.u_avatar || null, frame: cleanFrame(r.u_frame), role: cleanRole(r.u_role) });
 const isMod = (u) => MOD_ROLES.includes(u.role);
 const CHANNELS = ["company", "free"];
-const chanOf = (v) => (v === "free" ? "free" : v === "company" || v === undefined || v === null || v === "" ? "company" : null);
-const canSee = (u, ch) => ch === "free" || !!u.member;
+// 1:1 DM 채널: "dm:<작은id>-<큰id>"
+const DM_RE = /^dm:(\d{1,12})-(\d{1,12})$/;
+const dmPair = (ch) => { const m = DM_RE.exec(String(ch || "")); if (!m) return null; const a = Number(m[1]), b = Number(m[2]); return a > 0 && a < b ? [a, b] : null; };
+const dmChan = (x, y) => "dm:" + Math.min(x, y) + "-" + Math.max(x, y);
+const chanOf = (v) => (v === "free" ? "free" : v === "company" || v === undefined || v === null || v === "" ? "company" : dmPair(v) ? String(v) : null);
+const canSee = (u, ch) => { const p = dmPair(ch); if (p) return p.includes(u.id); return ch === "free" || !!u.member; };
+const dmPeer = (u, ch) => { const p = dmPair(ch); return p ? (p[0] === u.id ? p[1] : p[0]) : 0; };
 const publicMsg = (m) => ({
   id: m.id, channel: m.channel || "company", userId: m.user_id, nickname: m.nickname, kind: m.kind || "text", text: m.text,
   image: m.image_id ? { id: m.image_id, w: m.w || 0, h: m.h || 0 } : null,
@@ -343,6 +348,17 @@ async function insertMessage(env, user, kind, text, imageId, replyTo, ch) {
     "INSERT INTO messages (user_id, nickname, text, created_at, kind, image_id, reply_to, channel) VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING id"
   ).bind(user.id, user.nickname, text, now(), kind, imageId, replyTo || null, ch).first();
   return publicMsg(await env.DB.prepare(MSG_SELECT + " WHERE m.id = ?").bind(r.id).first());
+}
+function msgBroadcast(env, ctx, msg) {
+  const p = dmPair(msg.channel);
+  broadcast(env, ctx, p ? { type: "message", message: msg, to: p } : { type: "message", message: msg, membersOnly: msg.channel === "company" });
+}
+// DM 상대가 실제로 있는 사용자인지 (DB 확인)
+async function dmPeerOk(env, user, ch) {
+  const peer = dmPeer(user, ch);
+  if (!peer) return true;
+  const r = await env.DB.prepare("SELECT id FROM users WHERE id = ? AND nickname != ''").bind(peer).first();
+  return !!r;
 }
 function broadcast(env, ctx, payload) {
   const stub = env.ROOM.get(env.ROOM.idFromName("main"));
@@ -476,11 +492,43 @@ export default {
         const ch = chanOf(url.searchParams.get("channel"));
         if (!ch) return fail("bad_request", 400, cors);
         if (!canSee(user, ch)) return fail("members_only", 403, cors);
-        const rows = (await env.DB.prepare("SELECT id, nickname, avatar_id, frame, role FROM users WHERE nickname != ''" + (ch === "company" ? " AND member = 1" : "")).all()).results;
+        const pr = dmPair(ch);
+        const rows = pr ? (await env.DB.prepare("SELECT id, nickname, avatar_id, frame, role FROM users WHERE nickname != '' AND id IN (?, ?)").bind(pr[0], pr[1]).all()).results
+          : (await env.DB.prepare("SELECT id, nickname, avatar_id, frame, role FROM users WHERE nickname != ''" + (ch === "company" ? " AND member = 1" : "")).all()).results;
         let online = [];
         try { const r = await env.ROOM.get(env.ROOM.idFromName("main")).fetch("https://room/presence"); online = (await r.json()).online || []; } catch {}
         const on = new Set(online);
         return json({ members: rows.map((u) => ({ id: u.id, nickname: u.nickname, avatarId: u.avatar_id || null, frame: cleanFrame(u.frame), role: cleanRole(u.role), online: on.has(u.id) })) }, 200, cors);
+      }
+      // DM 목록: 대화 상대, 마지막 메시지, 안 읽은 수
+      if (path === "/api/dms" && req.method === "GET") {
+        const rows = (await env.DB.prepare(
+          `WITH c AS (SELECT channel, MAX(id) AS last FROM messages WHERE channel LIKE 'dm:%' AND (channel LIKE ?1 OR channel LIKE ?2) GROUP BY channel)
+           SELECT c.channel, c.last, m.user_id AS last_uid, m.kind, m.text, m.created_at,
+             COALESCE(r.last_id, 0) AS read_id,
+             (SELECT COUNT(*) FROM messages x WHERE x.channel = c.channel AND x.id > COALESCE(r.last_id, 0) AND x.user_id != ?3) AS unread
+           FROM c JOIN messages m ON m.id = c.last LEFT JOIN dm_reads r ON r.user_id = ?3 AND r.channel = c.channel
+           ORDER BY c.last DESC LIMIT 100`
+        ).bind("dm:" + user.id + "-%", "dm:%-" + user.id, user.id).all()).results.filter((r) => dmPair(r.channel) && canSee(user, r.channel));
+        const peers = [...new Set(rows.map((r) => dmPeer(user, r.channel)))];
+        const pm = new Map();
+        if (peers.length) for (const u of (await env.DB.prepare(`SELECT id, nickname, avatar_id, frame, role FROM users WHERE id IN (${peers.map(() => "?").join(",")})`).bind(...peers).all()).results) pm.set(u.id, u);
+        const out = [];
+        for (const r of rows) {
+          const pid = dmPeer(user, r.channel), u = pm.get(pid);
+          const text = r.kind === "image" ? "사진" : r.kind === "emoticon" ? "이모티콘" : snip(await plainMentions(env, r.text), 60);
+          out.push({ channel: r.channel, peer: { id: pid, nickname: (u && u.nickname) || "(탈퇴한 사용자)", avatarId: (u && u.avatar_id) || null, frame: cleanFrame(u && u.frame), role: cleanRole(u && u.role) },
+            last: { id: r.last, userId: r.last_uid, text, createdAt: r.created_at }, unread: r.unread });
+        }
+        return json({ dms: out }, 200, cors);
+      }
+      if (path === "/api/dms/read" && req.method === "POST") {
+        const body = await readJson(req);
+        const ch = body && chanOf(body.channel);
+        const id = body && Number(body.lastId);
+        if (!ch || !dmPair(ch) || !canSee(user, ch) || !Number.isInteger(id) || id < 0) return fail("bad_request", 400, cors);
+        await env.DB.prepare("INSERT INTO dm_reads (user_id, channel, last_id) VALUES (?, ?, ?) ON CONFLICT(user_id, channel) DO UPDATE SET last_id = MAX(last_id, excluded.last_id)").bind(user.id, ch, id).run();
+        return json({ ok: true }, 200, cors);
       }
       if (path === "/api/unfurl" && req.method === "GET") return unfurl(env, url.searchParams.get("url"), user, ip, cors);
 
@@ -521,6 +569,7 @@ export default {
         const ch = chanOf(body.channel);
         if (!ch) return fail("bad_request", 400, cors);
         if (!canSee(user, ch)) return fail("members_only", 403, cors);
+        if (!(await dmPeerOk(env, user, ch))) return fail("user_not_found", 404, cors);
         if (body.emoticonId !== undefined) {
           const eid = Number(body.emoticonId);
           if (!Number.isInteger(eid) || eid <= 0) return fail("bad_request", 400, cors);
@@ -530,7 +579,7 @@ export default {
           if (rt < 0) return replyFail(rt, cors);
           if (!(await hit(env, "post:" + user.id, 30, 60000))) return fail("rate_limited", 429, cors);
           const msg = await insertMessage(env, user, "emoticon", emo.name, emo.image_id, rt, ch);
-          broadcast(env, ctx, { type: "message", message: msg, membersOnly: msg.channel === "company" });
+          msgBroadcast(env, ctx, msg);
           ctx.waitUntil(notifyChat(env, ctx, user, msg));
           return json({ message: msg }, 201, cors);
         }
@@ -542,7 +591,7 @@ export default {
         if (mt.all && !isMod(user) && !(await hit(env, "everyone:" + user.id, 3, 600000))) return fail("everyone_limited", 429, cors);
         if (!(await hit(env, "post:" + user.id, 30, 60000))) return fail("rate_limited", 429, cors);
         const msg = await insertMessage(env, user, "text", mt.text, null, rt, ch);
-        broadcast(env, ctx, { type: "message", message: msg, membersOnly: msg.channel === "company" });
+        msgBroadcast(env, ctx, msg);
         ctx.waitUntil(notifyChat(env, ctx, user, msg, mt));
         return json({ message: msg }, 201, cors);
       }
@@ -553,6 +602,7 @@ export default {
         const ch = chanOf(url.searchParams.get("channel"));
         if (!ch) return fail("bad_request", 400, cors);
         if (!canSee(user, ch)) return fail("members_only", 403, cors);
+        if (!(await dmPeerOk(env, user, ch))) return fail("user_not_found", 404, cors);
         const rt = await replyTarget(env, url.searchParams.get("replyTo"), ch);
         if (rt < 0) return replyFail(rt, cors);
         if (!(await hit(env, "upload:" + user.id, 30, 600000)) || !(await hit(env, "upload-day:" + user.id, 300, 86400000))) return fail("rate_limited", 429, cors);
@@ -561,7 +611,7 @@ export default {
         const id = await storeImage(env, user.id, "photo", img);
         if (!id) return fail("storage_full", 507, cors);
         const msg = await insertMessage(env, user, "image", "", id, rt, ch);
-        broadcast(env, ctx, { type: "message", message: msg, membersOnly: msg.channel === "company" });
+        msgBroadcast(env, ctx, msg);
         ctx.waitUntil(notifyChat(env, ctx, user, msg));
         return json({ message: msg }, 201, cors);
       }
@@ -1365,6 +1415,14 @@ const snip = (t, n = 80) => { const a = [...String(t || "").replace(/\s+/g, " ")
 const conText = (t) => String(t || "").replace(/\[\[con:\d+\]\]/g, "(콘)");
 // 채팅: 답장 받은 사람에게는 '답장' 알림, 나머지는 '모든 채팅 알림'을 켠 기기에만
 async function notifyChat(env, ctx, user, msg, mt) {
+  if (dmPair(msg.channel)) {
+    // DM: 받는 사람의 모든 기기에 ("모든 채팅 알림" 설정과 무관, 개인 메시지)
+    const peer = dmPeer(user, msg.channel);
+    const body = msg.kind === "image" ? "사진을 보냈습니다." : msg.kind === "emoticon" ? "이모티콘을 보냈습니다." : snip(await plainMentions(env, msg.text));
+    const rs = (await env.DB.prepare("SELECT * FROM push_subs WHERE user_id = ?").bind(peer).all()).results;
+    await pushTo(env, rs, { title: user.nickname + " · DM", body, url: "messenger.html#/dm/" + user.id, tag: "dm-" + user.id, kind: "dm", channel: msg.channel });
+    return;
+  }
   const company = msg.channel !== "free";
   const label = company ? "사내 메신저" : "자유 메신저";
   const url = company ? "messenger.html#/chat" : "messenger.html#/free";

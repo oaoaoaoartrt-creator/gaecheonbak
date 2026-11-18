@@ -131,6 +131,31 @@
     .ch-switch a[aria-current="page"] { color: var(--ink, #111); box-shadow: inset 0 -2px 0 currentColor; }
     .ch-dot { min-width: 8px; height: 8px; border-radius: 4px; background: #c8331f; display: inline-block; }
     .ch-dot[hidden] { display: none; }
+    .pr-dm { padding: 7px 16px; font-size: 13px; }
+    @media (max-width: 560px) { .dm-bar { padding: 8px 14px; } .dm-bar .dm-sub { display: none; } .dm-list .dl-head span { display: none; } .dl-item { padding: 12px 14px; } }
+    .dm-bar { display: flex; align-items: center; gap: 10px; padding: 10px 20px; border-bottom: 1px solid var(--line); background: var(--surface); font-size: 14px; }
+    .dm-bar[hidden] { display: none; }
+    .dm-back { padding: 4px 8px 4px 0; font: inherit; font-size: 13px; color: var(--muted); background: none; border: 0; cursor: pointer; }
+    .dm-back:hover { color: var(--ink); }
+    .dm-who { display: inline-flex; align-items: center; gap: 8px; padding: 0; font: inherit; color: var(--ink); background: none; border: 0; cursor: pointer; }
+    .dm-who b { font-weight: 600; }
+    .dm-bar .dm-sub { margin-left: auto; font-size: 12px; color: var(--muted); }
+    .dm-list { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+    .dm-list[hidden] { display: none; }
+    .dm-list .dl-head { display: flex; justify-content: space-between; align-items: baseline; padding: 18px 20px 10px; border-bottom: 1px solid var(--line); }
+    .dm-list .dl-head b { font-size: 14px; }
+    .dm-list .dl-head span { font-size: 12.5px; color: var(--muted); }
+    .dl-item { display: flex; align-items: center; gap: 12px; width: 100%; padding: 17px 20px 13px; background: none; border: 0; border-bottom: 1px solid var(--line); font: inherit; text-align: left; color: var(--ink); cursor: pointer; }
+    .dl-item:hover { background: var(--paper); }
+    .dl-main { flex: 1 1 auto; min-width: 0; }
+    .dl-top { display: flex; align-items: baseline; gap: 6px; }
+    .dl-top .nm { font-size: 14.5px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .dl-top time { margin-left: auto; flex: none; font-size: 12px; color: var(--muted); }
+    .dl-snip { margin: 3px 0 0; font-size: 13px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .dl-item.unread .dl-snip { color: var(--ink-soft); }
+    .dl-badge { flex: none; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 10px; background: #c8331f; color: #fff; font-size: 11.5px; font-weight: 600; line-height: 20px; text-align: center; }
+    .dl-empty { margin: 48px 20px; text-align: center; font-size: 14px; line-height: 1.7; color: var(--muted); }
+    .chat.inbox .chat-body, .chat.inbox .composer, .chat.inbox .reply-bar, .chat.inbox .jump-wrap, .chat.inbox .emo-panel, .chat.inbox .mention-wrap, .chat.inbox .composer-foot, .chat.inbox #btn-members, .chat.inbox .dm-bar { display: none !important; }
     .join-card .join-note { margin: 18px 0 0; font-size: .875rem; color: var(--muted, #6b6b6b); }
     .join-card .join-note a { color: inherit; text-decoration: underline; text-underline-offset: 3px; }
     .join-card input { letter-spacing: .3em; font-variant-numeric: tabular-nums; }
@@ -831,6 +856,7 @@
             <nav class="ch-switch" aria-label="채널 선택">
               <a href="#/chat" data-ch="company">사내 메신저<span class="ch-dot" id="dot-company" hidden></span></a>
               <a href="#/free" data-ch="free">자유 메신저<span class="ch-dot" id="dot-free" hidden></span></a>
+              <a href="#/dm" data-ch="dm">DM<span class="ch-dot" id="dot-dm" hidden></span></a>
             </nav>
             <span class="me"><span class="pf sm" id="me-avatar" aria-hidden="true"></span><span><b id="me-name"></b> 님</span></span>
           </div>
@@ -848,6 +874,12 @@
             <button class="install-close" type="button" data-install-close aria-label="설치 안내 닫기">닫기</button>
           </div>
         </div>
+        <div class="dm-bar" id="dm-bar" hidden>
+          <button class="dm-back" type="button" id="dm-back">← 목록</button>
+          <button class="dm-who" type="button" id="dm-who"></button>
+          <span class="dm-sub">1:1 대화 · 두 사람만 볼 수 있습니다</span>
+        </div>
+        <div class="dm-list" id="dm-list" hidden></div>
         <div class="chat-body">
           <div class="log" id="log" aria-live="polite" aria-label="메시지 목록">
             <p class="log-empty" id="log-empty">아직 대화가 없습니다. 첫 메시지를 남겨 보세요.</p>
@@ -1554,7 +1586,7 @@
     function resetToAuth(message) {
       stopLive();
       setToken(null);
-      me = null; myNick = ""; msgs = []; seen = {}; lastId = 0; channel = null; chanUnread = { company: 0, free: 0 }; avatars = {}; people = {}; boardReset(); emo.mine = null; emo.all = null;
+      me = null; myNick = ""; msgs = []; seen = {}; lastId = 0; channel = null; chanUnread = { company: 0, free: 0, dm: 0 }; dms = { list: [], unread: {}, loaded: false }; dmInbox = false; avatars = {}; people = {}; boardReset(); emo.mine = null; emo.all = null;
       dlg.hidden = true;
       $("emo-dialog").hidden = true; $("photo-dialog").hidden = true; $("lightbox").hidden = true;
       toggleEmo(false);
@@ -2006,11 +2038,16 @@
       };
       sock.onmessage = function (ev) {
         var data; try { data = JSON.parse(ev.data); } catch (e) { return; }
-        if (data.type === "ready") { wsReady = true; retry = 0; stopPolling(); catchUp(); if (channel) loadMembers(channel); }
+        if (data.type === "ready") { wsReady = true; retry = 0; stopPolling(); catchUp(); if (channel) loadMembers(channel); loadDms(true); }
         else if (data.type === "presence" && Array.isArray(data.online)) { members.online = new Set(data.online); paintMembers(); }
         else if (data.type === "message" && data.message) {
-          var mc = data.message.channel === "free" ? "free" : "company";
-          if (mc === channel) addMessages([data.message]);
+          var mc = msgChan(data.message);
+          if (isDm(mc)) {
+            if (mc === channel) { addMessages([data.message]); markDmRead(); }
+            else if (!(me && data.message.userId === me.id)) { dms.unread[mc] = (dms.unread[mc] || 0) + 1; chanUnread.dm = dmTotal(); paintSwitch(); onChatIncoming(1, data.message); }
+            loadDms();
+          }
+          else if (mc === channel) addMessages([data.message]);
           else if (!(me && data.message.userId === me.id)) { chanUnread[mc]++; paintSwitch(); onChatIncoming(1, data.message); }
         }
         else if (data.type === "profile" && data.user && typeof data.user.id === "number") {
@@ -2052,18 +2089,104 @@
       route();
     }
     /* 채널: company = 사내 메신저(참여코드 필요), free = 자유 메신저 */
-    var channel = null, chanUnread = { company: 0, free: 0 };
+    var channel = null, chanUnread = { company: 0, free: 0, dm: 0 };
+    /* ---------- DM (1:1 대화, 채널 = "dm:작은id-큰id") ---------- */
+    var inputPh = "메시지를 입력하세요";
+    var dms = { list: [], unread: {}, loaded: false }, dmInbox = false, dmReadSent = {}, dmReadT = 0;
+    function isDm(ch) { return /^dm:\d+-\d+$/.test(String(ch || "")); }
+    function dmChan(a, b) { return "dm:" + Math.min(a, b) + "-" + Math.max(a, b); }
+    function dmPeerOf(ch) { var m = /^dm:(\d+)-(\d+)$/.exec(ch); if (!m || !me) return 0; var a = Number(m[1]), b = Number(m[2]); return a === me.id ? b : a; }
+    function msgChan(m) { var c = m && m.channel; return c === "free" ? "free" : isDm(c) ? c : "company"; }
+    function dmTotal() { var t = 0; for (var k in dms.unread) t += dms.unread[k] || 0; return t; }
+    function loadDms(first) {
+      return api("/api/dms").then(function (d) {
+        dms.list = d.dms || []; dms.unread = {};
+        dms.list.forEach(function (x) { remember(x.peer.id, x.peer); if (x.channel !== channel) dms.unread[x.channel] = x.unread || 0; });
+        if (first && !dms.loaded && dmTotal() && !viewingInbox()) { unread.chat += dmTotal(); updateBadges(); }
+        dms.loaded = true;
+        chanUnread.dm = dmTotal(); paintSwitch(); paintInbox();
+      }, function () {});
+    }
+    function viewingInbox() { return dmInbox && !$("view-chat").hidden; }
+    function markDmRead() {
+      if (!isDm(channel) || document.hidden || $("view-chat").hidden || !lastId) return;
+      dms.unread[channel] = 0; chanUnread.dm = dmTotal(); paintSwitch();
+      if ((dmReadSent[channel] || 0) >= lastId) return;
+      clearTimeout(dmReadT);
+      var ch = channel, id = lastId;
+      dmReadT = setTimeout(function () { dmReadSent[ch] = id; api("/api/dms/read", { method: "POST", body: { channel: ch, lastId: id } }).catch(function () {}); }, 400);
+    }
+    document.addEventListener("visibilitychange", markDmRead);
+    function paintDmBar() {
+      var bar = $("dm-bar");
+      if (!isDm(channel)) { bar.hidden = true; return; }
+      bar.hidden = false;
+      var pid = dmPeerOf(channel), u = people[pid] || {};
+      var nm = u.nickname || "알 수 없는 사용자";
+      var who = $("dm-who");
+      var nodes = [face(u, nm, "sm"), E("b", "", nm)];
+      var rt = roleTag(u.role); if (rt) nodes.push(rt);
+      who.replaceChildren.apply(who, nodes);
+      who.onclick = function () { location.hash = "#/u/" + pid; };
+      $("msg-input").setAttribute("placeholder", nm + "님에게 메시지 보내기");
+    }
+    $("dm-back").addEventListener("click", function () { location.hash = "#/dm"; });
+    function dmTime(ts) {
+      var d = new Date(ts), n = new Date();
+      if (d.toDateString() === n.toDateString()) return String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
+      return (d.getFullYear() === n.getFullYear() ? "" : d.getFullYear() + ".") + (d.getMonth() + 1) + "." + d.getDate();
+    }
+    function paintInbox() {
+      var box = $("dm-list");
+      if (!dmInbox) return;
+      var head = E("div", "dl-head");
+      head.append(E("b", "", "DM"), E("span", "", "상대방 프로필에서 ‘메시지 보내기’로 대화를 시작할 수 있습니다."));
+      var nodes = [head];
+      if (dms.loaded && !dms.list.length) nodes.push(E("p", "dl-empty", "아직 주고받은 DM이 없습니다."));
+      else if (!dms.loaded) nodes.push(E("p", "dl-empty", "불러오는 중입니다."));
+      dms.list.forEach(function (x) {
+        var n = dms.unread[x.channel] || 0;
+        var b = E("button", "dl-item" + (n ? " unread" : "")); b.type = "button";
+        var p = people[x.peer.id] || x.peer;
+        b.appendChild(face(p, p.nickname || x.peer.nickname, ""));
+        var main = E("div", "dl-main"), top = E("div", "dl-top");
+        top.appendChild(E("span", "nm", p.nickname || x.peer.nickname));
+        var rt = roleTag(p.role || x.peer.role); if (rt) top.appendChild(rt);
+        var t = E("time", "", dmTime(x.last.createdAt)); top.appendChild(t);
+        main.append(top, E("p", "dl-snip", (me && x.last.userId === me.id ? "나: " : "") + x.last.text));
+        b.appendChild(main);
+        if (n) b.appendChild(E("span", "dl-badge", n > 99 ? "99+" : String(n)));
+        b.addEventListener("click", function () { location.hash = "#/dm/" + x.peer.id; });
+        nodes.push(b);
+      });
+      box.replaceChildren.apply(box, nodes);
+    }
+    function openInbox() {
+      dmInbox = true; channel = null;
+      msgs = []; seen = {}; lastId = 0; imgNodes = {};
+      clearReply(); closeMention();
+      $("view-chat").querySelector(".chat").classList.add("inbox");
+      $("dm-list").hidden = false; $("dm-bar").hidden = true;
+      paintSwitch(); paintInbox();
+      loadDms();
+    }
     function setChatTab(ch) { var a = document.querySelector('.app-tabs a[data-tab="chat"]'); if (a) a.setAttribute("href", ch === "free" ? "#/free" : "#/chat"); }
     function paintSwitch() {
       Array.prototype.forEach.call(document.querySelectorAll(".ch-switch a"), function (a) {
         var ch = a.getAttribute("data-ch");
-        if (ch === channel) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current");
+        var cur = ch === "dm" ? (dmInbox || isDm(channel)) : (ch === channel && !dmInbox);
+        if (cur) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current");
         var d = $("dot-" + ch); if (d) { d.hidden = !(chanUnread[ch] && ch !== channel); d.setAttribute("aria-label", "새 메시지"); }
       });
     }
     function openChannel(ch) {
-      if (channel === ch) return;
+      var wasInbox = dmInbox;
+      if (dmInbox) { dmInbox = false; $("view-chat").querySelector(".chat").classList.remove("inbox"); $("dm-list").hidden = true; }
+      if (channel === ch && !wasInbox) { markDmRead(); return; }
       channel = ch;
+      if (isDm(ch)) { dms.unread[ch] = 0; chanUnread.dm = dmTotal(); }
+      else $("msg-input").setAttribute("placeholder", inputPh);
+      paintDmBar();
       chanUnread[ch] = 0;
       setChatTab(ch);
       msgs = []; seen = {}; lastId = 0; imgNodes = {};
@@ -2075,7 +2198,7 @@
       members.list = []; paintMembers(); closeMention();
       loadMembers(ch);
       api("/api/messages?channel=" + ch)
-        .then(function (d) { if (ch !== channel) return; addMessages(d.messages, true); chatPrimed = true; })
+        .then(function (d) { if (ch !== channel) return; addMessages(d.messages, true); chatPrimed = true; markDmRead(); })
         .catch(function (e) { if (e.code !== "unauthorized" && ch === channel) $("send-error").textContent = errText(e); });
     }
     function showJoin(tab) {
@@ -2311,6 +2434,12 @@
       if (um) { show("view-profile", um[1] === "me" || Number(um[1]) === me.id ? "view-profile" : "none"); profileView(++bseq, um[1] === "me" ? me.id : Number(um[1])); return; }
       var m = /^#\/board(?:\/(write|\d{1,12})(?:\/(edit))?)?(?:\?(.*))?$/.exec(h);
       if (h === "#/chat" && !me.member) { showJoin("view-chat"); return; }
+      var dm = /^#\/dm(?:\/(\d{1,12}))?$/.exec(h);
+      if (dm) {
+        if (dm[1] && Number(dm[1]) !== me.id) { openChannel(dmChan(me.id, Number(dm[1]))); showChat(); return; }
+        if (dm[1]) history.replaceState(history.state, "", "#/dm");
+        openInbox(); show("view-chat"); return;
+      }
       if (!m) {
         var ch = h === "#/free" ? "free" : h === "#/chat" ? "company" : (me.member ? "company" : "free");
         if (h !== "#/chat" && h !== "#/free") history.replaceState(history.state, "", ch === "free" ? "#/free" : "#/chat");
@@ -2719,7 +2848,14 @@
     function soundOn() { try { return localStorage.getItem("gcb_sound") !== "0"; } catch (e) { return true; } }
     function viewing(id) { return !document.hidden && document.hasFocus() && !$(id).hidden; }
     function onChatIncoming(n, m) {
-      var mc = m && m.channel === "free" ? "free" : "company";
+      var mc = msgChan(m);
+      if (isDm(mc)) {
+        if (viewing("view-chat") && mc === channel) return;
+        var body = m.kind === "image" ? "사진을 보냈습니다." : m.kind === "emoticon" ? "이모티콘을 보냈습니다." : plainMentions(String(m.text || "")).slice(0, 80);
+        if (!document.hidden) toast(String(m.nickname || "") + " · DM", body, "#/dm/" + m.userId);
+        if (viewing("view-chat")) { chime(true); return; }
+        unread.chat += n; updateBadges(); chime(); return;
+      }
       if (m && (m.kind || "text") === "text" && mentionsMe(m.text) && !(viewing("view-chat") && mc === channel)) {
         toast(String(m.nickname || "") + (/@everyone/i.test(m.text) ? "님이 모두를 불렀습니다" : "님이 회원님을 언급했습니다"), plainMentions(String(m.text || "")).slice(0, 80), mc === "free" ? "#/free" : "#/chat");
         if (viewing("view-chat")) chime(true);
@@ -2969,6 +3105,7 @@
         hd.appendChild(idb);
         var acts = E("div", "pr-acts");
         if (self) { var eb = E("button", "btn btn-line", "프로필 편집"); eb.type = "button"; eb.addEventListener("click", openProfileDlg); acts.appendChild(eb); }
+        else { var db = E("button", "btn pr-dm", "메시지 보내기"); db.type = "button"; db.addEventListener("click", function () { location.hash = "#/dm/" + p.id; }); acts.appendChild(db); }
         hd.appendChild(acts);
         card.appendChild(hd);
         var nodes = [navBar(), card];
@@ -3229,12 +3366,12 @@
     // 채널 참여 인원
     var members = { list: [], online: new Set() };
     function loadMembers(ch) {
-      return api("/api/channel-members?channel=" + ch).then(function (d) {
+      return api("/api/channel-members?channel=" + encodeURIComponent(ch)).then(function (d) {
         if (ch !== channel) return;
         members.list = d.members || [];
         members.online = new Set(members.list.filter(function (u) { return u.online; }).map(function (u) { return u.id; }));
         members.list.forEach(function (u) { remember(u.id, u); });
-        paintMembers();
+        paintMembers(); paintDmBar();
         var redo = false;
         msgs.forEach(function (m) { if (/<@\d+>/.test(m.text || "")) { delete imgNodes["b" + m.id]; redo = true; } });
         if (redo) render();
