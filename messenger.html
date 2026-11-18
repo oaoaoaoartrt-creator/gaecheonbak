@@ -470,6 +470,19 @@
       pointer-events: none;
       user-select: none;
     }
+    .pf.lg > .fx-bh-back { z-index: 0; }
+    /* 인원 소개 테마 테두리 (작은 사진용 단순 링) */
+    .pf.f-hoqueen { --metal: conic-gradient(from 210deg, #f6d65a, #2b2a28 12%, #f9e58f 24%, #e2b62f 38%, #2b2a28 50%, #f6d65a 62%, #fff1b8 76%, #2b2a28 88%, #f6d65a); --edge: rgba(60, 48, 10, .55); --edge-in: rgba(255, 245, 200, .6); --inner: #c79b22; --gem: #f3c623; --gem-edge: #1f1d1a; }
+    .pf.f-bbunin { --metal: conic-gradient(from 200deg, #ffffff, #b9c4d3 14%, #eef3f9 28%, #8f9cb0 42%, #f7f9fc 56%, #a9b6c8 70%, #ffffff 84%, #c6d1df); --edge: rgba(80, 92, 112, .5); --edge-in: rgba(255, 255, 255, .85); --inner: #9aa7ba; --gem: #f4f7fb; --gem-edge: #6f7d93; }
+    .pf.f-red { --metal: conic-gradient(from 200deg, #e0403a, #3a0c0c 14%, #b3121b 28%, #ff6a5c 40%, #5a0f12 54%, #c81e24 68%, #2a0a0a 82%, #e0403a); --edge: rgba(60, 6, 8, .7); --edge-in: rgba(255, 170, 160, .45); --inner: #7d1015; --gem: #1c0708; --gem-edge: #e0403a; }
+    .pf.f-geommeomwoyo { --metal: conic-gradient(from 200deg, #2a2a2e, #ff9a3c 10%, #ffd38a 16%, #141416 30%, #3a3a40 46%, #ff8a2a 60%, #fff0c8 66%, #111114 80%, #2a2a2e); --edge: rgba(0, 0, 0, .75); --edge-in: rgba(255, 200, 140, .35); --inner: #1a1a1d; --gem: #0b0b0d; --gem-edge: #ffa24a; }
+    .pf.f-mobai { --metal: conic-gradient(from 200deg, #e4e7eb, #8b9199 14%, #d0302a 24%, #f2f4f6 36%, #6f757d 50%, #c9cdd2 64%, #d0302a 76%, #a2a8b0 88%, #e4e7eb); --edge: rgba(40, 44, 50, .6); --edge-in: rgba(255, 255, 255, .7); --inner: #7d838c; --gem: #d0302a; --gem-edge: #5b1210; }
+    .pf.f-seommyeol { --metal: conic-gradient(from 200deg, #ffffff, #2aa79b 14%, #bfe9e3 28%, #f4fbf9 42%, #1f8f86 56%, #e2f6f2 70%, #ffffff 84%, #6fcabf); --edge: rgba(20, 90, 84, .5); --edge-in: rgba(255, 255, 255, .85); --inner: #3fb3a6; --gem: #ffffff; --gem-edge: #1f8f86; }
+    .pf .tf-gem { position: absolute; z-index: 2; right: calc(var(--band) * -0.9); top: calc(var(--band) * -0.9); width: calc(var(--s) * 0.26); height: calc(var(--s) * 0.26); min-width: 7px; min-height: 7px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, rgba(255,255,255,.85) 0 18%, transparent 30%), var(--gem); box-shadow: 0 0 0 1px var(--gem-edge), 0 0 0 2px var(--ring-bg); pointer-events: none; }
+    .pf.f-red .tf-gem, .pf.f-geommeomwoyo .tf-gem { border-radius: 2px; transform: rotate(45deg); }
+    .role.r-staff { color: #5a5348; }
+    .role.r-slave { color: #8a2a24; border-color: #e1bdb8; }
+    .role.r-ration { color: #2f6f68; border-color: #b8ddd8; }
     .pf.lg.has-fx.metal::before,
     .pf.lg.has-fx.metal::after { display: none; }
     .pf.lg.has-fx { overflow: visible; }
@@ -1321,7 +1334,16 @@
     }
     /* ---------- 프로필 테두리 (서버가 정한 frame 값으로만 그림) ---------- */
     var FRAME_KINDS = { platinum_crown: { gem: "#f3fbff", gemEdge: "#5e849c", edge: "#6d8ea3" }, gold_crown: { gem: "#8a3a2b", gemEdge: "#57211a", edge: "#6a4c1c" } };
-    var ROLE_LABEL = { ceo: "사장", vp: "부사장" };
+    var ROLE_LABEL = { ceo: "사장", vp: "부사장", staff: "사원", slave: "노예", ration: "비상식량" };
+    // 인원 소개 테두리: 큰 프로필은 원본 그림, 작은 사진은 같은 색의 단순한 링 + 장식 점
+    var THEME_FRAMES = {
+      hoqueen: { art: "images/frames/hoqueen.svg", title: "들꽃 리본 테두리" },
+      bbunin: { art: "images/frames/bbunin.svg", title: "은빛 달 테두리" },
+      red: { art: "images/frames/red.svg", title: "붉은 갑옷 테두리" },
+      geommeomwoyo: { back: "images/frames/geommeomwoyo-back.webp", art: "images/frames/geommeomwoyo-front.webp", title: "블랙홀 테두리" },
+      mobai: { art: "images/frames/mobai.svg", title: "메카 테두리" },
+      seommyeol: { art: "images/frames/seommyeol.svg", title: "흰 꽃 물결 테두리" }
+    };
     var people = {};   // userId -> { avatarId, frame, role }
     // 닉네임이 바뀌면 이미 그려진 예전 메시지·답장 인용·게시판/프로필 화면의 이름도 바로 바꿈
     function applyNick(uid, nick) {
@@ -1388,15 +1410,25 @@
     // el: .pf 요소. size: "xs" | "sm" | "" | "lg"
     function paintFace(el, info, name, size) {
       info = info || {};
-      var frame = FRAME_KINDS[info.frame] ? info.frame : "basic";
+      var frame = FRAME_KINDS[info.frame] || THEME_FRAMES[info.frame] ? info.frame : "basic";
+      var theme = THEME_FRAMES[frame];
       var wasOn = el.classList.contains("pf-on");
       el.className = "pf" + (size ? " " + size : "") + (frame !== "basic" ? " metal f-" + frame : "") + (wasOn ? " pf-on" : "");
-      if (frame !== "basic") animWatch(el);
+      if (FRAME_KINDS[frame]) animWatch(el);
       el.replaceChildren();
       var av = document.createElement("span");
       av.className = "avatar";
       fillAvatar(av, info.avatarId, name);
       el.appendChild(av);
+      if (theme) {
+        if (size === "lg") {
+          el.classList.add("has-fx", "framed");
+          if (theme.back) el.insertAdjacentHTML("afterbegin", '<img class="fx-frame fx-bh-back" src="' + theme.back + '" alt="" aria-hidden="true">');
+          el.insertAdjacentHTML("beforeend", '<img class="fx-frame" src="' + theme.art + '" alt="" aria-hidden="true">');
+        } else el.insertAdjacentHTML("beforeend", '<span class="tf-gem" aria-hidden="true"></span>');
+        el.title = theme.title;
+        return el;
+      }
       if (size === "lg" && (frame === "platinum_crown" || frame === "gold_crown")) {
         var src = frame === "platinum_crown" ? "images/frames/seolpyo.svg" : "images/frames/taste.svg";
         el.classList.add("has-fx", "framed");
@@ -3495,7 +3527,7 @@
         if (redo) render();
       }, function () {});
     }
-    var ROLE_RANK = { ceo: 0, vp: 1 };
+    var ROLE_RANK = { ceo: 0, vp: 1, staff: 2, ration: 3, slave: 4 };
     function sortedMembers(list) {
       return list.slice().sort(function (a, b) {
         var ra = ROLE_RANK[a.role] != null ? ROLE_RANK[a.role] : 2, rb = ROLE_RANK[b.role] != null ? ROLE_RANK[b.role] : 2;

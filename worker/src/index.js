@@ -48,7 +48,8 @@ const MAX_COMMENT = 400;
 const MAX_POST_IMAGES = 5;
 const PAGE_SIZE = 20;
 const BEST_MIN = 3;                      // 추천 3개 이상 = 개념글
-const FRAMES = ["basic", "platinum_crown", "gold_crown"];
+const FRAMES = ["basic", "platinum_crown", "gold_crown", "hoqueen", "bbunin", "red", "geommeomwoyo", "mobai", "seommyeol"];
+const TEAM_ROLES = ["staff", "slave", "ration"]; // 사원·노예·비상식량: 표시용 직함 (권한 없음)
 const MOD_ROLES = ["ceo", "vp"];         // 사장·부사장: 모든 글/댓글 삭제, 공지 지정
 
 
@@ -284,7 +285,7 @@ function bearer(req) {
   return m ? m[1].toLowerCase() : null;
 }
 const cleanFrame = (f) => (FRAMES.includes(f) ? f : "basic");
-const cleanRole = (r) => (MOD_ROLES.includes(r) ? r : "");
+const cleanRole = (r) => (MOD_ROLES.includes(r) || TEAM_ROLES.includes(r) ? r : "");
 const publicUser = (u) => ({ id: u.id, login: u.login, nickname: u.nickname || "", avatarId: u.avatar_id || null, frame: cleanFrame(u.frame), role: cleanRole(u.role), status: u.status || "", bannerId: u.banner_id || null, member: !!u.member });
 // 다른 사람에게 보이는 작성자 정보 (로그인 아이디 제외)
 const author = (r) => ({ id: r.uid, nickname: r.u_nick || "(탈퇴한 사용자)", avatarId: r.u_avatar || null, frame: cleanFrame(r.u_frame), role: cleanRole(r.u_role) });
