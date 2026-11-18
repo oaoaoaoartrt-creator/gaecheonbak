@@ -300,8 +300,11 @@
     /* People */
     .people {
       display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 32px 28px;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 32px 24px;
+    }
+    @media (max-width: 900px) and (min-width: 801px) {
+      .people { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     }
 
     .person {
@@ -766,6 +769,19 @@
                 <div>
                   <p class="person-role">사원</p>
                   <h2 class="person-name">호퀸</h2>
+                </div>
+              </article>
+
+              <article class="person">
+                <div class="pf">
+                  <div class="avatar">
+                    <img src="images/staff2.jpg" alt="사원 쀼닌">
+                    <span aria-hidden="true">쀼</span>
+                  </div>
+                </div>
+                <div>
+                  <p class="person-role">사원</p>
+                  <h2 class="person-name">쀼닌</h2>
                 </div>
               </article>
             </div>
