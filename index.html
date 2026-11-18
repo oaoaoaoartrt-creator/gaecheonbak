@@ -344,6 +344,70 @@
       display: none;
     }
 
+    /* 직책 왕관 테두리 (사내메신저와 동일한 금속 링·왕관, 80px 아바타에 맞춤) */
+    .pf {
+      --s: 80px;
+      --ring-bg: var(--surface);
+      --band: clamp(3px, calc(var(--s) * 0.075 + 1.2px), 7px);
+      position: relative;
+      flex: 0 0 var(--s);
+      width: var(--s);
+      height: var(--s);
+    }
+    .pf > .avatar {
+      flex: none;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+    }
+    .pf.metal::before,
+    .pf.metal::after {
+      content: "";
+      position: absolute;
+      inset: calc(var(--band) * -1);
+      border-radius: 50%;
+      z-index: 0;
+    }
+    .pf.metal::before {
+      background: var(--metal);
+      box-shadow: 0 0 0 0.6px var(--edge), inset 0 0 0 0.6px var(--edge-in);
+    }
+    .pf.metal::after {
+      background: conic-gradient(from 0deg, transparent 0 62%, rgba(255,255,255,0.55) 70%, transparent 78% 100%);
+      animation: pf-sheen 9s linear infinite;
+    }
+    .pf.metal > .avatar {
+      border: 1.5px solid var(--inner);
+      box-shadow: 0 0 0 2px var(--ring-bg);
+    }
+    .pf.f-platinum_crown {
+      --metal: conic-gradient(from 200deg, #f6f8fb, #b7bfca 14%, #eef2f6 27%, #8f99a7 41%, #e2e7ee 55%, #a6afbb 70%, #f2f5f8 84%, #f6f8fb);
+      --edge: rgba(72, 82, 98, 0.55);
+      --edge-in: rgba(255, 255, 255, 0.6);
+      --inner: #9ba5b3;
+    }
+    .pf.f-gold_crown {
+      --metal: conic-gradient(from 200deg, #eedcaa, #b08a44 14%, #e3c785 27%, #8d6a2e 41%, #d8b874 55%, #a17d3a 70%, #ecd8a2 84%, #eedcaa);
+      --edge: rgba(92, 66, 26, 0.6);
+      --edge-in: rgba(255, 246, 222, 0.55);
+      --inner: #a98540;
+    }
+    @keyframes pf-sheen { to { transform: rotate(360deg); } }
+    .pf .crown {
+      position: absolute;
+      z-index: 2;
+      left: 50%;
+      top: calc(var(--s) * -0.33);
+      width: calc(var(--s) * 0.5);
+      height: auto;
+      transform: translateX(-66%) rotate(-12deg);
+      transform-origin: 50% 100%;
+      overflow: visible;
+      pointer-events: none;
+      filter: drop-shadow(0 0.6px 0.5px rgba(28, 27, 24, 0.28));
+    }
+    #panel-people .people { padding-top: 16px; }
+
     .person-role {
       margin: 0 0 4px;
       font-size: 12px;
@@ -479,6 +543,7 @@
       .panel.is-open.fx-flashy::before {
         animation: none;
       }
+      .pf.metal::after { animation: none; transform: rotate(-40deg); }
     }
 
     /* ---------- Responsive ---------- */
@@ -586,12 +651,23 @@
             <p class="panel-label">인원 소개</p>
             <div class="people">
               <article class="person">
-                <div class="avatar">
-                  <!-- 사진을 쓰려면 아래 주석을 해제하고 src에 경로 또는 URL을 넣으세요.
-                       예: <img src="images/seolpyo.jpg" alt="설표">
-                       이미지를 넣으면 이니셜 대신 사진이 표시됩니다. -->
-                  <img src="images/seolpyo.jpg" alt="사장 설표">
-                  <span aria-hidden="true">설</span>
+                <div class="pf metal f-platinum_crown" title="플래티넘 왕관 테두리">
+                  <div class="avatar">
+                    <img src="images/seolpyo.jpg" alt="사장 설표">
+                    <span aria-hidden="true">설</span>
+                  </div>
+                  <svg class="crown" viewBox="0 0 40 27" aria-hidden="true" focusable="false">
+                    <path d="M6.2 20.4 L3.4 8.8 L12.3 14.7 L20 4.6 L27.7 14.7 L36.6 8.8 L33.8 20.4 Q20 22.2 6.2 20.4Z" fill="url(#cr-platinum_crown-body)" stroke="#5d6675" stroke-width=".8" stroke-linejoin="round"/>
+                    <path d="M12.3 14.7 L13.6 19.6 M27.7 14.7 L26.4 19.6 M20 4.6 L20 19.9" stroke="#fff" stroke-opacity=".35" stroke-width=".55" fill="none"/>
+                    <circle cx="3.4" cy="7.5" r="1.9" fill="url(#cr-platinum_crown-body)" stroke="#5d6675" stroke-width=".7"/>
+                    <circle cx="20" cy="3.3" r="2.2" fill="url(#cr-platinum_crown-body)" stroke="#5d6675" stroke-width=".7"/>
+                    <circle cx="36.6" cy="7.5" r="1.9" fill="url(#cr-platinum_crown-body)" stroke="#5d6675" stroke-width=".7"/>
+                    <path d="M5.7 19.5 Q20 21.7 34.3 19.5 L33.9 23.5 Q20 25.7 6.1 23.5Z" fill="url(#cr-platinum_crown-band)" stroke="#5d6675" stroke-width=".8" stroke-linejoin="round"/>
+                    <path d="M7 20.6 Q20 22.6 33 20.6" stroke="#fff" stroke-opacity=".4" stroke-width=".5" fill="none"/>
+                    <circle cx="12.4" cy="22.1" r=".8" fill="#fff" fill-opacity=".75"/><circle cx="27.6" cy="22.1" r=".8" fill="#fff" fill-opacity=".75"/>
+                    <ellipse cx="20" cy="22.5" rx="2.1" ry="1.4" fill="#4a6890" stroke="#2c3f5a" stroke-width=".5"/>
+                    <ellipse cx="19.3" cy="22" rx=".75" ry=".35" fill="#fff" fill-opacity=".7"/>
+                  </svg>
                 </div>
                 <div>
                   <p class="person-role">사장</p>
@@ -600,12 +676,23 @@
               </article>
 
               <article class="person">
-                <div class="avatar">
-                  <!-- 사진을 쓰려면 아래 주석을 해제하고 src에 경로 또는 URL을 넣으세요.
-                       예: <img src="images/taste.jpg" alt="테이스트">
-                       이미지를 넣으면 이니셜 대신 사진이 표시됩니다. -->
-                  <img src="images/taste.jpg" alt="부사장 테이스트">
-                  <span aria-hidden="true">테</span>
+                <div class="pf metal f-gold_crown" title="황금 왕관 테두리">
+                  <div class="avatar">
+                    <img src="images/taste.jpg" alt="부사장 테이스트">
+                    <span aria-hidden="true">테</span>
+                  </div>
+                  <svg class="crown" viewBox="0 0 40 27" aria-hidden="true" focusable="false">
+                    <path d="M6.2 20.4 L3.4 8.8 L12.3 14.7 L20 4.6 L27.7 14.7 L36.6 8.8 L33.8 20.4 Q20 22.2 6.2 20.4Z" fill="url(#cr-gold_crown-body)" stroke="#6a4c1c" stroke-width=".8" stroke-linejoin="round"/>
+                    <path d="M12.3 14.7 L13.6 19.6 M27.7 14.7 L26.4 19.6 M20 4.6 L20 19.9" stroke="#fff" stroke-opacity=".35" stroke-width=".55" fill="none"/>
+                    <circle cx="3.4" cy="7.5" r="1.9" fill="url(#cr-gold_crown-body)" stroke="#6a4c1c" stroke-width=".7"/>
+                    <circle cx="20" cy="3.3" r="2.2" fill="url(#cr-gold_crown-body)" stroke="#6a4c1c" stroke-width=".7"/>
+                    <circle cx="36.6" cy="7.5" r="1.9" fill="url(#cr-gold_crown-body)" stroke="#6a4c1c" stroke-width=".7"/>
+                    <path d="M5.7 19.5 Q20 21.7 34.3 19.5 L33.9 23.5 Q20 25.7 6.1 23.5Z" fill="url(#cr-gold_crown-band)" stroke="#6a4c1c" stroke-width=".8" stroke-linejoin="round"/>
+                    <path d="M7 20.6 Q20 22.6 33 20.6" stroke="#fff" stroke-opacity=".4" stroke-width=".5" fill="none"/>
+                    <circle cx="12.4" cy="22.1" r=".8" fill="#fff" fill-opacity=".75"/><circle cx="27.6" cy="22.1" r=".8" fill="#fff" fill-opacity=".75"/>
+                    <ellipse cx="20" cy="22.5" rx="2.1" ry="1.4" fill="#8a3a2b" stroke="#57211a" stroke-width=".5"/>
+                    <ellipse cx="19.3" cy="22" rx=".75" ry=".35" fill="#fff" fill-opacity=".7"/>
+                  </svg>
                 </div>
                 <div>
                   <p class="person-role">부사장</p>
@@ -643,6 +730,17 @@
       </div>
     </section>
   </main>
+
+
+  <!-- 왕관·테두리 금속 그라데이션 (사내메신저와 동일) -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+    <defs>
+      <linearGradient id="cr-platinum_crown-body" x1="0" y1="0" x2="0.35" y2="1"><stop offset="0" stop-color="#fbfcfe"/><stop offset="0.45" stop-color="#d3d9e1"/><stop offset="0.7" stop-color="#aab3bf"/><stop offset="1" stop-color="#848e9c"/></linearGradient>
+      <linearGradient id="cr-platinum_crown-band" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#c6cdd6"/><stop offset="1" stop-color="#76808e"/></linearGradient>
+      <linearGradient id="cr-gold_crown-body" x1="0" y1="0" x2="0.35" y2="1"><stop offset="0" stop-color="#f6e7bd"/><stop offset="0.45" stop-color="#ddbd78"/><stop offset="0.7" stop-color="#b8914a"/><stop offset="1" stop-color="#8c682b"/></linearGradient>
+      <linearGradient id="cr-gold_crown-band" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#c9a259"/><stop offset="1" stop-color="#7f5d25"/></linearGradient>
+    </defs>
+  </svg>
 
   <footer class="footer">
     <div class="wrap footer-inner">
