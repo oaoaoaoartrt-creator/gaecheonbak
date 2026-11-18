@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
   <meta name="robots" content="noindex">
   <meta name="description" content="개천박컴퍼니 사내메신저">
   <meta property="og:type" content="website">
@@ -12,6 +12,21 @@
   <meta property="og:image" content="https://oaoaoaoartrt-creator.github.io/gaecheonbak/images/og.jpg">
   <meta name="twitter:card" content="summary_large_image">
   <title>사내메신저 | 개천박컴퍼니</title>
+  <meta name="theme-color" content="#f3f0ea">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/favicon.ico" sizes="any">
+  <link rel="icon" type="image/png" sizes="48x48" href="icons/favicon-48.png">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="개천박">
+  <script>
+    (function () {
+      var sa = (window.matchMedia && matchMedia("(display-mode: standalone)").matches) || navigator.standalone === true;
+      if (sa) document.documentElement.classList.add("standalone");
+    })();
+  </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@500;600;700&display=swap" rel="stylesheet">
@@ -33,6 +48,9 @@
       --max: 1040px;
       --font-serif: "Noto Serif KR", "Source Han Serif K", "Noto Serif CJK KR", serif;
       --font-sans: Pretendard, "Pretendard Variable", "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+      --safe-top: env(safe-area-inset-top, 0px);
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+      --nav-extra: 0px;
     }
     *, *::before, *::after { box-sizing: border-box; }
     html, body { height: 100%; }
@@ -48,6 +66,8 @@
       flex-direction: column;
       min-height: 100vh;
       min-height: 100dvh;
+      padding-left: env(safe-area-inset-left, 0px);
+      padding-right: env(safe-area-inset-right, 0px);
     }
     a { color: inherit; text-decoration: none; }
     :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
@@ -85,7 +105,7 @@
     .tab[aria-selected="true"] { background: var(--ink); color: var(--surface); }
     .field { display: block; margin-bottom: 16px; }
     .field span { display: block; margin-bottom: 6px; font-size: 13px; color: var(--ink-soft); }
-    .field input { width: 100%; padding: 11px 12px; font: inherit; font-size: 15px; color: var(--ink); background: #fff; border: 1px solid var(--line-strong); border-radius: var(--radius); }
+    .field input { width: 100%; padding: 11px 12px; font: inherit; font-size: 16px; color: var(--ink); background: #fff; border: 1px solid var(--line-strong); border-radius: var(--radius); }
     .field input:focus { outline: none; border-color: var(--ink); }
     .hint { margin: -8px 0 16px; font-size: 12px; color: var(--muted); }
     .btn { appearance: none; display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 11px 18px; font: inherit; font-size: 14px; font-weight: 500; border-radius: var(--radius); cursor: pointer; border: 1px solid var(--ink); background: var(--ink); color: var(--surface); }
@@ -120,11 +140,33 @@
     .msg.follow { margin-top: -6px; }
     .msg.follow .meta { display: none; }
     .composer { flex: none; width: 100%; margin: 0; display: flex; gap: 10px; align-items: flex-end; padding: 14px 16px; border-top: 1px solid var(--line); }
-    .composer textarea { flex: 1 1 auto; min-width: 0; width: 100%; display: block; resize: none; min-height: 44px; max-height: 160px; padding: 10px 12px; font: inherit; font-size: 15px; line-height: 1.5; color: var(--ink); background: #fff; border: 1px solid var(--line-strong); border-radius: var(--radius); }
+    .composer textarea { flex: 1 1 auto; min-width: 0; width: 100%; display: block; resize: none; min-height: 44px; max-height: 160px; padding: 10px 12px; font: inherit; font-size: 16px; line-height: 1.5; color: var(--ink); background: #fff; border: 1px solid var(--line-strong); border-radius: var(--radius); }
     .composer textarea:focus { outline: none; border-color: var(--ink); }
     .composer .btn { flex: none; height: 44px; white-space: nowrap; }
     .composer-foot { flex: none; display: flex; justify-content: space-between; gap: 12px; padding: 0 16px 10px; font-size: 12px; color: var(--muted); }
     .composer-foot .err { color: var(--accent); }
+
+    /* 오프라인 안내 / 앱 설치 안내 */
+    .offline-note { display: none; margin: 0; padding: 8px 16px; font-size: 13px; line-height: 1.5; color: var(--accent); background: var(--accent-soft); border-bottom: 1px solid var(--line); }
+    .page-head .offline-note { margin-top: 16px; border: 1px solid rgba(122, 67, 50, 0.25); border-radius: var(--radius); }
+    body.is-offline .offline-note { display: block; }
+    body.in-chat .page-head .offline-note { display: none; }
+    .chat .offline-note { flex: none; }
+    .install { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 16px; padding: 10px 12px 10px 14px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); }
+    .install-text { margin: 0; font-size: 13px; line-height: 1.5; color: var(--ink-soft); }
+    .install-text b { font-weight: 600; color: var(--ink); }
+    .install-actions { flex: none; display: flex; align-items: center; gap: 4px; }
+    .install-close { appearance: none; border: 0; background: transparent; padding: 6px 8px; font: inherit; font-size: 12px; color: var(--muted); cursor: pointer; }
+    .install-close:hover { color: var(--ink); }
+    .chat .install { display: none; flex: none; margin: 0; border-width: 0 0 1px; border-radius: 0; padding: 8px 10px 8px 14px; background: var(--paper); }
+
+    /* 홈 화면 앱(standalone)으로 열었을 때 */
+    html.standalone { --nav-extra: var(--safe-top); }
+    html.standalone body { overscroll-behavior-y: none; }
+    html.standalone .nav { height: calc(var(--nav-h) + var(--safe-top)); padding-top: var(--safe-top); }
+    html.standalone .footer { display: none; }
+    html.standalone .stage { padding-bottom: calc(48px + var(--safe-bottom)); }
+    html.standalone .install { display: none !important; }
 
     /* Nickname dialog */
     .dialog-bg { position: fixed; inset: 0; z-index: 60; background: rgba(28, 27, 24, 0.35); display: flex; align-items: center; justify-content: center; padding: 16px; }
@@ -154,7 +196,10 @@
       .composer-foot { padding: 0 10px 8px; }
       body.in-chat .page-head, body.in-chat .footer { display: none; }
       body.in-chat .wrap.chat-wrap { width: 100%; padding: 0; }
-      body.in-chat .chat { border-left: 0; border-right: 0; height: calc(100vh - var(--nav-h)); height: calc(100dvh - var(--nav-h)); min-height: 360px; max-height: none; }
+      body.in-chat .chat { border-left: 0; border-right: 0; height: calc(100vh - var(--nav-h) - var(--nav-extra)); height: calc(var(--app-h, 100dvh) - var(--nav-h) - var(--nav-extra)); min-height: 280px; max-height: none; }
+      body.in-chat .composer-foot { padding-bottom: calc(8px + var(--safe-bottom)); }
+      html.kb-open body.in-chat .composer-foot { padding-bottom: 8px; }
+      body.in-chat .chat .install:not([hidden]) { display: flex; }
       .composer-foot { flex-wrap: wrap; }
     }
   </style>
@@ -180,6 +225,14 @@
         <p class="kicker">임직원 전용</p>
         <h1>사내메신저</h1>
         <p>개천박컴퍼니 임직원이 업무 연락을 나누는 곳입니다.</p>
+        <p class="offline-note" role="status">오프라인 상태입니다. 인터넷에 다시 연결되면 자동으로 이어집니다.</p>
+        <div class="install" data-install hidden>
+          <p class="install-text" data-install-text>홈 화면에 추가하면 앱처럼 바로 열 수 있습니다.</p>
+          <div class="install-actions">
+            <button class="btn btn-line" type="button" data-install-btn hidden>앱으로 설치</button>
+            <button class="install-close" type="button" data-install-close aria-label="설치 안내 닫기">닫기</button>
+          </div>
+        </div>
       </div>
     </section>
 
@@ -243,6 +296,14 @@
           <div class="head-actions">
             <button class="btn btn-line" type="button" id="btn-rename">닉네임 변경</button>
             <button class="btn btn-line" type="button" id="btn-logout">로그아웃</button>
+          </div>
+        </div>
+        <p class="offline-note" role="status">오프라인 상태입니다. 지금은 메시지를 주고받을 수 없으며, 인터넷에 다시 연결되면 자동으로 새 메시지를 불러옵니다.</p>
+        <div class="install" data-install hidden>
+          <p class="install-text" data-install-text>홈 화면에 추가하면 앱처럼 바로 열 수 있습니다.</p>
+          <div class="install-actions">
+            <button class="btn btn-line" type="button" data-install-btn hidden>앱으로 설치</button>
+            <button class="install-close" type="button" data-install-close aria-label="설치 안내 닫기">닫기</button>
           </div>
         </div>
         <div class="log" id="log" aria-live="polite" aria-label="메시지 목록">
@@ -315,6 +376,12 @@
     };
     function errText(e) { return ERRORS[e && e.code] || "알 수 없는 오류가 발생했습니다. 잠시 후 다시 시도해 주세요."; }
 
+    var wasOffline = false;
+    function netStatus(ok) {
+      if (ok && wasOffline) { wasOffline = false; setOffline(false); reconnect(); }
+      else if (!ok && !wasOffline) { wasOffline = true; setOffline(true); }
+    }
+
     var token = null;
     try { token = localStorage.getItem(TOKEN_KEY); } catch (e) {}
     function setToken(t) {
@@ -333,6 +400,7 @@
         body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
         cache: "no-store"
       }).then(function (res) {
+        netStatus(true);
         return res.json().catch(function () { return {}; }).then(function (data) {
           if (!res.ok) {
             var err = new Error(data.error || "http_" + res.status);
@@ -344,6 +412,7 @@
           return data;
         });
       }, function () {
+        netStatus(false);
         var err = new Error("network"); err.code = "network"; throw err;
       });
     }
@@ -645,17 +714,124 @@
         });
     });
 
+    /* ---------- 오프라인 ---------- */
+    var bootPending = false, probeTimer = null;
+    function setOffline(off) {
+      document.body.classList.toggle("is-offline", !!off);
+      if (off && !probeTimer) probeTimer = setInterval(probe, 8000);
+      if (!off && probeTimer) { clearInterval(probeTimer); probeTimer = null; }
+    }
+    /* 채팅 서버에 닿는지 가볍게 확인 (응답 내용은 쓰지 않음) */
+    function probe() {
+      fetch(API + "/api/health", { cache: "no-store" }).then(function () { netStatus(true); }, function () { netStatus(false); });
+    }
+    function reconnect() {
+      if (bootPending) { boot(); return; }
+      if (live) { catchUp(); if (!ws) { retry = 0; connect(); } }
+    }
+    window.addEventListener("offline", function () { netStatus(false); });
+    window.addEventListener("online", function () { probe(); });
+    if (navigator.onLine === false) netStatus(false);
+
     /* ---------- 시작 ---------- */
-    if (!token) { setMode("login"); show("view-auth"); }
-    else {
+    function boot() {
+      bootPending = false;
+      if (!token) { setMode("login"); show("view-auth"); probe(); return; }
       show("view-loading");
+      $("view-loading").textContent = "불러오는 중입니다.";
       api("/api/me")
         .then(function (d) { afterLogin(d.user); })
         .catch(function (e) {
           if (e.code === "unauthorized") return;
+          if (e.code === "network") {
+            bootPending = true;
+            $("view-loading").textContent = "인터넷에 연결되어 있지 않아 메신저를 열 수 없습니다. 연결되면 자동으로 다시 시도합니다.";
+            return;
+          }
           setMode("login"); show("view-auth");
           $("auth-error").textContent = errText(e);
         });
+    }
+    boot();
+
+    /* ---------- 키보드 / 화면 높이 (모바일) ---------- */
+    var root = document.documentElement;
+    var vv = window.visualViewport;
+    function syncViewport() {
+      if (!vv || (vv.scale && Math.abs(vv.scale - 1) > 0.01)) return;
+      root.style.setProperty("--app-h", Math.round(vv.height) + "px");
+      var kb = window.innerHeight - vv.height > 120 || (window.screen && screen.height - vv.height > 260 && document.activeElement === input);
+      root.classList.toggle("kb-open", !!kb);
+      if (document.body.classList.contains("in-chat") && window.matchMedia("(max-width: 560px)").matches) {
+        if (window.scrollY !== 0) window.scrollTo(0, 0);
+        log.scrollTop = log.scrollHeight;
+      }
+    }
+    if (vv) {
+      vv.addEventListener("resize", syncViewport);
+      vv.addEventListener("scroll", syncViewport);
+      syncViewport();
+    }
+    input.addEventListener("focus", function () { setTimeout(syncViewport, 300); });
+    input.addEventListener("blur", function () { setTimeout(syncViewport, 300); });
+
+    /* ---------- 앱 설치 안내 ---------- */
+    var DISMISS_KEY = "gcb_install_dismissed";
+    var deferredPrompt = null;
+    var installBoxes = Array.prototype.slice.call(document.querySelectorAll("[data-install]"));
+    function isStandalone() {
+      return (window.matchMedia && matchMedia("(display-mode: standalone)").matches) || navigator.standalone === true;
+    }
+    function dismissed() { try { return localStorage.getItem(DISMISS_KEY) === "1"; } catch (e) { return false; } }
+    var ua = navigator.userAgent || "";
+    var isIOS = /iphone|ipad|ipod/i.test(ua) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+    function showInstall(kind) {
+      if (isStandalone() || dismissed()) return;
+      installBoxes.forEach(function (box) {
+        var text = box.querySelector("[data-install-text]");
+        var btn = box.querySelector("[data-install-btn]");
+        if (kind === "ios") {
+          text.innerHTML = "홈 화면에 추가하면 앱처럼 쓸 수 있습니다. <b>공유 버튼</b> → <b>홈 화면에 추가</b>를 눌러 주세요.";
+          btn.hidden = true;
+        } else {
+          text.textContent = "홈 화면에 설치하면 앱처럼 바로 열 수 있습니다.";
+          btn.hidden = false;
+        }
+        box.hidden = false;
+      });
+    }
+    function hideInstall() { installBoxes.forEach(function (box) { box.hidden = true; }); }
+    window.addEventListener("beforeinstallprompt", function (e) {
+      e.preventDefault();
+      deferredPrompt = e;
+      showInstall("prompt");
+    });
+    window.addEventListener("appinstalled", function () { deferredPrompt = null; hideInstall(); });
+    installBoxes.forEach(function (box) {
+      box.querySelector("[data-install-btn]").addEventListener("click", function () {
+        if (!deferredPrompt) return;
+        var p = deferredPrompt;
+        deferredPrompt = null;
+        p.prompt();
+        (p.userChoice || Promise.resolve()).then(function () { hideInstall(); }, function () {});
+      });
+      box.querySelector("[data-install-close]").addEventListener("click", function () {
+        try { localStorage.setItem(DISMISS_KEY, "1"); } catch (e) {}
+        hideInstall();
+      });
+    });
+    if (isIOS && !isStandalone()) showInstall("ios");
+    if (window.matchMedia) {
+      var mq = matchMedia("(display-mode: standalone)");
+      var onMode = function () { root.classList.toggle("standalone", isStandalone()); if (isStandalone()) hideInstall(); };
+      if (mq.addEventListener) mq.addEventListener("change", onMode); else if (mq.addListener) mq.addListener(onMode);
+    }
+
+    /* ---------- 서비스 워커 ---------- */
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", function () {
+        navigator.serviceWorker.register("./sw.js", { scope: "./" }).catch(function () {});
+      });
     }
   })();
   </script>
