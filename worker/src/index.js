@@ -989,9 +989,14 @@ export class ChatRoom extends DurableObject {
       const payload = await req.text();
       let to = null, membersOnly = false;
       try { const o = JSON.parse(payload); if (Array.isArray(o.to)) to = o.to; membersOnly = !!o.membersOnly; } catch { return new Response("bad", { status: 400 }); }
+      // 멤버 여부는 매번 DB에서 확인 (멤버에서 빠진 사람이 접속 중이어도 사내 메시지를 받지 않도록)
+      let memberIds = null;
+      if (membersOnly) {
+        try { const r = await this.env.DB.prepare("SELECT id FROM users WHERE member = 1").all(); memberIds = new Set(r.results.map((x) => x.id)); } catch { memberIds = new Set(); }
+      }
       for (const ws of this.ctx.getWebSockets()) {
         const a = ws.deserializeAttachment() || {};
-        if (a.uid && (!to || to.includes(a.uid)) && (!membersOnly || a.member)) { try { ws.send(payload); } catch {} }
+        if (a.uid && (!to || to.includes(a.uid)) && (!membersOnly || memberIds.has(a.uid))) { try { ws.send(payload); } catch {} }
       }
       return new Response("ok");
     }
