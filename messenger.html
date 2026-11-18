@@ -1168,6 +1168,7 @@
       return api("/api/nickname", { method: "POST", body: { nickname: nick } }).then(function (data) {
         myNick = data.user.nickname;
         $("me-name").textContent = myNick;
+        if (me) { me.nickname = myNick; applyNick(me.id, myNick); }
         paintMyAvatar();
       });
     }
@@ -1192,12 +1193,25 @@
     var FRAME_KINDS = { platinum_crown: { gem: "#f3fbff", gemEdge: "#5e849c", edge: "#6d8ea3" }, gold_crown: { gem: "#8a3a2b", gemEdge: "#57211a", edge: "#6a4c1c" } };
     var ROLE_LABEL = { ceo: "사장", vp: "부사장" };
     var people = {};   // userId -> { avatarId, frame, role }
+    // 닉네임이 바뀌면 이미 그려진 예전 메시지·답장 인용·게시판/프로필 화면의 이름도 바로 바꿈
+    function applyNick(uid, nick) {
+      var changed = false;
+      msgs.forEach(function (m) {
+        if (m.userId === uid && m.nickname !== nick) { m.nickname = nick; changed = true; }
+        if (m.reply && m.reply.userId === uid && m.reply.nickname !== nick) { m.reply.nickname = nick; changed = true; }
+      });
+      if (replyTo && replyTo.userId === uid) $("rb-name").textContent = nick;
+      if (changed) render();
+      var h = location.hash || "";
+      if ((!$("view-board").hidden && !/\/(write|edit)/.test(h)) || !$("view-profile").hidden) route();
+    }
     function remember(uid, info) {
       if (typeof uid !== "number" || !info) return;
       var p = people[uid] || (people[uid] = {});
       if ("avatarId" in info) p.avatarId = info.avatarId || null;
       if ("frame" in info) p.frame = info.frame || "basic";
       if ("role" in info) p.role = info.role || "";
+      if (typeof info.nickname === "string" && info.nickname) p.nickname = info.nickname;
       avatars[uid] = p.avatarId || null;
     }
     function crownSvg(kind) {
@@ -1965,7 +1979,9 @@
           else if (!(me && data.message.userId === me.id)) { chanUnread[mc]++; paintSwitch(); onChatIncoming(1, data.message); }
         }
         else if (data.type === "profile" && data.user && typeof data.user.id === "number") {
+          var prevNick = people[data.user.id] && people[data.user.id].nickname;
           remember(data.user.id, data.user);
+          if (typeof data.user.nickname === "string" && data.user.nickname && prevNick !== data.user.nickname) applyNick(data.user.id, data.user.nickname);
           if (me && data.user.id === me.id) { me.avatarId = data.user.avatarId || null; if (data.user.frame) me.frame = data.user.frame; if ("role" in data.user) me.role = data.user.role || ""; paintMyAvatar(); }
           render();
         }

@@ -300,9 +300,10 @@ const publicMsg = (m) => ({
     ? { id: m.r_id, userId: m.r_uid, nickname: m.r_nick, kind: m.r_kind || "text", text: m.r_kind === "image" ? "" : String(m.r_text || "") }
     : { id: m.reply_to, missing: true }) : null,
 });
-const MSG_SELECT = `SELECT m.id, m.channel, m.user_id, m.nickname, m.kind, m.text, m.image_id, m.created_at, m.reply_to, i.w, i.h, u.avatar_id, u.frame, u.role,
-    r.id AS r_id, r.user_id AS r_uid, r.nickname AS r_nick, r.kind AS r_kind, substr(r.text, 1, 80) AS r_text
-  FROM messages m LEFT JOIN users u ON u.id = m.user_id LEFT JOIN images i ON i.id = m.image_id LEFT JOIN messages r ON r.id = m.reply_to`;
+// 이름은 항상 현재 닉네임(users)으로 표시. 탈퇴 등으로 사용자가 없으면 보낼 때 저장된 이름으로 대체
+const MSG_SELECT = `SELECT m.id, m.channel, m.user_id, COALESCE(NULLIF(u.nickname, ''), m.nickname) AS nickname, m.kind, m.text, m.image_id, m.created_at, m.reply_to, i.w, i.h, u.avatar_id, u.frame, u.role,
+    r.id AS r_id, r.user_id AS r_uid, COALESCE(NULLIF(ru.nickname, ''), r.nickname) AS r_nick, r.kind AS r_kind, substr(r.text, 1, 80) AS r_text
+  FROM messages m LEFT JOIN users u ON u.id = m.user_id LEFT JOIN images i ON i.id = m.image_id LEFT JOIN messages r ON r.id = m.reply_to LEFT JOIN users ru ON ru.id = r.user_id`;
 // 답장 대상 확인: undefined/null → 0(답장 아님), 잘못된 값 → -1, 없는 메시지 → -2
 async function replyTarget(env, v, ch) {
   if (v === undefined || v === null || v === "") return 0;
