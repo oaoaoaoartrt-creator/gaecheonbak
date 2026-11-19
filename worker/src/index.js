@@ -292,7 +292,7 @@ const author = (r) => ({ id: r.uid, nickname: r.u_nick || "(탈퇴한 사용자)
 const isMod = (u) => MOD_ROLES.includes(u.role);
 const CHANNELS = ["company", "free", "call", "callfree"];
 // 통화방 마이크 실제 상태: 켜짐 / 대기(눌러서 말하기) / 오류
-const MIC_ST = ["on", "ptt", "gate", "err"];
+const MIC_ST = ["on", "ptt", "gate", "err", "talk"];
 // 1:1 DM 채널: "dm:<작은id>-<큰id>"
 const DM_RE = /^dm:(\d{1,12})-(\d{1,12})$/;
 const dmPair = (ch) => { const m = DM_RE.exec(String(ch || "")); if (!m) return null; const a = Number(m[1]), b = Number(m[2]); return a > 0 && a < b ? [a, b] : null; };

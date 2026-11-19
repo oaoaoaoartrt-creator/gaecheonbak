@@ -862,6 +862,18 @@
     .call-note.err { color: #8a2a24; border-color: #e1bdb8; background: #fbf3f1; }
     .mic-err { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 0 24px 12px; padding: 10px 12px; font-size: 13px; line-height: 1.5; color: #8a2a24; background: #fbf3f1; border: 1px solid #e1bdb8; }
     .mic-err[hidden] { display: none; }
+    .snd-gate { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 0 24px 12px; padding: 10px 12px; font-size: 13px; line-height: 1.5; color: #6b4a0f; background: #fbf5e8; border: 1px solid #e6cf9f; }
+    .snd-gate[hidden], .call-debug[hidden] { display: none; }
+    .snd-gate .ms-btn { flex: none; background: var(--ink); color: #fff; border-color: var(--ink); }
+    .call-float button.sound { padding: 0 12px; height: 34px; border: 0; border-radius: 17px; background: #e8b45a; color: #1d1a14; font: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer; }
+    .call-debug { margin: 0 24px 12px; border: 1px solid var(--line); background: var(--paper); }
+    .call-debug .cd-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 10px; border-bottom: 1px solid var(--line); font-size: 12.5px; }
+    .call-debug .cd-bar span { display: flex; gap: 6px; }
+    .call-debug pre { margin: 0; padding: 10px; max-height: 280px; overflow: auto; font: 11.5px/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; white-space: pre-wrap; word-break: break-all; color: var(--ink-soft); }
+    .call-re { flex: none; padding: 3px 8px; border: 1px solid var(--line); background: transparent; color: var(--muted); font: inherit; font-size: 11.5px; cursor: pointer; }
+    .call-re:hover { color: var(--ink); border-color: var(--ink); }
+    .call-re.warn { color: #8a2a24; border-color: #e1bdb8; }
+    .call-vol.zero span { color: #b0412e; }
     .call-mic.wait { color: #8a6a1f; }
     .call-float button.ic.warn { background: rgba(232, 180, 90, .3); color: #ffe7b8; }
     .call-opts { padding: 4px 24px 6px; border-top: 1px solid var(--line); }
@@ -888,8 +900,26 @@
     .ms-hint:empty { display: none; }
     .ms-hint.err { color: #b0412e; }
     .call-actions .btn.ptt { flex-basis: 100%; background: var(--surface); color: var(--ink); border-color: var(--line); padding: 14px; user-select: none; -webkit-user-select: none; touch-action: none; -webkit-touch-callout: none; }
-    .call-actions .btn.ptt.on { background: #2e9d6a; border-color: #2e9d6a; color: #fff; }
+    .call-actions .btn.ptt.on { background: #2e9d6a; border-color: #2e9d6a; color: #fff; animation: ptt-glow 1.4s ease-out infinite; }
+    @keyframes ptt-glow { 0% { box-shadow: 0 0 0 0 rgba(46, 157, 106, .55); } 100% { box-shadow: 0 0 0 12px rgba(46, 157, 106, 0); } }
+    .call-float.talking { box-shadow: 0 0 0 2px #2e9d6a, 0 10px 30px rgba(0, 0, 0, .25); }
+    .call-float button.ptt.on { animation: ptt-glow 1.4s ease-out infinite; }
+    .call-mic.talk { color: #2e9d6a; font-weight: 600; }
+    .call-item.talking .call-face::after { opacity: 1; box-shadow: 0 0 0 2px #2e9d6a, 0 0 0 5px rgba(46, 157, 106, .25); }
+    .pt-set { border-top: 1px dashed var(--line); margin-top: 4px; padding-top: 4px; }
+    .pt-set[hidden] { display: none; }
+    .pt-keys { display: flex; flex-wrap: wrap; gap: 6px; }
+    .pt-key { display: inline-flex; align-items: center; gap: 4px; padding: 4px 4px 4px 9px; border: 1px solid var(--line); background: var(--surface); font-size: 12.5px; font-weight: 600; }
+    .pt-key button { border: 0; background: transparent; color: var(--muted); font: inherit; font-size: 14px; line-height: 1; padding: 0 4px; cursor: pointer; }
+    .pt-cue { display: flex; align-items: center; gap: 12px; }
+    .pt-cue input[type=range] { flex: 1; min-width: 0; }
+    .pt-note { margin: 2px 0 6px; font-size: 12px; line-height: 1.55; color: var(--muted); }
     .call-float button.ptt { user-select: none; -webkit-user-select: none; touch-action: none; -webkit-touch-callout: none; }
+    @media (max-width: 560px) {
+      .call-actions .btn.ptt { padding: 22px 14px; font-size: 16px; min-height: 68px; }
+      .call-float button.ptt { height: 40px; padding: 0 18px; font-size: 14px; }
+      #ms-key-row { display: none; }
+    }
     .call-float button.ptt.on { background: #2e9d6a; color: #fff; }
     .call-float button[hidden] { display: none; }
     .call-opts .nt-row:first-of-type { border-top: 0; }
@@ -1012,7 +1042,7 @@
     </section>
 
     <p class="wrap loading" id="view-loading">불러오는 중입니다.</p>
-    <div class="call-float" id="call-float" hidden><a href="#/call" id="cf-text">통화 중</a><button type="button" class="ic" id="cf-mute" aria-label="음소거"></button><button type="button" class="ic" id="cf-deaf" aria-label="헤드셋 끄기"></button><button type="button" class="ptt" id="cf-ptt" aria-label="누르고 말하기" title="누르고 있는 동안 말하기" hidden>말하기</button><button type="button" class="ic cf-chat" id="cf-chat" aria-label="통화방 채팅" title="통화방 채팅"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5.5h16v10H9l-5 4z"/></svg><span class="cf-n" id="cf-chat-n" hidden></span></button><button type="button" class="leave" id="cf-leave">나가기</button></div>
+    <div class="call-float" id="call-float" hidden><a href="#/call" id="cf-text">통화 중</a><button type="button" class="ic" id="cf-mute" aria-label="음소거"></button><button type="button" class="ic" id="cf-deaf" aria-label="헤드셋 끄기"></button><button type="button" class="ptt" id="cf-ptt" aria-label="누르고 말하기" title="누르고 있는 동안 말하기" hidden>말하기</button><button type="button" class="ic cf-chat" id="cf-chat" aria-label="통화방 채팅" title="통화방 채팅"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5.5h16v10H9l-5 4z"/></svg><span class="cf-n" id="cf-chat-n" hidden></span></button><button type="button" class="sound" id="cf-sound" hidden>소리 켜기</button><button type="button" class="leave" id="cf-leave">나가기</button></div>
 
     <!-- 로그인 / 회원가입 -->
     <section class="wrap stage" id="view-auth" hidden>
@@ -1180,6 +1210,8 @@
           <div class="cs-stage" id="cs-stage"><video id="cs-video" autoplay playsinline></video><div class="cs-wait" id="cs-wait" hidden>화면을 불러오는 중…</div></div>
         </div>
         <ul class="call-list" id="call-list"></ul>
+        <div class="snd-gate" id="snd-gate" role="alert" hidden><span>이 기기에서 상대방 소리 재생이 막혀 있습니다. 버튼을 눌러 소리를 켜 주세요.</span><button type="button" class="ms-btn" id="snd-on">소리 켜기</button></div>
+        <div class="call-debug" id="call-debug" hidden><div class="cd-bar"><b>연결 진단</b><span><button type="button" class="ms-btn" id="cd-copy">복사</button><button type="button" class="ms-btn" id="cd-close">닫기</button></span></div><pre id="cd-text"></pre></div>
         <div class="mic-err" id="mic-err" role="alert" hidden><span id="mic-err-text">마이크 오류</span><button type="button" class="ms-btn" id="mic-retry">다시 연결</button></div>
         <p class="call-note" id="call-note" role="status"></p>
         <div class="mic-set" id="mic-set">
@@ -1189,7 +1221,13 @@
           <div class="ms-row"><span class="lab">입력 레벨</span><div class="ms-meter"><div class="ms-bar" id="ms-bar" title="초록색 칸이 표시선을 넘으면 목소리가 전달됩니다"><i id="ms-lv"></i><b id="ms-th"></b></div><button type="button" class="ms-btn" id="ms-test">마이크 테스트</button></div></div>
           <div class="ms-row"><label for="ms-mode">말하기 방식</label><select id="ms-mode"><option value="auto">자동 감지 (권장)</option><option value="manual">감도 직접 설정</option><option value="always">항상 켜짐</option><option value="ptt">눌러서 말하기</option></select></div>
           <div class="ms-row" id="ms-thr-row" hidden><label for="ms-thr">입력 감도 <span id="ms-thr-v">-50 dB</span></label><input type="range" id="ms-thr" min="-70" max="-10" step="1" value="-50"></div>
-          <div class="ms-row" id="ms-key-row" hidden><span class="lab">단축키</span><div class="ms-key"><button type="button" class="ms-btn" id="ms-key">V</button><small>이 창이 선택된 상태에서 키를 누르고 있는 동안만 목소리가 전달됩니다. 휴대폰은 아래 '누르고 말하기' 버튼을 쓰세요.</small></div></div>
+          <div class="pt-set" id="pt-set" hidden>
+            <div class="ms-row"><label for="pt-style">누르는 방식</label><select id="pt-style"><option value="hold">누르고 있는 동안 말하기</option><option value="toggle">한 번 누르면 켜고, 다시 누르면 끄기</option></select></div>
+            <div class="ms-row"><label for="pt-delay">떼고 난 뒤 유지 <span id="pt-delay-v">250ms</span></label><input type="range" id="pt-delay" min="0" max="1000" step="50" value="250"></div>
+            <div class="ms-row" id="ms-key-row"><span class="lab">단축키</span><div class="ms-key"><div class="pt-keys" id="pt-keys"></div><button type="button" class="ms-btn" id="ms-key">+ 추가</button></div></div>
+            <div class="ms-row"><span class="lab">효과음</span><div class="pt-cue"><label class="switch"><input type="checkbox" id="pt-cue" aria-label="눌러서 말하기 효과음"><span></span></label><input type="range" id="pt-cue-vol" min="0" max="100" step="5" value="40" aria-label="효과음 크기"></div></div>
+            <p class="pt-note" id="pt-note">키보드·마우스 옆 버튼(뒤로/앞으로)·휠 버튼을 최대 3개까지 등록할 수 있고 Ctrl·Shift·Alt 조합도 됩니다. 브라우저는 이 창을 보고 있을 때만 키를 받을 수 있어, 게임 등 다른 프로그램을 쓰는 중에는 동작하지 않습니다. 창을 벗어나면 마이크는 바로 꺼집니다. 말하기 방식과 이 설정은 방마다 따로 저장됩니다.</p>
+          </div>
           <p class="ms-hint" id="ms-hint" role="status"></p>
         </div>
         <div class="call-opts">
@@ -4269,9 +4307,40 @@
       d.gain = Math.min(2, Math.max(0.1, d.gain)); d.th = Math.min(-10, Math.max(-70, d.th));
       return d;
     })();
-    var micRt = { level: -100, open: false, autoTh: -50, ptt: false, devices: [], test: null, rnFail: false, waitKey: false, lastPaint: 0 };
-    window.gcbMic = { cfg: mic, rt: micRt };
-    function saveMic() { try { localStorage.setItem(MIC_KEY, JSON.stringify(mic)); } catch (e) {} }
+    var micRt = { level: -100, open: false, autoTh: -50, ptt: false, pttWant: false, devices: [], test: null, rnFail: false, waitKey: false, lastPaint: 0 };
+    /* 눌러서 말하기 설정 + 말하기 방식은 방(사내/자유)마다 따로 저장 */
+    var ROOM_MIC_KEY = "gcb_mic_room";
+    function pttDefault() { return { delay: 250, cue: true, cueVol: 0.4, toggle: false, keys: [{ code: mic.key || "KeyV", label: mic.keyLabel || "V" }] }; }
+    function pttClean(o) {
+      var d = pttDefault(); o = o && typeof o === "object" ? o : {};
+      if (typeof o.delay === "number") d.delay = Math.min(1000, Math.max(0, Math.round(o.delay)));
+      if (typeof o.cue === "boolean") d.cue = o.cue;
+      if (typeof o.cueVol === "number") d.cueVol = Math.min(1, Math.max(0, o.cueVol));
+      if (typeof o.toggle === "boolean") d.toggle = o.toggle;
+      if (Array.isArray(o.keys)) d.keys = o.keys.filter(function (b) { return b && (typeof b.code === "string" || [1, 3, 4].indexOf(b.mouse) !== -1); }).slice(0, 3).map(function (b) { return b.mouse ? { mouse: b.mouse } : { code: b.code, ctrl: !!b.ctrl, alt: !!b.alt, shift: !!b.shift, meta: !!b.meta, label: String(b.label || b.code).slice(0, 20) }; });
+      return d;
+    }
+    var roomMic = (function () {
+      var o = {}; try { o = JSON.parse(localStorage.getItem(ROOM_MIC_KEY) || "{}") || {}; } catch (e) {}
+      var r = {};
+      ["company", "free"].forEach(function (k) { var x = o[k] || {}; r[k] = { mode: ["auto", "manual", "always", "ptt"].indexOf(x.mode) !== -1 ? x.mode : mic.mode, ptt: pttClean(x.ptt) }; });
+      return r;
+    })();
+    var pttCfg = roomMic.company.ptt, micRoomCur = "company";
+    window.gcbMic = { cfg: mic, rt: micRt, room: roomMic, ptt: function () { return pttCfg; } };
+    function micRoom() { return typeof call !== "undefined" && (call.on || call.joining) && call.room ? call.room : (typeof viewRoom !== "undefined" ? viewRoom : "company"); }
+    function loadRoomMic() {
+      var r = micRoom(); if (r === micRoomCur && pttCfg === roomMic[r].ptt && mic.mode === roomMic[r].mode) return;
+      micRoomCur = r; mic.mode = roomMic[r].mode; pttCfg = roomMic[r].ptt;
+      if (typeof pttReset === "function") pttReset();
+      if (typeof micParam === "function" && call.ctx) micParam();
+      if (typeof paintMicSet === "function") paintMicSet();
+    }
+    function saveMic() {
+      try { localStorage.setItem(MIC_KEY, JSON.stringify(mic)); } catch (e) {}
+      roomMic[micRoomCur] = { mode: mic.mode, ptt: pttCfg };
+      try { localStorage.setItem(ROOM_MIC_KEY, JSON.stringify(roomMic)); } catch (e) {}
+    }
     // 음성 감지 게이트: 오디오 스레드에서 돌려 백그라운드 탭에서도 끊김 없이 동작
     var GATE_SRC = [
       "class G extends AudioWorkletProcessor{",
@@ -4353,10 +4422,67 @@
     function setPtt(on) {
       on = !!on && mic.mode === "ptt";
       if (on === micRt.ptt) return;
-      micRt.ptt = on; micParam(); if (typeof sendMicState === "function") { sendMicState(false); paintCall(); }
-      ["call-ptt", "cf-ptt"].forEach(function (id) { var b = $(id); if (b) b.classList.toggle("on", on); });
-      var b3 = $("cf-ptt"); if (b3) b3.textContent = on ? "말하는 중" : "말하기";
-      var b2 = $("call-ptt"); if (b2) b2.textContent = on ? "말하는 중…" : "누르고 말하기";
+      micRt.ptt = on; micParam(); pttCue(on); if (typeof sendMicState === "function") { sendMicState(false); paintCall(); }
+      paintPtt();
+    }
+    function paintPtt() {
+      var on = micRt.ptt;
+      ["call-ptt", "cf-ptt"].forEach(function (id) { var b = $(id); if (b) { b.classList.toggle("on", on); b.setAttribute("aria-pressed", on ? "true" : "false"); } });
+      var b3 = $("cf-ptt"); if (b3) b3.textContent = on ? "말하는 중" : pttCfg.toggle ? "눌러서 켜기" : "말하기";
+      var b2 = $("call-ptt"); if (b2) b2.textContent = on ? (pttCfg.toggle ? "말하는 중 · 다시 누르면 꺼짐" : "말하는 중…") : (pttCfg.toggle ? "눌러서 말하기 켜기" : "누르고 말하기");
+      var f = $("call-float"); if (f) f.classList.toggle("talking", on);
+    }
+    // 여러 입력(키·마우스 버튼·손가락)을 동시에 눌러도 모두 뗄 때까지 유지, 떼면 설정한 시간만큼 더 유지 후 끔
+    var pttSrc = {};
+    function pttActive() { return mic.mode === "ptt" && call.on && !call.deaf; }
+    function pttWant(on, now) {
+      clearTimeout(micRt.pttT); micRt.pttT = 0;
+      micRt.pttWant = !!on;
+      if (on) { setPtt(true); return; }
+      if (!micRt.ptt) return;
+      var d = now ? 0 : pttCfg.delay;
+      if (d > 0) micRt.pttT = setTimeout(function () { micRt.pttT = 0; if (!micRt.pttWant) setPtt(false); }, d); else setPtt(false);
+    }
+    function pttPress(src) {
+      if (!pttActive()) return false;
+      if (pttCfg.toggle) { pttWant(!micRt.pttWant); return true; }
+      pttSrc[src] = true; pttWant(true); return true;
+    }
+    function pttRelease(src) {
+      if (!pttSrc[src]) return false;
+      delete pttSrc[src];
+      if (!pttCfg.toggle && !Object.keys(pttSrc).length) pttWant(false);
+      return true;
+    }
+    function pttReset() { pttSrc = {}; micRt.pttWant = false; clearTimeout(micRt.pttT); micRt.pttT = 0; setPtt(false); }
+    function pttCue(on) {
+      if (!pttCfg.cue || !pttCfg.cueVol || call.deaf || !call.ctx || call.ctx.state !== "running") return;
+      try {
+        var c = call.ctx, t = c.currentTime + 0.005, o = c.createOscillator(), g = c.createGain(), v = 0.22 * pttCfg.cueVol;
+        o.type = "sine"; o.frequency.setValueAtTime(on ? 620 : 860, t); o.frequency.linearRampToValueAtTime(on ? 900 : 560, t + 0.07);
+        g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(v, t + 0.012); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.11);
+        o.connect(g); g.connect(c.destination); o.start(t); o.stop(t + 0.13);
+      } catch (e) {}
+    }
+    function buzz(p) { try { if (navigator.vibrate) navigator.vibrate(p); } catch (e) {} }
+    function keyLabelOf(b) {
+      if (b.mouse) return { 1: "마우스 휠 버튼", 3: "마우스 뒤로 버튼", 4: "마우스 앞으로 버튼" }[b.mouse] || "마우스 버튼";
+      return (b.ctrl ? "Ctrl+" : "") + (b.alt ? "Alt+" : "") + (b.shift ? "Shift+" : "") + (b.meta ? "Meta+" : "") + (b.label || b.code);
+    }
+    function isModCode(c) { return /^(Control|Shift|Alt|Meta)(Left|Right)$/.test(c); }
+    function keyMatch(e) {
+      return pttCfg.keys.some(function (b) {
+        if (b.mouse || b.code !== e.code) return false;
+        if (isModCode(b.code)) return true;
+        return !!b.ctrl === e.ctrlKey && !!b.alt === e.altKey && !!b.shift === e.shiftKey && !!b.meta === e.metaKey;
+      });
+    }
+    function codeLabel(e) { var k = e.key; if (k === " ") return "Space"; if (isModCode(e.code)) return e.code.replace(/Left$/, " (왼쪽)").replace(/Right$/, " (오른쪽)").replace(/^Control/, "Ctrl"); if (k && k.length === 1) return k.toUpperCase(); return e.code.replace(/^Key|^Digit/, ""); }
+    function addBinding(b) {
+      var same = function (x) { return x.mouse ? x.mouse === b.mouse : (x.code === b.code && !!x.ctrl === !!b.ctrl && !!x.alt === !!b.alt && !!x.shift === !!b.shift && !!x.meta === !!b.meta); };
+      if (!pttCfg.keys.some(same)) { pttCfg.keys.push(b); if (pttCfg.keys.length > 3) pttCfg.keys.shift(); }
+      micRt.waitKey = false; micRt.waitMod = ""; saveMic(); paintMicSet();
+      if (b.mouse === 1 || b.mouse === 3 || b.mouse === 4) micHint(keyLabelOf(b) + "을 눌러서 말하기에 등록했습니다. 통화 중에는 이 버튼의 원래 동작(뒤로 가기 등)이 꺼집니다.");
     }
     function refreshDevices() {
       if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) return;
@@ -4390,15 +4516,22 @@
       $("ms-mode").value = mic.mode;
       $("ms-thr-row").hidden = mic.mode !== "manual";
       $("ms-thr").value = String(mic.th); $("ms-thr-v").textContent = mic.th + " dB";
-      $("ms-key-row").hidden = mic.mode !== "ptt" || isAndroid() || isIOS() || /Mobi/i.test(UA);
-      $("ms-key").textContent = micRt.waitKey ? "키를 누르세요…" : mic.keyLabel;
+      $("pt-set").hidden = mic.mode !== "ptt";
+      $("ms-key-row").hidden = isAndroid() || isIOS() || /Mobi/i.test(UA);
+      $("ms-key").textContent = micRt.waitKey ? "키나 마우스 버튼을 누르세요… (Esc 취소)" : "+ 추가";
       $("ms-key").classList.toggle("on", micRt.waitKey);
+      var kl = $("pt-keys"); kl.replaceChildren();
+      pttCfg.keys.forEach(function (b, i) { var c = E("span", "pt-key", keyLabelOf(b)); var x = E("button", "", "×"); x.type = "button"; x.setAttribute("aria-label", keyLabelOf(b) + " 지우기"); x.addEventListener("click", function () { pttCfg.keys.splice(i, 1); saveMic(); paintMicSet(); }); c.appendChild(x); kl.appendChild(c); });
+      if (!pttCfg.keys.length) kl.appendChild(E("small", "", "등록된 단축키 없음"));
+      $("pt-style").value = pttCfg.toggle ? "toggle" : "hold";
+      $("pt-delay").value = String(pttCfg.delay); $("pt-delay-v").textContent = pttCfg.delay + "ms";
+      $("pt-cue").checked = pttCfg.cue; $("pt-cue-vol").value = String(Math.round(pttCfg.cueVol * 100)); $("pt-cue-vol").disabled = !pttCfg.cue;
+      paintPtt();
       $("ms-test").textContent = micRt.test || (call.mic && call.mic.loop) ? "테스트 끝내기" : "마이크 테스트";
       $("ms-test").classList.toggle("on", !!(micRt.test || (call.mic && call.mic.loop)));
       var rn = $("co-rn"); if (rn) { rn.checked = mic.rn; rn.disabled = call.opts.hq; }
       var ptt = mic.mode === "ptt" && call.on;
       $("call-ptt").hidden = !ptt || !inViewRoom(); $("cf-ptt").hidden = !ptt;
-      $("cf-ptt").textContent = micRt.ptt ? "말하는 중" : "말하기";
       paintMicMeter();
     }
     // 마이크 테스트: 이어폰으로 내 목소리를 바로 들어 봄 (설정 화면에서만, 헤드셋을 끈 동안은 안 됨)
@@ -4421,27 +4554,52 @@
         refreshDevices(); paintMicSet();
       }).catch(function (e) { micHint(micErrText(e), true); paintMicSet(); });
     }
-    function isTyping(t) { return t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)); }
+    // 글자를 입력하는 칸에서만 단축키를 막음 (버튼·슬라이더·체크박스 등에 초점이 있어도 동작)
+    function isTyping(t) {
+      if (!t) return false;
+      if (t.isContentEditable || t.tagName === "TEXTAREA") return true;
+      if (t.tagName === "INPUT") return /^(text|search|email|password|number|tel|url|date|time|datetime-local|month|week|)$/i.test(t.type || "");
+      return false;
+    }
     document.addEventListener("keydown", function (e) {
       if (micRt.waitKey) {
-        e.preventDefault();
-        if (e.code !== "Escape") { mic.key = e.code; mic.keyLabel = e.key === " " ? "Space" : e.key.length === 1 ? e.key.toUpperCase() : e.code.replace(/^Key|^Digit/, ""); saveMic(); }
-        micRt.waitKey = false; paintMicSet(); return;
+        e.preventDefault(); e.stopPropagation();
+        if (e.code === "Escape") { micRt.waitKey = false; micRt.waitMod = ""; paintMicSet(); return; }
+        if (isModCode(e.code)) { micRt.waitMod = e.code; return; }   // 조합키는 다음 키와 함께, 혼자 떼면 그 키만 등록
+        addBinding({ code: e.code, ctrl: e.ctrlKey, alt: e.altKey, shift: e.shiftKey, meta: e.metaKey, label: codeLabel(e) }); return;
       }
-      if (mic.mode !== "ptt" || !call.on || e.repeat || isTyping(e.target) || e.code !== mic.key) return;
-      e.preventDefault(); setPtt(true);
-    });
-    document.addEventListener("keyup", function (e) { if (e.code === mic.key) setPtt(false); });
-    window.addEventListener("blur", function () { setPtt(false); });
+      if (mic.mode !== "ptt" || !call.on || isTyping(e.target) || !keyMatch(e)) return;
+      e.preventDefault();
+      if (e.repeat) return;
+      pttPress("k:" + e.code);
+    }, true);
+    document.addEventListener("keyup", function (e) {
+      if (micRt.waitKey) { e.preventDefault(); if (micRt.waitMod && micRt.waitMod === e.code) addBinding({ code: e.code, label: codeLabel(e) }); return; }
+      if (pttRelease("k:" + e.code)) e.preventDefault();
+    }, true);
+    function mouseBound(btn) { return pttCfg.keys.some(function (b) { return b.mouse === btn; }); }
+    document.addEventListener("mousedown", function (e) {
+      if (micRt.waitKey && [1, 3, 4].indexOf(e.button) !== -1) { e.preventDefault(); addBinding({ mouse: e.button }); return; }
+      if (e.button !== 0 && e.button !== 2 && mouseBound(e.button) && mic.mode === "ptt" && call.on) { e.preventDefault(); pttPress("m:" + e.button); }
+    }, true);
+    ["mouseup", "auxclick"].forEach(function (ev) { document.addEventListener(ev, function (e) { if (e.button !== 0 && e.button !== 2 && mouseBound(e.button) && call.on && mic.mode === "ptt") { e.preventDefault(); if (ev === "mouseup") pttRelease("m:" + e.button); } }, true); });
+    // 창·탭을 벗어나면 즉시 끔 (마이크가 켜진 채 남지 않도록)
+    window.addEventListener("blur", function () { if (micRt.waitKey) { micRt.waitKey = false; paintMicSet(); } pttReset(); });
+    document.addEventListener("visibilitychange", function () { if (document.hidden) pttReset(); });
     ["call-ptt", "cf-ptt"].forEach(function (id) {
       var b = $(id);
-      b.addEventListener("pointerdown", function (e) { e.preventDefault(); try { b.setPointerCapture(e.pointerId); } catch (x) {} setPtt(true); });
-      ["pointerup", "pointercancel", "lostpointercapture"].forEach(function (ev) { b.addEventListener(ev, function () { setPtt(false); }); });
-      b.addEventListener("contextmenu", function (e) { e.preventDefault(); });
+      b.addEventListener("pointerdown", function (e) { if (e.button > 0) return; e.preventDefault(); try { b.setPointerCapture(e.pointerId); } catch (x) {} if (pttPress("p:" + e.pointerId)) buzz(pttCfg.toggle ? (micRt.pttWant ? 25 : [12, 40, 12]) : 25); });
+      ["pointerup", "pointercancel", "lostpointercapture"].forEach(function (ev) { b.addEventListener(ev, function (e) { if (pttRelease("p:" + e.pointerId) && !pttCfg.toggle) buzz([12, 40, 12]); }); });
+      ["contextmenu", "selectstart", "dragstart"].forEach(function (ev) { b.addEventListener(ev, function (e) { e.preventDefault(); }); });
+      b.addEventListener("click", function (e) { e.preventDefault(); });
     });
+    $("pt-style").addEventListener("change", function () { pttCfg.toggle = this.value === "toggle"; pttReset(); saveMic(); paintMicSet(); });
+    $("pt-delay").addEventListener("input", function () { pttCfg.delay = Number(this.value); $("pt-delay-v").textContent = pttCfg.delay + "ms"; saveMic(); });
+    $("pt-cue").addEventListener("change", function () { pttCfg.cue = this.checked; saveMic(); paintMicSet(); if (pttCfg.cue) { ensureCtx(); pttCue(true); } });
+    $("pt-cue-vol").addEventListener("change", function () { pttCfg.cueVol = Number(this.value) / 100; saveMic(); ensureCtx(); pttCue(true); });
     $("ms-dev").addEventListener("change", function () { mic.dev = this.value; saveMic(); if (micRt.test) { micTestStop(); micTestStart(); } else reapplyMic("입력 장치를 바꿨습니다."); });
     $("ms-gain").addEventListener("input", function () { mic.gain = Number(this.value) / 100; $("ms-gain-v").textContent = this.value + "%"; saveMic(); micParam(); });
-    $("ms-mode").addEventListener("change", function () { mic.mode = this.value; saveMic(); setPtt(false); micParam(); micSt.gateSince = 0; sendMicState(false); paintCall(); paintMicSet(); micHint(mic.mode === "ptt" ? "눌러서 말하기: 단축키(" + mic.keyLabel + ")나 '누르고 말하기' 버튼을 누르고 있는 동안만 목소리가 전달됩니다." : mic.mode === "auto" ? "주변 소음 크기에 맞춰 말할 때만 자동으로 마이크가 열립니다." : mic.mode === "manual" ? "막대가 표시선을 넘을 때만 목소리가 전달됩니다. 말하지 않을 때 막대가 표시선 아래에 오도록 맞춰 주세요." : "말하지 않을 때도 마이크가 항상 열려 있습니다."); });
+    $("ms-mode").addEventListener("change", function () { mic.mode = this.value; saveMic(); pttReset(); micParam(); micSt.gateSince = 0; sendMicState(false); paintCall(); paintMicSet(); micHint(mic.mode === "ptt" ? "눌러서 말하기: 단축키(" + (pttCfg.keys.map(keyLabelOf).join(", ") || "없음") + ")나 '누르고 말하기' 버튼을 누르고 있는 동안만 목소리가 전달됩니다." : mic.mode === "auto" ? "주변 소음 크기에 맞춰 말할 때만 자동으로 마이크가 열립니다." : mic.mode === "manual" ? "막대가 표시선을 넘을 때만 목소리가 전달됩니다. 말하지 않을 때 막대가 표시선 아래에 오도록 맞춰 주세요." : "말하지 않을 때도 마이크가 항상 열려 있습니다."); });
     $("ms-thr").addEventListener("input", function () { mic.th = Number(this.value); $("ms-thr-v").textContent = mic.th + " dB"; saveMic(); micParam(); paintMicMeter(); });
     $("ms-key").addEventListener("click", function () { micRt.waitKey = !micRt.waitKey; paintMicSet(); });
     $("ms-test").addEventListener("click", function () { if (micRt.test || (call.mic && call.mic.loop)) micTestStop(); else micTestStart(); });
@@ -4532,12 +4690,51 @@
       });
     }
     function callNote(t, err) { call.note = t || ""; call.noteErr = !!err; var n = $("call-note"); if (n) { n.textContent = call.note; n.classList.toggle("err", call.noteErr); } }
-    function loadIce() {
-      if (call.ice) return Promise.resolve(call.ice);
-      return api("/api/call/ice").then(function (d) { call.ice = d.iceServers || []; call.turn = !!d.turn; return call.ice; }, function () { return [{ urls: ["stun:stun.cloudflare.com:3478", "stun:stun.l.google.com:19302"] }]; });
+    // TURN 인증은 6시간 유효 → 4시간 지나면 새로 받음 (창을 오래 켜 둔 뒤 다시 들어올 때 중계 연결 실패 방지)
+    function loadIce(force) {
+      if (call.ice && !force && Date.now() - (call.iceAt || 0) < 4 * 3600000) return Promise.resolve(call.ice);
+      return api("/api/call/ice").then(function (d) { call.ice = d.iceServers || []; call.turn = !!d.turn; call.iceAt = Date.now(); return call.ice; }, function () { return call.ice || [{ urls: ["stun:stun.cloudflare.com:3478", "stun:stun.l.google.com:19302"] }]; });
     }
+    /* ---------- 상대 소리 재생 잠금 해제 (안드로이드·카카오톡 등 인앱 브라우저는 '누른 순간'에만 소리 재생을 허락)
+       통화방 들어가기를 누를 때 오디오 요소를 미리 만들어 무음으로 재생해 두고, 상대가 연결되면 그 요소를 씀 ---------- */
+    var audioPool = [];
+    function silentStream() {
+      var c = ensureCtx(); if (!c) return null;
+      if (!call.silent) { try { call.silent = c.createMediaStreamDestination().stream; } catch (e) { call.silent = null; } }
+      return call.silent;
+    }
+    function newAudioEl() { var a = E("audio", "call-audio"); a.autoplay = true; a.setAttribute("playsinline", ""); document.body.appendChild(a); return a; }
+    function unlockAudio() {
+      var c = ensureCtx(), sil = silentStream();
+      while (audioPool.length < 10) audioPool.push(newAudioEl());
+      audioPool.forEach(function (a) { if (a.gcbUsed) return; try { if (sil && a.srcObject !== sil) a.srcObject = sil; var pr = a.play(); if (pr && pr.catch) pr.catch(function () {}); a.gcbUnlocked = true; } catch (e) {} });
+      Object.keys(call.peers).forEach(function (k) { var p = call.peers[k]; if (p.audio && p.audio.srcObject && (p.audio.paused || p.blocked)) playPeer(p); });
+      if (c && c.state !== "running") c.resume().catch(function () {});
+      setTimeout(paintSoundGate, 300);
+    }
+    function takeAudioEl() { var a = audioPool.filter(function (x) { return !x.gcbUsed; })[0] || newAudioEl(); if (audioPool.indexOf(a) === -1) audioPool.push(a); a.gcbUsed = true; return a; }
+    function releaseAudioEl(a) { if (!a) return; try { a.pause(); } catch (e) {} a.srcObject = null; a.gcbUsed = false; }
+    function playPeer(p) {
+      if (!p.audio || !p.audio.srcObject) return;
+      var pr; try { pr = p.audio.play(); } catch (e) { pr = null; }
+      if (pr && pr.then) pr.then(function () { if (p.blocked) { p.blocked = false; paintSoundGate(); } }, function (e) { if (call.peers[p.uid] !== p || !p.audio || !p.audio.srcObject) return; if (e && e.name === "AbortError") return; p.blocked = true; paintSoundGate(); });
+    }
+    function soundBlocked() {
+      if (!call.on) return false;
+      if (call.ctx && call.ctx.state === "suspended") return true;
+      return Object.keys(call.peers).some(function (k) { var p = call.peers[k]; return p.blocked || (p.audio && p.audio.srcObject && p.audio.paused); });
+    }
+    function paintSoundGate() {
+      var b = soundBlocked(), g = $("snd-gate"), f = $("cf-sound");
+      if (g) g.hidden = !b; if (f) f.hidden = !b;
+    }
+    // 통화 중 화면을 누르면 막힌 소리를 다시 재생
+    ["pointerdown", "touchend", "keydown", "click"].forEach(function (ev) {
+      document.addEventListener(ev, function () { if ((call.on || call.joining) && (soundBlocked() || audioPool.some(function (a) { return !a.gcbUnlocked; }))) unlockAudio(); }, true);
+    });
     // 다른 통화방에 있으면 확인 후 옮김 (한 번에 한 방만)
     function callJoinView() {
+      unlockAudio();
       if ((call.on || call.joining) && call.room && call.room !== viewRoom) {
         if (!confirm(ROOMS[call.room].name + "에서 나와 " + ROOMS[viewRoom].name + "으로 옮길까요?")) return;
         callStop(true);
@@ -4547,9 +4744,9 @@
     function callJoin() {
       if (call.on || call.joining) return;
       if (!me || (viewRoom === "company" && !me.member)) { callNote(micErrText({ code: "members_only" }), true); return; }
-      call.room = viewRoom; syncMembers();
+      call.room = viewRoom; syncMembers(); loadRoomMic();
       call.joining = true; callNote("마이크를 준비하는 중입니다…"); paintCall();
-      ensureCtx(); micTestStop();
+      ensureCtx(); unlockAudio(); micTestStop();
       getMic().then(buildMic).then(function (m) {
         if (!call.joining) { teardownMic(m); throw { code: "cancel" }; }
         call.mic = m; call.stream = m.out; watchRaw(m); refreshDevices();
@@ -4568,21 +4765,23 @@
     function stopStream() {
       if (call.mic) { teardownMic(call.mic); call.mic = null; }
       else if (call.stream) call.stream.getTracks().forEach(function (t) { t.stop(); });
-      call.stream = null; call.local = null; setPtt(false);
+      call.stream = null; call.local = null; pttReset();
     }
     function closePeer(uid) {
       var p = call.peers[uid]; if (!p) return;
       try { p.pc.close(); } catch (e) {}
-      if (p.audio) { p.audio.srcObject = null; p.audio.remove(); }
+      clearTimeout(p.dT); clearTimeout(p.fT); clearTimeout(p.waitT);
+      if (p.audio) releaseAudioEl(p.audio);
       delete call.peers[uid];
     }
     function callStop(silent) {
       var was = call.on || call.joining;
+      setTimeout(paintSoundGate, 0);
       if (call.screen) { call.screen.getTracks().forEach(function (t) { t.stop(); }); call.screen = null; }
       if (call.on) callSend({ type: "call-leave" });
       Object.keys(call.peers).forEach(closePeer);
       stopStream();
-      call.on = false; call.joining = false; call.since = 0; call.room = ""; syncMembers();
+      call.on = false; call.joining = false; call.since = 0; call.room = ""; syncMembers(); loadRoomMic();
       if (call.deaf) { call.deaf = false; call.muted = call.preDeafMuted; }
       clearInterval(call.timer); clearInterval(call.statT); clearInterval(call.levelT); call.timer = call.statT = call.levelT = 0;
       if (was && !silent) callNote("통화방에서 나왔습니다.");
@@ -4605,9 +4804,11 @@
       return m.level;
     }
     function makePeer(uid) {
+      var prevP = call.peers[uid], carry = prevP ? prevP.restarts : 0;
       closePeer(uid);
       var pc = new RTCPeerConnection({ iceServers: call.ice || [], bundlePolicy: "max-bundle" });
-      var p = { uid: uid, pc: pc, pending: [], audio: null, meter: null, q: 0, speaking: false, last: null, kbps: 0, ready: false, making: false, again: false, screenId: "", screen: null, ssend: [] };
+      var p = { uid: uid, pc: pc, pending: [], audio: null, meter: null, q: 0, speaking: false, last: null, kbps: 0, ready: false, making: false, again: false, screenId: "", screen: null, ssend: [], born: Date.now(), restarts: carry, blocked: false };
+      setTimeout(function () { if (call.peers[uid] === p) paintCall(); }, 8000);
       call.peers[uid] = p;
       if (call.stream) call.stream.getAudioTracks().forEach(function (t) { pc.addTrack(t, call.stream); });
       pc.onicecandidate = function (e) { if (e.candidate) callSend({ type: "call-signal", to: uid, data: { kind: "ice", c: e.candidate.toJSON ? e.candidate.toJSON() : e.candidate } }); };
@@ -4617,25 +4818,57 @@
         if (e.track.kind === "video" || (p.screenId && st.id === p.screenId)) {
           p.screen = st; e.track.addEventListener("unmute", paintScreen); e.track.addEventListener("ended", paintScreen); paintScreen(); return;
         }
-        if (!p.audio) { p.audio = E("audio", "call-audio"); p.audio.autoplay = true; p.audio.setAttribute("playsinline", ""); document.body.appendChild(p.audio); }
+        if (!p.audio) p.audio = takeAudioEl();
         p.audio.srcObject = st; p.audio.volume = volOf(uid); p.audio.muted = call.deaf;
-        var pr = p.audio.play(); if (pr && pr.catch) pr.catch(function () { callNote("소리를 재생하려면 화면을 한 번 눌러 주세요."); });
+        playPeer(p);
         p.meter = levelMeter(st);
       };
       pc.onnegotiationneeded = function () { if (p.ready) renegotiate(p); };
       pc.onconnectionstatechange = function () {
-        if (pc.connectionState === "connected") { applySenderBitrate(); applyScreenParams(); }
-        if (pc.connectionState === "failed") { p.q = 1; callNote("일부 참여자와 연결하지 못했습니다. 회사·학교 와이파이나 일부 모바일 데이터에서는 연결이 막힐 수 있습니다. 다른 네트워크로 바꿔 다시 들어와 주세요.", true); }
+        if (call.peers[uid] !== p) return;
+        if (pc.connectionState === "connected") { p.restarts = 0; clearTimeout(p.fT); if (/^연결이 불안정|다시 연결하는 중/.test(call.note || "")) callNote(""); applySenderBitrate(); applyScreenParams(); if (p.audio && p.audio.paused) playPeer(p); }
+        if (pc.connectionState === "failed") { p.q = 1; iceRestart(p); }
         paintCall();
+      };
+      // 연결이 끊기거나 실패하면 자동으로 다시 연결 (ICE 재시작 → 그래도 안 되면 처음부터 새 연결)
+      pc.oniceconnectionstatechange = function () {
+        if (call.peers[uid] !== p) return;
+        var s = pc.iceConnectionState;
+        if (s === "failed") iceRestart(p);
+        else if (s === "disconnected") { clearTimeout(p.dT); p.dT = setTimeout(function () { if (call.peers[uid] === p && pc.iceConnectionState === "disconnected") iceRestart(p); }, 4000); }
+        else if (s === "connected" || s === "completed") { clearTimeout(p.dT); }
       };
       return p;
     }
     // 첫 연결 뒤 트랙 추가·제거(화면 공유)는 기존 연결에서 재협상
-    function renegotiate(p) {
+    function iceRestart(p) {
+      if (call.peers[p.uid] !== p || !call.on || p.restarting) return;
+      // 양쪽이 동시에 하지 않도록 아이디가 작은 쪽이 먼저, 큰 쪽은 잠시 기다렸다가 그래도 안 되면 진행
+      if (me.id > p.uid && !p.waitDone) { if (!p.waitT) p.waitT = setTimeout(function () { p.waitT = 0; p.waitDone = true; if (call.peers[p.uid] === p && /failed|disconnected/.test(p.pc.iceConnectionState)) iceRestart(p); }, 9000); return; }
+      p.waitDone = false; p.restarting = true; p.restarts++;
+      callNote("연결이 불안정해 다시 연결하는 중입니다…");
+      loadIce(true).then(function (ice) {
+        p.restarting = false;
+        if (call.peers[p.uid] !== p || !call.on) return;
+        if (p.restarts > 2 || !p.ready) { reconnectPeer(p.uid, true); return; }
+        try { p.pc.setConfiguration({ iceServers: ice || [], bundlePolicy: "max-bundle" }); } catch (e) {}
+        renegotiate(p, true);
+        clearTimeout(p.fT); p.fT = setTimeout(function () { if (call.peers[p.uid] === p && p.pc.connectionState !== "connected") reconnectPeer(p.uid, true); }, 12000);
+      });
+    }
+    // 한 사람과의 연결만 처음부터 새로 (참여자 옆 '다시 연결' 버튼 · 자동 복구)
+    function reconnectPeer(uid, auto) {
+      if (!call.on) return;
+      var old = call.peers[uid]; var n = old && auto ? old.restarts : 0;
+      if (auto && old && Date.now() - old.born < 5000) return;
+      if (auto && n > 4) { callNote(callInfo(uid).nickname + "님과 연결하지 못했습니다. 회사·학교 와이파이나 일부 모바일 데이터에서는 연결이 막힐 수 있습니다. 다른 네트워크로 바꿔 다시 들어와 주세요.", true); return; }
+      loadIce(!auto ? false : true).then(function () { if (!call.on) return; var p = sendOffer(uid); if (p) p.restarts = n; if (!auto) callNote(callInfo(uid).nickname + "님과 다시 연결하는 중입니다…"); paintCall(); });
+    }
+    function renegotiate(p, restart) {
       if (call.peers[p.uid] !== p) return;
       if (p.pc.signalingState !== "stable" || p.making) { p.again = true; return; }
       p.making = true;
-      p.pc.createOffer().then(function (o) {
+      p.pc.createOffer(restart ? { iceRestart: true } : undefined).then(function (o) {
         return p.pc.setLocalDescription({ type: "offer", sdp: tuneSdp(o.sdp) });
       }).then(function () {
         callSend({ type: "call-signal", to: p.uid, data: { kind: "offer", sdp: p.pc.localDescription.sdp, screen: call.screen ? call.screen.id : "" } });
@@ -4652,8 +4885,9 @@
       p.pc.createOffer({ offerToReceiveAudio: true }).then(function (o) {
         return p.pc.setLocalDescription({ type: "offer", sdp: tuneSdp(o.sdp) });
       }).then(function () {
-        callSend({ type: "call-signal", to: uid, data: { kind: "offer", fresh: true, sdp: p.pc.localDescription.sdp, screen: "" } });
+        callSend({ type: "call-signal", to: uid, data: { kind: "offer", fresh: true, sdp: p.pc.localDescription.sdp, screen: call.screen ? call.screen.id : "" } });
       }).catch(function () {}).then(function () { p.making = false; });
+      return p;
     }
     function flushIce(p) { var q = p.pending; p.pending = []; q.forEach(function (c) { p.pc.addIceCandidate(c).catch(function () {}); }); }
     function onSignal(from, d) {
@@ -4827,7 +5061,7 @@
         });
         if (changed) paintSpeaking();
       }, 120);
-      call.statT = setInterval(pollStats, 2000);
+      call.statT = setInterval(function () { pollStats(); paintSoundGate(); Object.keys(call.peers).forEach(function (k) { var p = call.peers[k]; if (p.audio && p.audio.srcObject && p.audio.paused) playPeer(p); }); if (dbg.on) paintDebug(); }, 2000);
     }
     function pollStats() {
       Object.keys(call.peers).forEach(function (k) {
@@ -4851,6 +5085,47 @@
       });
     }
     function volOf(uid) { var v = Number(call.vol[uid]); return v >= 0 && v <= 1 ? v : 1; }
+    /* ---------- 연결 진단 (숨김): 상태 표시를 5번 누르거나 주소에 ?calldebug=1 ---------- */
+    var dbg = { on: false, taps: [] };
+    function dbgOpen(on) { dbg.on = !!on; $("call-debug").hidden = !dbg.on; try { if (on) sessionStorage.setItem("gcb_calldebug", "1"); else sessionStorage.removeItem("gcb_calldebug"); } catch (e) {} if (on) paintDebug(); paintCall(); }
+    $("call-status").addEventListener("click", function () { var t = Date.now(); dbg.taps = dbg.taps.filter(function (x) { return t - x < 2500; }); dbg.taps.push(t); if (dbg.taps.length >= 5) { dbg.taps = []; dbgOpen(!dbg.on); } });
+    $("cd-close").addEventListener("click", function () { dbgOpen(false); });
+    $("cd-copy").addEventListener("click", function () { var t = $("cd-text").textContent; if (navigator.clipboard) navigator.clipboard.writeText(t).then(function () { callNote("진단 내용을 복사했습니다."); }, function () {}); });
+    $("snd-on").addEventListener("click", unlockAudio);
+    $("cf-sound").addEventListener("click", unlockAudio);
+    function candTxt(rep, id) { var c = id && rep.get ? rep.get(id) : null; if (!c) return "?"; return (c.candidateType || "?") + "/" + (c.protocol || "") + (c.relayProtocol ? "(" + c.relayProtocol + ")" : ""); }
+    function paintDebug() {
+      if (!dbg.on) return;
+      var out = [], m = call.mic, raw = m && m.raw && m.raw.getAudioTracks()[0], tr = call.stream && call.stream.getAudioTracks()[0];
+      out.push("기기: " + (isAndroid() ? "Android" : isIOS() ? "iOS" : "PC") + " · " + UA.replace(/^Mozilla\/5\.0 /, "").slice(0, 90));
+      out.push("방: " + (call.room || "-") + " · 상태: " + (call.on ? "통화 중" : call.joining ? "연결 중" : "대기") + " · 오디오 엔진: " + (call.ctx ? call.ctx.state + " " + call.ctx.sampleRate + "Hz" : "없음"));
+      out.push("내 마이크: " + (call.on ? micState(true) : "-") + " · 원본 " + (raw ? raw.readyState + (raw.muted ? "/muted" : "") : "없음") + " · 전송 " + (tr ? tr.readyState + (tr.enabled ? "" : "/꺼짐") : "없음") + " · 방식 " + mic.mode + " · 게이트 " + (micRt.open ? "열림" : "닫힘") + " · 레벨 " + (typeof micRt.level === "number" ? Math.round(micRt.level) + "dB" : "-"));
+      out.push("중계(TURN): " + (call.turn ? "있음" : "없음") + " · ICE 받은 지 " + (call.iceAt ? Math.round((Date.now() - call.iceAt) / 60000) + "분" : "-") + " · 헤드셋 " + (call.deaf ? "꺼짐" : "켜짐"));
+      var ks = Object.keys(call.peers);
+      if (!ks.length) out.push("연결된 참여자 없음");
+      var jobs = ks.map(function (k) {
+        var p = call.peers[k];
+        return p.pc.getStats().then(function (rep) {
+          var pair = null, inA = null, outA = null, tid = null;
+          rep.forEach(function (x) { if (x.type === "transport" && x.selectedCandidatePairId) tid = x.selectedCandidatePairId; });
+          rep.forEach(function (x) {
+            if (x.type === "candidate-pair" && (x.id === tid || (!tid && x.nominated && x.state === "succeeded"))) pair = x;
+            if (x.type === "inbound-rtp" && x.kind === "audio" && (!inA || (x.bytesReceived || 0) > (inA.bytesReceived || 0))) inA = x;
+            if (x.type === "outbound-rtp" && x.kind === "audio" && (!outA || (x.bytesSent || 0) > (outA.bytesSent || 0))) outA = x;
+          });
+          var prevIn = p.dbgIn || 0, prevOut = p.dbgOut || 0, bi = inA ? inA.bytesReceived || 0 : 0, bo = outA ? outA.bytesSent || 0 : 0; p.dbgIn = bi; p.dbgOut = bo;
+          var a = p.audio, tx = p.pc.getTransceivers ? p.pc.getTransceivers().filter(function (t) { return t.receiver && t.receiver.track && t.receiver.track.kind === "audio" && p.ssend.indexOf(t.sender) === -1; })[0] : null;
+          return "▸ " + callInfo(Number(k)).nickname + " (#" + k + ")\n" +
+            "  연결 " + p.pc.connectionState + " · ICE " + p.pc.iceConnectionState + " · 신호 " + p.pc.signalingState + " · 재연결 " + p.restarts + "회\n" +
+            "  경로 " + (pair ? "내 " + candTxt(rep, pair.localCandidateId) + " ↔ 상대 " + candTxt(rep, pair.remoteCandidateId) + (typeof pair.currentRoundTripTime === "number" ? " · " + Math.round(pair.currentRoundTripTime * 1000) + "ms" : "") : "없음") + "\n" +
+            "  받는 소리 " + (inA ? "레벨 " + (typeof inA.audioLevel === "number" ? inA.audioLevel.toFixed(3) : "?") + " · " + Math.round(bi / 1024) + "KB (+" + Math.round((bi - prevIn) / 1024) + ")" + " · 손실 " + (inA.packetsLost || 0) : "없음") + "\n" +
+            "  보내는 소리 " + (outA ? Math.round(bo / 1024) + "KB (+" + Math.round((bo - prevOut) / 1024) + ")" : "없음") + " · 방향 " + (tx ? (tx.currentDirection || tx.direction) : "?") + "\n" +
+            "  재생 " + (!a ? "요소 없음" : (a.paused ? "멈춤" : "재생 중") + (p.blocked ? "(막힘)" : "") + " · 볼륨 " + Math.round(a.volume * 100) + "%" + (a.muted ? " · 음소거" : "") + " · 트랙 " + (a.srcObject && a.srcObject.getAudioTracks()[0] ? a.srcObject.getAudioTracks()[0].readyState + (a.srcObject.getAudioTracks()[0].muted ? "/muted" : "") : "없음"));
+        }).catch(function () { return "▸ #" + k + " 통계 읽기 실패"; });
+      });
+      Promise.all(jobs).then(function (lines) { $("cd-text").textContent = out.concat(lines).join("\n"); });
+    }
+    try { if (/[?&]calldebug=1/.test(location.search) || sessionStorage.getItem("gcb_calldebug") === "1") setTimeout(function () { dbgOpen(true); }, 0); } catch (e) {}
     /* ---------- 마이크 실제 상태 (화면 표시·다른 사람에게 보내는 상태의 단일 기준) ----------
        deaf: 헤드셋 꺼짐 / err: 마이크 오류 / muted: 꺼짐(음소거) / ptt: 대기(눌러서 말하기) / gate: 대기(감도 미달, 나에게만) / on: 켜짐 */
     function micHealth() {
@@ -4866,11 +5141,11 @@
       if (call.deaf) return "deaf";
       if (micSt.err) return "err";
       if (call.muted) return "muted";
-      if (mic.mode === "ptt" && !micRt.ptt) return "ptt";
+      if (mic.mode === "ptt") return micRt.ptt ? "talk" : "ptt";
       if (mine && (mic.mode === "auto" || mic.mode === "manual") && call.mic && call.mic.gate && micSt.gateSince && Date.now() - micSt.gateSince > 2500) return "gate";
       return "on";
     }
-    function micBroadcastSt() { var st = micState(true); return st === "err" || st === "ptt" || st === "gate" ? st : "on"; }
+    function micBroadcastSt() { var st = micState(true); return st === "err" || st === "ptt" || st === "gate" || st === "talk" ? st : "on"; }
     function sendMicState(force) {
       if (!call.on) return;
       var st = micBroadcastSt(), key = call.muted + "|" + call.deaf + "|" + st;
@@ -4878,8 +5153,8 @@
       micSt.sent = key;
       callSend({ type: "call-mute", muted: call.muted, deaf: call.deaf, st: st });
     }
-    var MIC_LABEL = { on: "켜짐", muted: "꺼짐(음소거)", ptt: "대기(눌러서 말하기)", gate: "대기(감도 미달)", deaf: "헤드셋 꺼짐", err: "마이크 오류" };
-    function memberMicState(mem) { return mem.deaf ? "deaf" : mem.muted ? "muted" : mem.st === "err" || mem.st === "ptt" || mem.st === "gate" ? mem.st : "on"; }
+    var MIC_LABEL = { on: "켜짐", muted: "꺼짐(음소거)", ptt: "대기(눌러서 말하기)", gate: "대기(감도 미달)", deaf: "헤드셋 꺼짐", err: "마이크 오류", talk: "말하는 중" };
+    function memberMicState(mem) { return mem.deaf ? "deaf" : mem.muted ? "muted" : mem.st === "err" || mem.st === "ptt" || mem.st === "gate" || mem.st === "talk" ? mem.st : "on"; }
     function micCheck() {
       var e = micHealth();
       if (call.mic && call.mic.gate) {
@@ -5012,18 +5287,24 @@
         var rt = roleTag(info.role); if (rt) nm.appendChild(rt);
         who.appendChild(nm);
         var sub = E("div", "call-sub"), offish = mst === "muted" || mst === "deaf" || mst === "err";
-        var mic = E("span", "call-mic" + (offish ? " off" : mst === "ptt" || mst === "gate" ? " wait" : ""));
+        var mic = E("span", "call-mic" + (offish ? " off" : mst === "ptt" || mst === "gate" ? " wait" : mst === "talk" ? " talk" : ""));
+        if (mst === "talk") li.classList.add("talking");
         mic.setAttribute("data-mic", mst);
-        if (mst !== "deaf") { mic.innerHTML = offish ? MIC_OFF_SVG : MIC_SVG; mic.appendChild(document.createTextNode(mst === "err" ? MIC_LABEL.err : "마이크 " + MIC_LABEL[mst])); sub.appendChild(mic); }
+        if (mst !== "deaf") { mic.innerHTML = offish ? MIC_OFF_SVG : MIC_SVG; mic.appendChild(document.createTextNode(mst === "err" || mst === "talk" ? MIC_LABEL[mst] : "마이크 " + MIC_LABEL[mst])); sub.appendChild(mic); }
         if (mem.share || (mine && call.screen)) { var shs = E("span", "call-mic share"); shs.innerHTML = SCR_SVG; shs.appendChild(document.createTextNode("화면 공유 중")); sub.appendChild(shs); }
         if (deaf) { var hs = E("span", "call-mic off"); hs.innerHTML = HS_OFF_SVG; hs.appendChild(document.createTextNode("헤드셋 꺼짐")); sub.appendChild(hs); }
         if (!mine && here && call.on) { var q = E("span", "call-q"); q.setAttribute("data-q", uid); q.innerHTML = "<i></i><i></i><i></i>"; sub.appendChild(q); sub.appendChild(E("span", "q-lab", "")); }
         who.appendChild(sub); li.appendChild(who);
         if (!mine && here && call.on) {
-          var vw = E("label", "call-vol"); vw.appendChild(E("span", "", "볼륨"));
-          var r = E("input"); r.type = "range"; r.min = "0"; r.max = "100"; r.step = "5"; r.value = String(Math.round(volOf(uid) * 100)); r.setAttribute("aria-label", info.nickname + " 볼륨");
-          r.addEventListener("input", function () { var v = Number(r.value) / 100; call.vol[uid] = v; try { localStorage.setItem(CALL_VOL_KEY, JSON.stringify(call.vol)); } catch (e) {} var p = call.peers[uid]; if (p && p.audio) p.audio.volume = v; });
-          vw.appendChild(r); li.appendChild(vw);
+          var v0 = volOf(uid), vw = E("label", "call-vol" + (v0 === 0 ? " zero" : "")), vl = E("span", "", v0 === 0 ? "볼륨 꺼짐" : "볼륨"); vw.appendChild(vl);
+          var r = E("input"); r.type = "range"; r.min = "0"; r.max = "100"; r.step = "5"; r.value = String(Math.round(v0 * 100)); r.setAttribute("aria-label", info.nickname + " 볼륨");
+          r.addEventListener("input", function () { var v = Number(r.value) / 100; call.vol[uid] = v; try { localStorage.setItem(CALL_VOL_KEY, JSON.stringify(call.vol)); } catch (e) {} var p = call.peers[uid]; if (p && p.audio) p.audio.volume = v; vw.classList.toggle("zero", v === 0); vl.textContent = v === 0 ? "볼륨 꺼짐" : "볼륨"; });
+          vw.appendChild(r);
+          var pr0 = call.peers[uid], bad = !pr0 || (pr0.pc.connectionState !== "connected" && Date.now() - pr0.born > 7000);
+          var rb = E("button", "call-re", "다시 연결"); rb.type = "button"; rb.title = info.nickname + "님과 연결을 처음부터 다시 맺습니다 (소리가 안 들릴 때)";
+          if (bad) rb.classList.add("warn");
+          rb.addEventListener("click", function (e) { e.preventDefault(); unlockAudio(); reconnectPeer(uid, false); });
+          vw.appendChild(rb); li.appendChild(vw);
         }
         list.appendChild(li);
       });
@@ -5155,7 +5436,7 @@
     function setViewRoom(r) {
       var nr = r === "free" ? "free" : "company";
       if (nr !== viewRoom) ccStore[nr].dirty = true;
-      viewRoom = nr; cc = ccStore[viewRoom]; syncMembers();
+      viewRoom = nr; cc = ccStore[viewRoom]; syncMembers(); loadRoomMic();
       $("cc-title").textContent = ROOMS[viewRoom].name + " 채팅"; $("cc-sub").textContent = ROOMS[viewRoom].sub;
       $("cc-input").placeholder = ROOMS[viewRoom].name + "에 메시지 보내기";
       ccCloseMention(); ccErr("");
