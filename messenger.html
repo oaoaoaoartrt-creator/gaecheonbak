@@ -743,6 +743,8 @@
     .bell:hover { color: var(--ink); }
     .bell svg { width: 18px; height: 18px; }
     .bell.on { color: var(--ink); }
+    .nt-row[hidden] { display: none; }
+    .co-fx-vol { display: block; width: 100%; max-width: 240px; margin-top: 8px; accent-color: var(--ink); }
     .nt-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding: 14px 0; border-top: 1px solid var(--line); }
     .nt-row:first-of-type { border-top: 0; }
     .nt-row b { display: block; font-size: 14.5px; font-weight: 600; }
@@ -1231,6 +1233,14 @@
           <p class="ms-hint" id="ms-hint" role="status"></p>
         </div>
         <div class="call-opts">
+          <div class="nt-row">
+            <div><b>들어오기·나가기 효과음</b><small>이 통화방에 누군가(나 포함) 들어오거나 나갈 때 짧은 소리로 알려 줍니다. 헤드셋을 끄면 나지 않습니다.</small><input type="range" id="co-fx-vol" class="co-fx-vol" min="0" max="100" step="5" value="50" aria-label="효과음 크기"></div>
+            <label class="switch"><input type="checkbox" id="co-fx" aria-label="들어오기·나가기 효과음"><span></span></label>
+          </div>
+          <div class="nt-row" id="co-wake-row">
+            <div><b>화면 켜두기</b><small>통화하는 동안 휴대폰 화면이 저절로 꺼지지 않게 합니다. 전원 버튼으로 화면을 꺼도 통화는 이어집니다.</small></div>
+            <label class="switch"><input type="checkbox" id="co-wake" aria-label="화면 켜두기"><span></span></label>
+          </div>
           <div class="nt-row">
             <div><b>고음질(음악) 모드</b><small>잡음·에코 제거와 자동 음량을 끄고 스테레오로 보냅니다. 노래나 악기를 들려줄 때 쓰고, 이어폰을 함께 써 주세요.</small></div>
             <label class="switch"><input type="checkbox" id="co-hq" aria-label="고음질(음악) 모드"><span></span></label>
@@ -2415,10 +2425,13 @@
       ws = sock;
       var pinger = null;
       sock.onopen = function () {
+        wsLastRx = Date.now();
         sock.send(JSON.stringify({ type: "auth", token: token }));
-        pinger = setInterval(function () { try { sock.send('{"type":"ping"}'); } catch (e) {} }, 30000);
+        // 20초마다 확인, 50초 동안 아무 응답이 없으면 죽은 연결로 보고 다시 연결
+        pinger = setInterval(function () { if (Date.now() - wsLastRx > 50000) { try { sock.close(); } catch (e) {} return; } try { sock.send('{"type":"ping"}'); } catch (e) {} }, 20000);
       };
       sock.onmessage = function (ev) {
+        wsLastRx = Date.now();
         var data; try { data = JSON.parse(ev.data); } catch (e) { return; }
         if (data.type === "ready") { wsReady = true; retry = 0; stopPolling(); catchUp(); if (channel) loadMembers(channel); loadDms(true); callSocketReady(); ccOnReady(); }
         else if (typeof data.type === "string" && data.type.indexOf("call-") === 0) onCallMsg(data);
@@ -2451,9 +2464,11 @@
       };
       sock.onerror = function () { try { sock.close(); } catch (e) {} };
     }
+    var wsLastRx = 0;
+    window.gcbWsDrop = function () { if (ws) { try { ws.close(); } catch (e) {} } };   // 진단·테스트용: 실시간 연결만 끊어 봄
     function scheduleReconnect() {
       if (retryTimer || !live) return;
-      var delay = Math.min(30000, 1000 * Math.pow(2, retry++));
+      var delay = Math.min(window.gcbCall && (call.on || call.joining) ? 3000 : 30000, 1000 * Math.pow(2, retry++));
       retryTimer = setTimeout(function () { retryTimer = null; connect(); }, delay);
     }
     function stopLive() {
@@ -2616,9 +2631,19 @@
       if (!window.matchMedia("(max-width: 560px)").matches) $("msg-input").focus();
     }
 
-    document.addEventListener("visibilitychange", function () {
-      if (document.visibilityState === "visible" && live) { catchUp(); if (!ws) { retry = 0; connect(); } }
-    });
+    // 화면이 다시 켜지거나(보이기·resume·pageshow) 네트워크가 돌아오면 바로 다시 연결
+    function wakeNet() {
+      if (!live) return;
+      if (ws && wsReady && Date.now() - wsLastRx > 45000) { var s0 = ws; ws = null; wsReady = false; try { s0.close(); } catch (e) {} callSocketLost(); }
+      if (!ws) { if (retryTimer) { clearTimeout(retryTimer); retryTimer = null; } retry = 0; connect(); }
+      else if (wsReady) { try { ws.send('{"type":"ping"}'); } catch (e) {} }
+      catchUp();
+      if (window.gcbCall && call.on) callWake();
+    }
+    document.addEventListener("visibilitychange", function () { if (document.visibilityState === "visible") wakeNet(); });
+    document.addEventListener("resume", wakeNet);
+    window.addEventListener("pageshow", function (e) { if (e.persisted) wakeNet(); });
+    window.addEventListener("online", function () { setTimeout(wakeNet, 300); });
 
     var input = $("msg-input");
     function autosize() {
@@ -4270,7 +4295,7 @@
     var call = {
       on: false, joining: false, stream: null, peers: {}, members: [], muted: false, deaf: false, preDeafMuted: false, since: 0,
       ice: null, ctx: null, local: null, timer: 0, statT: 0, levelT: 0, note: "", noteErr: false,
-      opts: (function () { try { var o = JSON.parse(localStorage.getItem(CALL_OPT_KEY) || "{}"); return { ec: o.ec !== false, ns: o.ns !== false, agc: o.agc !== false, hq: !!o.hq }; } catch (e) { return { ec: true, ns: true, agc: true, hq: false }; } })(),
+      opts: (function () { try { var o = JSON.parse(localStorage.getItem(CALL_OPT_KEY) || "{}"); return { ec: o.ec !== false, ns: o.ns !== false, agc: o.agc !== false, hq: !!o.hq, wake: !!o.wake, fx: o.fx !== false, fxVol: typeof o.fxVol === "number" ? Math.min(1, Math.max(0, o.fxVol)) : 0.5 }; } catch (e) { return { ec: true, ns: true, agc: true, hq: false, wake: false, fx: true, fxVol: 0.5 }; } })(),
       vol: (function () { try { return JSON.parse(localStorage.getItem(CALL_VOL_KEY) || "{}") || {}; } catch (e) { return {}; } })()
     };
     window.gcbCall = call;
@@ -4776,12 +4801,14 @@
     }
     function callStop(silent) {
       var was = call.on || call.joining;
+      if (call.on) callFx("leave");
+      call.fxSeen = null;
       setTimeout(paintSoundGate, 0);
       if (call.screen) { call.screen.getTracks().forEach(function (t) { t.stop(); }); call.screen = null; }
       if (call.on) callSend({ type: "call-leave" });
       Object.keys(call.peers).forEach(closePeer);
       stopStream();
-      call.on = false; call.joining = false; call.since = 0; call.room = ""; syncMembers(); loadRoomMic();
+      call.on = false; call.joining = false; call.since = 0; call.room = ""; call.sigLost = 0; syncMembers(); loadRoomMic(); setTimeout(function () { wakeLockSync(); mediaSessionSync(); }, 0);
       if (call.deaf) { call.deaf = false; call.muted = call.preDeafMuted; }
       clearInterval(call.timer); clearInterval(call.statT); clearInterval(call.levelT); call.timer = call.statT = call.levelT = 0;
       if (was && !silent) callNote("통화방에서 나왔습니다.");
@@ -4842,7 +4869,7 @@
     }
     // 첫 연결 뒤 트랙 추가·제거(화면 공유)는 기존 연결에서 재협상
     function iceRestart(p) {
-      if (call.peers[p.uid] !== p || !call.on || p.restarting) return;
+      if (call.peers[p.uid] !== p || !call.on || p.restarting || !wsReady) return;   // 신호가 끊긴 동안은 재연결 후 처리
       // 양쪽이 동시에 하지 않도록 아이디가 작은 쪽이 먼저, 큰 쪽은 잠시 기다렸다가 그래도 안 되면 진행
       if (me.id > p.uid && !p.waitDone) { if (!p.waitT) p.waitT = setTimeout(function () { p.waitT = 0; p.waitDone = true; if (call.peers[p.uid] === p && /failed|disconnected/.test(p.pc.iceConnectionState)) iceRestart(p); }, 9000); return; }
       p.waitDone = false; p.restarting = true; p.restarts++;
@@ -4881,7 +4908,7 @@
     }
     function sendOffer(uid) {
       var p = makePeer(uid);
-      p.making = true;
+      p.making = true; p.freshOut = true;
       p.pc.createOffer({ offerToReceiveAudio: true }).then(function (o) {
         return p.pc.setLocalDescription({ type: "offer", sdp: tuneSdp(o.sdp) });
       }).then(function () {
@@ -4894,6 +4921,7 @@
       if (!call.on || !d) return;
       if (d.kind === "offer" && typeof d.sdp === "string") {
         var p = call.peers[from];
+        if (d.fresh && p && p.freshOut && p.pc.signalingState === "have-local-offer" && me.id < from) return; // 동시에 새 연결을 시작하면 아이디 작은 쪽 것을 씀
         if (d.fresh || !p || p.pc.signalingState === "closed") p = makePeer(from);
         else if (p.pc.signalingState !== "stable" && me.id < from) return; // 동시에 제안하면 아이디 큰 쪽이 양보
         p.screenId = typeof d.screen === "string" ? d.screen : "";
@@ -5016,6 +5044,13 @@
       if (d.type === "call-state" && (Array.isArray(d.members) || Array.isArray(d.free))) {
         call.lists.company = Array.isArray(d.members) ? d.members : [];
         call.lists.free = Array.isArray(d.free) ? d.free : [];
+        if (call.on && call.room && call.fxSeen) {
+          var nowIds = {}; (call.lists[call.room] || []).forEach(function (m) { nowIds[m.uid] = true; });   // 재연결 유예 중(away)인 사람도 포함 → 잠깐 끊긴 건 소리 안 남
+          var joinedN = Object.keys(nowIds).filter(function (k) { return !call.fxSeen[k] && Number(k) !== me.id; }).length;
+          var leftN = Object.keys(call.fxSeen).filter(function (k) { return !nowIds[k] && Number(k) !== me.id; }).length;
+          if (joinedN) callFx("join"); else if (leftN) callFx("leave");
+          call.fxSeen = nowIds;
+        }
         ["company", "free"].forEach(function (r) { ccWith(ccStore[r], function () { ccCallState(call.lists[r]); }); });
         syncMembers();
         var inRoom = {}; call.members.forEach(function (m) { inRoom[m.uid] = true; });
@@ -5026,7 +5061,24 @@
         paintScreen();
         if (unknown) api("/api/channel-members?channel=" + (call.lists.company.length && me.member ? "company" : "callfree")).then(function (r) { (r.members || []).forEach(function (u) { remember(u.id, u); }); if (call.lists.free.length && me.member) return api("/api/channel-members?channel=callfree").then(function (r2) { (r2.members || []).forEach(function (u) { remember(u.id, u); }); }); }).then(function () { paintCall(); }, function () {});
         paintCall();
+      } else if (d.type === "call-joined" && call.on && call.sigLost) {
+        // 신호 재연결: 살아 있는 P2P 연결은 그대로 두고, 끊긴 사람만 새로 연결
+        call.sigLost = 0;
+        var want = {}; (d.peers || []).forEach(function (uid) { want[uid] = true; });
+        // 유예 시간(60초)이 지나 서버에서 빠졌던 경우: 상대들은 이미 연결을 닫았으므로 모두 새로 연결
+        Object.keys(call.peers).forEach(function (k) { if (!want[k] || !d.resumed) closePeer(k); });
+        if (!d.resumed) { call.fxSeen = {}; (d.peers || []).forEach(function (uid) { call.fxSeen[uid] = true; }); if (me) call.fxSeen[me.id] = true; }
+        (d.peers || []).forEach(function (uid) {
+          if (uid === me.id) return;
+          var p = call.peers[uid], cs = p && p.pc.connectionState;
+          if (!(p && p.ready && p.pc.signalingState === "stable" && (cs === "connected" || cs === "connecting"))) sendOffer(uid);
+        });
+        if (/^실시간 연결이 잠시/.test(call.note || "")) callNote("");
+        if (call.screen) callSend({ type: "call-share", on: true });
+        micSt.sent = ""; sendMicState(true); startCallLoops(); paintCall();
       } else if (d.type === "call-joined") {
+        call.fxSeen = {}; (d.peers || []).forEach(function (uid) { call.fxSeen[uid] = true; }); if (me) call.fxSeen[me.id] = true;
+        setTimeout(function () { callFx("join"); }, 0);
         call.joining = false; call.on = true; call.since = Date.now(); micSt.sent = ""; setTimeout(function () { micCheck(); sendMicState(true); }, 0);
         callNote("");
         (d.peers || []).forEach(function (uid) { if (uid !== me.id) sendOffer(uid); });
@@ -5036,16 +5088,69 @@
       else if (d.type === "call-share-denied") { if (call.screen) { var st0 = call.screen; call.screen = null; st0.getTracks().forEach(function (t) { t.stop(); }); Object.keys(call.peers).forEach(function (k) { syncScreen(call.peers[k]); }); } callNote(callInfo(d.by).nickname + "님이 먼저 화면을 공유하고 있습니다. 공유가 끝난 뒤 다시 시도해 주세요.", true); paintCall(); }
       else if (d.type === "call-error") { callStop(true); callNote(micErrText({ code: d.code }), true); }
     }
+    // 실시간 연결(웹소켓)만 끊긴 경우: 음성은 P2P로 계속 흐르므로 통화 연결은 그대로 두고 신호만 다시 연결
+    // (예전에는 여기서 모든 연결을 닫아, 휴대폰 화면을 끄면 상대 소리가 끊겼음)
     function callSocketLost() {
       if (!call.on) return;
-      if (call.screen) { call.screen.getTracks().forEach(function (t) { t.stop(); }); call.screen = null; }
-      Object.keys(call.peers).forEach(closePeer);
-      call.on = false; call.joining = true;
-      callNote("연결이 잠시 끊겼습니다. 다시 연결하는 중입니다…");
+      if (!call.sigLost) call.sigLost = Date.now();
+      callNote("실시간 연결이 잠시 끊겼습니다. 통화 음성은 그대로 두고 다시 연결하는 중입니다…");
       paintCall();
     }
     function callSocketReady() {
+      if (call.on && call.sigLost) { callSend({ type: "call-join", room: call.room || viewRoom, resume: true, muted: call.muted, deaf: call.deaf, st: micBroadcastSt() }); return; }
       if (call.joining && call.stream) callSend({ type: "call-join", room: call.room || viewRoom, muted: call.muted, deaf: call.deaf, st: micBroadcastSt() });
+    }
+    // 화면이 다시 켜졌을 때: 오디오 엔진·상대 소리 재생 재개, 끊긴 연결 복구
+    function callWake() {
+      if (call.ctx && call.ctx.state !== "running") call.ctx.resume().catch(function () {});
+      Object.keys(call.peers).forEach(function (k) { var p = call.peers[k]; if (p.audio && p.audio.srcObject && p.audio.paused) playPeer(p); if (/failed|disconnected/.test(p.pc.iceConnectionState) && wsReady) iceRestart(p); });
+      wakeLockSync(); micCheck(); paintSoundGate();
+    }
+    /* 들어오기·나가기 효과음 (직접 합성한 짧은 두 음: 들어옴 = 올라가는 밝은 음, 나감 = 내려가는 낮은 음) */
+    function callFx(kind) {
+      if (!call.opts.fx || !call.opts.fxVol || call.deaf) return;
+      var c = call.ctx; if (!c || c.state !== "running") return;
+      (window.gcbFxLog = window.gcbFxLog || []).push(kind);
+      try {
+        var notes = kind === "join" ? [[659.25, 0], [987.77, 0.09]] : [[783.99, 0], [523.25, 0.1]];
+        var out = c.createGain(); out.gain.value = 0.32 * call.opts.fxVol; out.connect(c.destination);
+        var t0 = c.currentTime + 0.01;
+        notes.forEach(function (n) {
+          var t = t0 + n[1], o = c.createOscillator(), o2 = c.createOscillator(), g = c.createGain();
+          o.type = "sine"; o2.type = "triangle"; o.frequency.value = n[0]; o2.frequency.value = n[0] * 2;
+          var g2 = c.createGain(); g2.gain.value = 0.12; o2.connect(g2); g2.connect(g); o.connect(g);
+          g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(1, t + 0.012); g.gain.exponentialRampToValueAtTime(0.0001, t + (kind === "join" ? 0.22 : 0.26));
+          g.connect(out); o.start(t); o2.start(t); o.stop(t + 0.3); o2.stop(t + 0.3);
+        });
+        setTimeout(function () { try { out.disconnect(); } catch (e) {} }, 800);
+      } catch (e) {}
+    }
+    /* 화면 켜두기 (선택) */
+    var wakeLk = null;
+    function wakeLockSync() {
+      var want = call.on && call.opts.wake && !document.hidden && navigator.wakeLock;
+      if (want && !wakeLk) navigator.wakeLock.request("screen").then(function (l) { wakeLk = l; l.addEventListener("release", function () { if (wakeLk === l) wakeLk = null; }); if (!(call.on && call.opts.wake)) { l.release().catch(function () {}); } }, function () {});
+      else if (!want && wakeLk && !(call.on && call.opts.wake)) { var l2 = wakeLk; wakeLk = null; l2.release().catch(function () {}); }
+    }
+    /* 휴대폰 알림창에 '통화 중' 표시 (미디어 세션) + 끊기·마이크 버튼 */
+    var msKey = "";
+    function mediaSessionSync() {
+      var ms = navigator.mediaSession; if (!ms) return;
+      var key = call.on ? (call.room || "") + "|" + call.muted : "";
+      if (key === msKey) return; msKey = key;
+      try {
+        if (call.on) {
+          if (window.MediaMetadata) ms.metadata = new MediaMetadata({ title: ROOMS[call.room || "company"].name + " · 통화 중", artist: "개천박컴퍼니 메신저", artwork: [{ src: "icons/icon-192.png", sizes: "192x192", type: "image/png" }, { src: "icons/icon-512.png", sizes: "512x512", type: "image/png" }] });
+          ms.playbackState = "playing";
+          try { ms.setActionHandler("hangup", function () { callStop(false); }); } catch (e) {}
+          try { ms.setActionHandler("togglemicrophone", function () { setMute(!call.muted); }); } catch (e) {}
+          try { ms.setActionHandler("pause", function () { setMute(true); }); ms.setActionHandler("play", function () { setMute(false); }); } catch (e) {}
+          try { if (ms.setMicrophoneActive) ms.setMicrophoneActive(!call.muted); } catch (e) {}
+        } else {
+          ms.metadata = null; ms.playbackState = "none";
+          ["hangup", "togglemicrophone", "pause", "play"].forEach(function (a) { try { ms.setActionHandler(a, null); } catch (e) {} });
+        }
+      } catch (e) {}
     }
     function startCallLoops() {
       clearInterval(call.timer); clearInterval(call.statT); clearInterval(call.levelT);
@@ -5244,6 +5349,7 @@
       });
     }
     function paintCallBadge() {
+      mediaSessionSync(); if (call.on && call.opts.wake && !wakeLk) wakeLockSync();
       var n = call.members.length, dot = $("dot-call"), total = (me && me.member ? call.lists.company.length : 0) + call.lists.free.length;
       ["company", "free"].forEach(function (r) { var rc = $("rc-" + r); if (rc) { var k = call.lists[r].length; rc.textContent = k ? String(k) : ""; rc.hidden = !k; } });
       if (typeof micRt !== "undefined" && micRt && $("view-call").hidden && (micRt.test || (call.mic && call.mic.loop))) micTestStop();
@@ -5291,6 +5397,8 @@
         if (mst === "talk") li.classList.add("talking");
         mic.setAttribute("data-mic", mst);
         if (mst !== "deaf") { mic.innerHTML = offish ? MIC_OFF_SVG : MIC_SVG; mic.appendChild(document.createTextNode(mst === "err" || mst === "talk" ? MIC_LABEL[mst] : "마이크 " + MIC_LABEL[mst])); sub.appendChild(mic); }
+        if (mem.away && !mine) sub.appendChild(E("span", "call-mic wait", "신호 재연결 중"));
+        if (mine && call.sigLost) sub.appendChild(E("span", "call-mic wait", "신호 재연결 중"));
         if (mem.share || (mine && call.screen)) { var shs = E("span", "call-mic share"); shs.innerHTML = SCR_SVG; shs.appendChild(document.createTextNode("화면 공유 중")); sub.appendChild(shs); }
         if (deaf) { var hs = E("span", "call-mic off"); hs.innerHTML = HS_OFF_SVG; hs.appendChild(document.createTextNode("헤드셋 꺼짐")); sub.appendChild(hs); }
         if (!mine && here && call.on) { var q = E("span", "call-q"); q.setAttribute("data-q", uid); q.innerHTML = "<i></i><i></i><i></i>"; sub.appendChild(q); sub.appendChild(E("span", "q-lab", "")); }
@@ -5331,7 +5439,7 @@
       if (call.on && here && mob) { sn.hidden = false; sn.textContent = "휴대폰 브라우저에서는 화면을 보낼 수 없습니다. 다른 사람이 공유한 화면은 여기서 크게 볼 수 있어요(두 손가락으로 확대)."; }
       else if (call.on && here && !call.screen && sidc && sidc !== me.id) { sn.hidden = false; sn.textContent = callInfo(sidc).nickname + "님이 화면을 공유하고 있어 지금은 공유할 수 없습니다."; }
       else sn.hidden = true;
-      $("co-hq").checked = call.opts.hq; $("co-ec").checked = call.opts.ec; $("co-ns").checked = call.opts.ns; $("co-agc").checked = call.opts.agc;
+      $("co-hq").checked = call.opts.hq; $("co-ec").checked = call.opts.ec; $("co-ns").checked = call.opts.ns; $("co-agc").checked = call.opts.agc; $("co-wake").checked = call.opts.wake; $("co-fx").checked = call.opts.fx; $("co-fx-vol").value = String(Math.round(call.opts.fxVol * 100)); $("co-fx-vol").disabled = !call.opts.fx; $("co-wake-row").hidden = !("wakeLock" in navigator);
       ["co-ec", "co-ns", "co-agc"].forEach(function (id) { $(id).disabled = call.opts.hq; });
       callNote(call.note, call.noteErr);
       $("mic-err").hidden = !(micSt.err && (call.on || call.joining)); $("mic-err-text").textContent = micSt.err;
@@ -5363,6 +5471,9 @@
       $(x[0]).addEventListener("change", function () { call.opts[x[1]] = this.checked; saveCallOpts(); paintCall(); reapplyMic(); });
     });
     window.addEventListener("pagehide", function () { if (call.on) callSend({ type: "call-leave" }); });
+    $("co-fx").addEventListener("change", function () { call.opts.fx = this.checked; saveCallOpts(); paintCall(); if (this.checked) callFx("join"); });
+    $("co-fx-vol").addEventListener("change", function () { call.opts.fxVol = Number(this.value) / 100; saveCallOpts(); callFx("join"); });
+    $("co-wake").addEventListener("change", function () { call.opts.wake = this.checked; saveCallOpts(); wakeLockSync(); if (this.checked && !navigator.wakeLock) callNote("이 브라우저는 화면 켜두기를 지원하지 않습니다.", true); });
 
     /* ---------- 통화 중 인원·일·혜택 소개: index.html을 겹쳐 열어 통화가 끊기지 않게 ---------- */
     var intro = { el: null, frame: null, sec: "", ready: false };

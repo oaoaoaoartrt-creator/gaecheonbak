@@ -1074,6 +1074,20 @@ export class ChatRoom extends DurableObject {
   constructor(ctx, env) {
     super(ctx, env);
     this.ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair('{"type":"ping"}', '{"type":"pong"}'));
+    // 통화 중 실시간 연결(웹소켓)만 끊긴 사람: 60초 동안 통화 참여자로 유지 (휴대폰 화면 꺼짐·네트워크 전환 대비, 음성은 P2P로 계속 흐름)
+    this.ghosts = {};
+    ctx.blockConcurrencyWhile(async () => { try { this.ghosts = (await this.ctx.storage.get("callGhosts")) || {}; } catch { this.ghosts = {}; } });
+  }
+  saveGhosts() {
+    const now = Date.now(); let next = 0;
+    for (const k of Object.keys(this.ghosts)) { const g = this.ghosts[k]; if (!g || g.until <= now) delete this.ghosts[k]; else if (!next || g.until < next) next = g.until; }
+    this.ctx.storage.put("callGhosts", this.ghosts).catch(() => {});
+    if (next) this.ctx.storage.setAlarm(next + 200).catch(() => {});
+  }
+  async alarm() {
+    const before = Object.keys(this.ghosts).length;
+    this.saveGhosts();
+    if (Object.keys(this.ghosts).length !== before) this.sendCallState(null);
   }
 
   async fetch(req) {
@@ -1125,11 +1139,15 @@ export class ChatRoom extends DurableObject {
 
   /* ---------- 통화방 (WebRTC 신호 중계) · company = 사내 통화방(사내 멤버만), free = 자유 통화방(모두) ---------- */
   callMembers(except, room) {
-    const out = [];
+    const out = [], seen = new Set(), now = Date.now();
     for (const w of this.ctx.getWebSockets()) {
       if (w === except) continue;
       const a = w.deserializeAttachment() || {};
-      if (a.uid && a.call && (a.cr || "company") === room) out.push({ uid: a.uid, muted: !!a.cm, deaf: !!a.cd, st: a.cst || "on", share: !!a.ss, since: a.cs || 0 });
+      if (a.uid && a.call && (a.cr || "company") === room) { out.push({ uid: a.uid, muted: !!a.cm, deaf: !!a.cd, st: a.cst || "on", share: !!a.ss, since: a.cs || 0 }); seen.add(a.uid); }
+    }
+    for (const k of Object.keys(this.ghosts || {})) {
+      const g = this.ghosts[k];
+      if (g && g.until > now && g.room === room && !seen.has(g.m.uid)) out.push({ ...g.m, away: true });
     }
     return out.sort((x, y) => x.since - y.since);
   }
@@ -1163,17 +1181,20 @@ export class ChatRoom extends DurableObject {
         if (b.uid === a.uid && b.call) { w.serializeAttachment({ ...b, call: false, cm: false, cd: false, ss: false }); try { w.send('{"type":"call-ended","reason":"elsewhere"}'); } catch {} }
       }
       if (a.call) ws.serializeAttachment({ ...a, call: false, ss: false });
+      const ghost = this.ghosts[a.uid];
+      if (ghost) { delete this.ghosts[a.uid]; this.saveGhosts(); }
+      const resumed = !!(msg.resume && ghost && ghost.room === room);
       if (this.callMembers(ws, room).length >= 10) { try { ws.send('{"type":"call-error","code":"call_full"}'); } catch {} this.sendCallState(null); return; }
       const peers = this.callMembers(ws, room).map((m) => m.uid);
-      ws.serializeAttachment({ ...a, call: true, cr: room, cm: !!msg.muted || !!msg.deaf, cd: !!msg.deaf, cst: MIC_ST.includes(msg.st) ? msg.st : "on", ss: false, cs: Date.now() });
-      try { ws.send(JSON.stringify({ type: "call-joined", room, peers })); } catch {}
+      ws.serializeAttachment({ ...a, call: true, cr: room, cm: !!msg.muted || !!msg.deaf, cd: !!msg.deaf, cst: MIC_ST.includes(msg.st) ? msg.st : "on", ss: false, cs: resumed ? ghost.m.since : Date.now() });
+      try { ws.send(JSON.stringify({ type: "call-joined", room, peers, resumed })); } catch {}
       this.sendCallState(null);
       return;
     }
     if (!a.call) return;
     const room = a.cr || "company";
     if (room === "company" && !a.member) return;
-    if (msg.type === "call-leave") { ws.serializeAttachment({ ...a, call: false, cm: false, cd: false, ss: false }); this.sendCallState(null); return; }
+    if (msg.type === "call-leave") { ws.serializeAttachment({ ...a, call: false, cm: false, cd: false, ss: false }); if (this.ghosts[a.uid]) { delete this.ghosts[a.uid]; this.saveGhosts(); } this.sendCallState(null); return; }
     if (msg.type === "call-mute") { ws.serializeAttachment({ ...a, cm: !!msg.muted || !!msg.deaf, cd: !!msg.deaf, cst: MIC_ST.includes(msg.st) ? msg.st : "on" }); this.sendCallState(null); return; }
     // 화면 공유: 방마다 한 번에 한 사람만
     if (msg.type === "call-share") {
@@ -1207,6 +1228,12 @@ export class ChatRoom extends DurableObject {
   }
   leave(ws) {
     const a = (() => { try { return ws.deserializeAttachment() || {}; } catch { return {}; } })();
+    if (a.call && a.uid) {
+      // 같은 사람이 다른 창으로 이미 통화 중이 아니면 60초 유예
+      let other = false;
+      for (const w of this.ctx.getWebSockets()) { if (w === ws) continue; const b = w.deserializeAttachment() || {}; if (b.uid === a.uid && b.call) other = true; }
+      if (!other) { this.ghosts[a.uid] = { room: a.cr || "company", until: Date.now() + 60000, m: { uid: a.uid, muted: !!a.cm, deaf: !!a.cd, st: a.cst || "on", share: false, since: a.cs || 0 } }; this.saveGhosts(); }
+    }
     if (a.call) this.sendCallState(ws);
     if (a.uid && !this.onlineIds(ws).has(a.uid)) this.sendPresence(ws);
   }
