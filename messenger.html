@@ -2520,7 +2520,7 @@
     }
     function setChatTab(ch) { var a = document.querySelector('.app-tabs a[data-tab="chat"]'); if (a) a.setAttribute("href", ch === "free" ? "#/free" : "#/chat"); }
     function paintSwitch() {
-      Array.prototype.forEach.call(document.querySelectorAll(".ch-switch a"), function (a) {
+      Array.prototype.forEach.call(document.querySelectorAll(".ch-switch:not(.room-switch) a"), function (a) {
         var ch = a.getAttribute("data-ch");
         var cur = ch === "dm" ? (dmInbox || isDm(channel)) : (ch === channel && !dmInbox);
         if (cur) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current");
