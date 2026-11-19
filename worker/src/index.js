@@ -1127,7 +1127,7 @@ export class ChatRoom extends DurableObject {
     for (const w of this.ctx.getWebSockets()) {
       if (w === except) continue;
       const a = w.deserializeAttachment() || {};
-      if (a.uid && a.call) out.push({ uid: a.uid, muted: !!a.cm, since: a.cs || 0 });
+      if (a.uid && a.call) out.push({ uid: a.uid, muted: !!a.cm, deaf: !!a.cd, since: a.cs || 0 });
     }
     return out.sort((x, y) => x.since - y.since);
   }
@@ -1146,18 +1146,18 @@ export class ChatRoom extends DurableObject {
       for (const w of this.ctx.getWebSockets()) {
         if (w === ws) continue;
         const b = w.deserializeAttachment() || {};
-        if (b.uid === a.uid && b.call) { w.serializeAttachment({ ...b, call: false, cm: false }); try { w.send('{"type":"call-ended","reason":"elsewhere"}'); } catch {} }
+        if (b.uid === a.uid && b.call) { w.serializeAttachment({ ...b, call: false, cm: false, cd: false }); try { w.send('{"type":"call-ended","reason":"elsewhere"}'); } catch {} }
       }
       if (this.callMembers(ws).length >= 10) { try { ws.send('{"type":"call-error","code":"call_full"}'); } catch {} return; }
       const peers = this.callMembers(ws).map((m) => m.uid);
-      ws.serializeAttachment({ ...a, call: true, cm: !!msg.muted, cs: Date.now() });
+      ws.serializeAttachment({ ...a, call: true, cm: !!msg.muted || !!msg.deaf, cd: !!msg.deaf, cs: Date.now() });
       try { ws.send(JSON.stringify({ type: "call-joined", peers })); } catch {}
       this.sendCallState(null);
       return;
     }
     if (!a.call) return;
-    if (msg.type === "call-leave") { ws.serializeAttachment({ ...a, call: false, cm: false }); this.sendCallState(null); return; }
-    if (msg.type === "call-mute") { ws.serializeAttachment({ ...a, cm: !!msg.muted }); this.sendCallState(null); return; }
+    if (msg.type === "call-leave") { ws.serializeAttachment({ ...a, call: false, cm: false, cd: false }); this.sendCallState(null); return; }
+    if (msg.type === "call-mute") { ws.serializeAttachment({ ...a, cm: !!msg.muted || !!msg.deaf, cd: !!msg.deaf }); this.sendCallState(null); return; }
     if (msg.type === "call-signal") {
       const to = Number(msg.to), d = msg.data;
       if (!Number.isInteger(to) || to === a.uid || !d || typeof d !== "object") return;

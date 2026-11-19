@@ -833,6 +833,10 @@
     .call-float a::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: #4cc38a; }
     .call-float button { appearance: none; border: 0; font: inherit; font-size: 12px; padding: 6px 12px; border-radius: 999px; cursor: pointer; background: rgba(255,255,255,.14); color: inherit; }
     .call-float button.leave { background: #a8382a; }
+    .call-float button.ic { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 30px; padding: 0; }
+    .call-float button.ic svg { width: 16px; height: 16px; }
+    .call-float button.ic.off { background: rgba(232, 107, 90, .28); color: #ffd9d2; }
+    .call-sub { flex-wrap: wrap; }
     body.in-chat .call-float { bottom: calc(96px + var(--safe-bottom)); }
     .tab-dot.call { background: #2e9d6a; }
     .app-tabs a { white-space: nowrap; }
@@ -847,7 +851,7 @@
       .call-list, .call-opts { padding-left: 16px; padding-right: 16px; }
       .call-note { margin: 0 16px 14px; }
       .call-actions { padding: 14px 16px 18px; }
-      .call-actions .btn { flex: 1; min-width: 0; padding: 11px 10px; }
+      .call-actions .btn { flex: 1; min-width: 0; padding: 11px 6px; font-size: 13.5px; white-space: nowrap; }
       .call-item { flex-wrap: wrap; gap: 10px 12px; }
       .call-vol { width: 100%; padding-left: 58px; }
       .call-vol input { flex: 1; width: auto; }
@@ -903,7 +907,7 @@
     </section>
 
     <p class="wrap loading" id="view-loading">불러오는 중입니다.</p>
-    <div class="call-float" id="call-float" hidden><a href="#/call" id="cf-text">통화 중</a><button type="button" id="cf-mute">음소거</button><button type="button" class="leave" id="cf-leave">나가기</button></div>
+    <div class="call-float" id="call-float" hidden><a href="#/call" id="cf-text">통화 중</a><button type="button" class="ic" id="cf-mute" aria-label="음소거"></button><button type="button" class="ic" id="cf-deaf" aria-label="헤드셋 끄기"></button><button type="button" class="leave" id="cf-leave">나가기</button></div>
 
     <!-- 로그인 / 회원가입 -->
     <section class="wrap stage" id="view-auth" hidden>
@@ -1080,6 +1084,7 @@
         <div class="call-actions">
           <button class="btn" type="button" id="call-join">통화방 들어가기</button>
           <button class="btn ghost" type="button" id="call-mute" hidden>음소거</button>
+          <button class="btn ghost" type="button" id="call-deaf" aria-pressed="false" hidden>헤드셋 끄기</button>
           <button class="btn leave" type="button" id="call-leave" hidden>나가기</button>
         </div>
       </div>
@@ -4071,13 +4076,15 @@
     /* ---------- 사내 통화방 (WebRTC 메시, 신호는 실시간 연결로 중계) ---------- */
     var CALL_OPT_KEY = "gcb_call_opts", CALL_VOL_KEY = "gcb_call_vol";
     var call = {
-      on: false, joining: false, stream: null, peers: {}, members: [], muted: false, since: 0,
+      on: false, joining: false, stream: null, peers: {}, members: [], muted: false, deaf: false, preDeafMuted: false, since: 0,
       ice: null, ctx: null, local: null, timer: 0, statT: 0, levelT: 0, note: "", noteErr: false,
       opts: (function () { try { var o = JSON.parse(localStorage.getItem(CALL_OPT_KEY) || "{}"); return { ec: o.ec !== false, ns: o.ns !== false, agc: o.agc !== false, hq: !!o.hq }; } catch (e) { return { ec: true, ns: true, agc: true, hq: false }; } })(),
       vol: (function () { try { return JSON.parse(localStorage.getItem(CALL_VOL_KEY) || "{}") || {}; } catch (e) { return {}; } })()
     };
     window.gcbCall = call;
     var MIC_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/></svg>';
+    var HS_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 15v-3a8 8 0 0 1 16 0v3"/><rect x="3.5" y="14" width="4.5" height="6.5" rx="1.6"/><rect x="16" y="14" width="4.5" height="6.5" rx="1.6"/></svg>';
+    var HS_OFF_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 15v-3a8 8 0 0 1 12.9-6.3M19.6 9.6c.3.8.4 1.6.4 2.4v3"/><rect x="3.5" y="14" width="4.5" height="6.5" rx="1.6"/><path d="M16 17.5V14h3.2"/><path d="M3 3l18 18"/></svg>';
     var MIC_OFF_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 10V6a3 3 0 0 0-5.7-1.3M9 9v2a3 3 0 0 0 4.6 2.5M5.5 11a6.5 6.5 0 0 0 10.4 5.2M18.5 11a6.4 6.4 0 0 1-.5 2.4M12 17.5V21M4 4l16 16"/></svg>';
     function callSend(o) { if (ws && wsReady) { try { ws.send(JSON.stringify(o)); return true; } catch (e) {} } return false; }
     function callBitrate() { return Object.keys(call.peers).length <= 2 ? 128000 : 96000; }
@@ -4156,7 +4163,7 @@
         call.stream = stream;
         return loadIce();
       }).then(function () {
-        if (!callSend({ type: "call-join", muted: call.muted })) throw { code: "offline" };
+        if (!callSend({ type: "call-join", muted: call.muted, deaf: call.deaf })) throw { code: "offline" };
         call.local = levelMeter(call.stream);
         call.stream.getAudioTracks().forEach(function (t) { t.enabled = !call.muted; });
       }).catch(function (e) {
@@ -4177,6 +4184,7 @@
       Object.keys(call.peers).forEach(closePeer);
       stopStream();
       call.on = false; call.joining = false; call.since = 0;
+      if (call.deaf) { call.deaf = false; call.muted = call.preDeafMuted; }
       clearInterval(call.timer); clearInterval(call.statT); clearInterval(call.levelT); call.timer = call.statT = call.levelT = 0;
       if (was && !silent) callNote("통화방에서 나왔습니다.");
       paintCall();
@@ -4207,7 +4215,7 @@
       pc.ontrack = function (e) {
         var st = e.streams && e.streams[0] ? e.streams[0] : new MediaStream([e.track]);
         if (!p.audio) { p.audio = E("audio", "call-audio"); p.audio.autoplay = true; p.audio.setAttribute("playsinline", ""); document.body.appendChild(p.audio); }
-        p.audio.srcObject = st; p.audio.volume = volOf(uid);
+        p.audio.srcObject = st; p.audio.volume = volOf(uid); p.audio.muted = call.deaf;
         var pr = p.audio.play(); if (pr && pr.catch) pr.catch(function () { callNote("소리를 재생하려면 화면을 한 번 눌러 주세요."); });
         p.meter = levelMeter(st);
       };
@@ -4275,7 +4283,7 @@
       paintCall();
     }
     function callSocketReady() {
-      if (call.joining && call.stream) callSend({ type: "call-join", muted: call.muted });
+      if (call.joining && call.stream) callSend({ type: "call-join", muted: call.muted, deaf: call.deaf });
     }
     function startCallLoops() {
       clearInterval(call.timer); clearInterval(call.statT); clearInterval(call.levelT);
@@ -4315,9 +4323,23 @@
     }
     function volOf(uid) { var v = Number(call.vol[uid]); return v >= 0 && v <= 1 ? v : 1; }
     function setMute(m) {
+      // 헤드셋을 끈 채 마이크를 켜면 헤드셋도 함께 켬 (상대 소리를 못 듣는 채로 말하지 않도록)
+      if (!m && call.deaf) { setDeaf(false, false); return; }
       call.muted = !!m;
       if (call.stream) call.stream.getAudioTracks().forEach(function (t) { t.enabled = !call.muted; });
-      if (call.on) callSend({ type: "call-mute", muted: call.muted });
+      if (call.on) callSend({ type: "call-mute", muted: call.muted, deaf: call.deaf });
+      paintCall();
+    }
+    // 헤드셋 끄기: 모든 참여자 소리를 끄고 내 마이크도 끔. 다시 켜면 이전 마이크 상태로 되돌림
+    function setDeaf(d, restoreMic) {
+      d = !!d;
+      if (d === call.deaf) return;
+      if (d) { call.preDeafMuted = call.muted; call.muted = true; }
+      else call.muted = restoreMic === false ? false : call.preDeafMuted;
+      call.deaf = d;
+      if (call.stream) call.stream.getAudioTracks().forEach(function (t) { t.enabled = !call.muted; });
+      Object.keys(call.peers).forEach(function (k) { var p = call.peers[k]; if (p.audio) p.audio.muted = d; });
+      if (call.on) callSend({ type: "call-mute", muted: call.muted, deaf: call.deaf });
       paintCall();
     }
     // 음질 설정을 바꾸면 마이크를 새로 열어 통화 중에도 바로 적용 (재연결 없이 트랙만 교체)
@@ -4360,7 +4382,11 @@
       var f = $("call-float");
       if (f) {
         f.hidden = !(call.on && $("view-call").hidden);
-        if (!f.hidden) { $("cf-text").textContent = "통화 중 · " + n + "명"; $("cf-mute").textContent = call.muted ? "음소거 해제" : "음소거"; }
+        if (!f.hidden) {
+          $("cf-text").textContent = "통화 중 · " + n + "명";
+          $("cf-mute").innerHTML = call.muted ? MIC_OFF_SVG : MIC_SVG; $("cf-mute").setAttribute("aria-label", call.muted ? "음소거 해제" : "음소거"); $("cf-mute").title = call.muted ? "음소거 해제" : "음소거"; $("cf-mute").classList.toggle("off", call.muted);
+          $("cf-deaf").innerHTML = call.deaf ? HS_OFF_SVG : HS_SVG; $("cf-deaf").setAttribute("aria-label", call.deaf ? "헤드셋 켜기" : "헤드셋 끄기"); $("cf-deaf").title = call.deaf ? "헤드셋 켜기" : "헤드셋 끄기"; $("cf-deaf").classList.toggle("off", call.deaf);
+        }
       }
     }
     function paintCall() {
@@ -4372,7 +4398,7 @@
       if (!ids.length) list.appendChild(E("li", "call-empty", "지금 통화 중인 사람이 없습니다. 먼저 들어가 기다려 보세요."));
       ids.forEach(function (uid) {
         var info = callInfo(uid), mine = me && uid === me.id, mem = call.members.filter(function (m) { return m.uid === uid; })[0] || {};
-        var muted = mine ? call.muted : !!mem.muted;
+        var muted = mine ? call.muted : !!mem.muted, deaf = mine ? call.deaf : !!mem.deaf;
         var li = E("li", "call-item"); li.setAttribute("data-cuid", uid);
         var fw = E("span", "call-face"); fw.appendChild(face(info, info.nickname, "")); li.appendChild(fw);
         var who = E("div", "call-who"), nm = E("div", "call-name");
@@ -4382,6 +4408,7 @@
         var sub = E("div", "call-sub"), mic = E("span", "call-mic" + (muted ? " off" : ""));
         mic.innerHTML = muted ? MIC_OFF_SVG : MIC_SVG; mic.appendChild(document.createTextNode(muted ? "음소거" : "마이크 켜짐"));
         sub.appendChild(mic);
+        if (deaf) { var hs = E("span", "call-mic off"); hs.innerHTML = HS_OFF_SVG; hs.appendChild(document.createTextNode("헤드셋 꺼짐")); sub.appendChild(hs); }
         if (!mine && call.on) { var q = E("span", "call-q"); q.setAttribute("data-q", uid); q.innerHTML = "<i></i><i></i><i></i>"; sub.appendChild(q); sub.appendChild(E("span", "q-lab", "")); }
         who.appendChild(sub); li.appendChild(who);
         if (!mine && call.on) {
@@ -4397,6 +4424,10 @@
       $("call-mute").hidden = !(call.on || call.joining);
       $("call-mute").textContent = call.muted ? "음소거 해제" : "음소거";
       $("call-mute").classList.toggle("on", call.muted);
+      $("call-deaf").hidden = !(call.on || call.joining);
+      $("call-deaf").textContent = call.deaf ? "헤드셋 켜기" : "헤드셋 끄기";
+      $("call-deaf").classList.toggle("on", call.deaf);
+      $("call-deaf").setAttribute("aria-pressed", call.deaf ? "true" : "false");
       $("call-leave").hidden = !(call.on || call.joining);
       $("co-hq").checked = call.opts.hq; $("co-ec").checked = call.opts.ec; $("co-ns").checked = call.opts.ns; $("co-agc").checked = call.opts.agc;
       ["co-ec", "co-ns", "co-agc"].forEach(function (id) { $(id).disabled = call.opts.hq; });
@@ -4408,6 +4439,8 @@
     $("call-leave").addEventListener("click", function () { callStop(false); });
     $("call-mute").addEventListener("click", function () { setMute(!call.muted); });
     $("cf-mute").addEventListener("click", function () { setMute(!call.muted); });
+    $("call-deaf").addEventListener("click", function () { setDeaf(!call.deaf); });
+    $("cf-deaf").addEventListener("click", function () { setDeaf(!call.deaf); });
     $("cf-leave").addEventListener("click", function () { callStop(false); });
     [["co-ec", "ec"], ["co-ns", "ns"], ["co-agc", "agc"], ["co-hq", "hq"]].forEach(function (x) {
       $(x[0]).addEventListener("change", function () { call.opts[x[1]] = this.checked; saveCallOpts(); paintCall(); reapplyMic(); });

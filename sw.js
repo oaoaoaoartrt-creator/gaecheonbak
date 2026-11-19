@@ -3,7 +3,7 @@
  * - HTML은 네트워크 우선: 새 버전이 바로 반영되고, 오프라인일 때만 캐시 사용
  * - 채팅 서버(workers.dev) API와 WebSocket은 절대 캐시하지 않음
  */
-var VERSION = "v39-20261119-call-room";
+var VERSION = "v40-20261119-call-headset";
 var SHELL_CACHE = "gcb-shell-" + VERSION;
 var FONT_CACHE = "gcb-fonts-v2"; // 버전과 무관하게 유지 (업데이트마다 글꼴을 다시 받지 않게)
 
