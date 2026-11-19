@@ -3059,7 +3059,6 @@
     var UA = navigator.userAgent || "";
     function isAndroid() { return /Android/i.test(UA); }
     function isSamsung() { return /SamsungBrowser/i.test(UA); }
-    function isStandalone() { return (window.matchMedia && matchMedia("(display-mode: standalone)").matches) || navigator.standalone === true; }
     // 카카오톡·네이버·인스타그램 등 앱 안의 브라우저: 웹 푸시를 지원하지 않음
     function inAppName() {
       if (/KAKAOTALK/i.test(UA)) return "카카오톡";
@@ -3966,7 +3965,7 @@
     }
     function dismissed() { try { return localStorage.getItem(DISMISS_KEY) === "1"; } catch (e) { return false; } }
     var ua = navigator.userAgent || "";
-    var isIOS = /iphone|ipad|ipod/i.test(ua) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+    var iosDevice = /iphone|ipad|ipod/i.test(ua) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
     function showInstall(kind) {
       if (isStandalone() || dismissed()) return;
       installBoxes.forEach(function (box) {
@@ -4003,7 +4002,7 @@
         hideInstall();
       });
     });
-    if (isIOS && !isStandalone()) showInstall("ios");
+    if (iosDevice && !isStandalone()) showInstall("ios");
     if (window.matchMedia) {
       var mq = matchMedia("(display-mode: standalone)");
       var onMode = function () { root.classList.toggle("standalone", isStandalone()); if (isStandalone()) hideInstall(); };
