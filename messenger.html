@@ -3437,7 +3437,7 @@
       e = e || {};
       if (e.code === "denied") return deniedHelp();
       if (e.code === "dismissed") return isStandalone() && isAndroid() ? "알림 허용 창이 뜨지 않았거나 닫혔습니다. " + APP_PERM_HELP : "알림 허용 창이 닫혔습니다. 스위치를 다시 켜고 '허용'을 눌러 주세요.";
-      if (e.code === "timeout" && e.stage) return stageHelp(e.stage);
+      if (e.code === "timeout" && e.stage) return stageHelp(e.stage) + " [권한: " + permNow() + (isStandalone() ? " · 설치 앱" : " · 브라우저") + "]";
       if (e.code === "unsupported") return "이 브라우저는 알림을 지원하지 않습니다." + (isAndroid() ? " Chrome에서 열어 주세요." : "");
       if (e.code === "timeout") return "알림 준비가 늦어지고 있습니다. 인터넷 연결을 확인하고 페이지를 새로고침한 뒤 다시 켜 주세요.";
       if (e.name === "NotAllowedError") return deniedHelp();
@@ -3468,7 +3468,23 @@
     }
     // 단계마다 제한 시간 → 어디서 막혔는지 알려 주고 스위치가 멈춘 채 남지 않게
     var PUSH_STAGE = { permission: "알림 권한", key: "서버 키 받기", sw: "앱 준비", subscribe: "알림 서비스 등록", register: "서버에 기기 등록" };
-    function stageTimeout(pr, ms, stage) { return withTimeout(pr, ms, "timeout").catch(function (e) { if (e && e.code === "timeout") e.stage = stage; throw e; }); }
+    var PUSH_STEP = { permission: [1, "권한 확인 중"], key: [2, "서버 키 받는 중"], sw: [3, "서비스 워커 준비 중"], subscribe: [4, "푸시 등록 중"], register: [4, "서버에 기기 등록 중"] };
+    var pushProg = { stage: "", t0: 0, timer: 0 };
+    function permNow() { try { return Notification.permission; } catch (e) { return "?"; } }
+    function pushProgPaint() {
+      if (!pushProg.stage) return;
+      var st = PUSH_STEP[pushProg.stage] || [0, pushProg.stage];
+      ntNote("알림을 켜는 중입니다… " + st[0] + "/4 " + st[1] + " (" + Math.floor((Date.now() - pushProg.t0) / 1000) + "초) · 권한: " + permNow() + (isStandalone() ? " · 설치 앱" : " · 브라우저"));
+    }
+    function pushStep(stage) {
+      pushProg.stage = stage; pushProg.t0 = Date.now(); pushProgPaint();
+      if (!pushProg.timer) pushProg.timer = setInterval(pushProgPaint, 1000);
+    }
+    function pushStepEnd() { pushProg.stage = ""; clearInterval(pushProg.timer); pushProg.timer = 0; }
+    function stageTimeout(pr, ms, stage) {
+      pushStep(stage);
+      return withTimeout(pr, ms, "timeout").catch(function (e) { if (e && e.code === "timeout") e.stage = stage; throw e; });
+    }
     function stageHelp(stage) {
       var tag = " (멈춘 단계: " + (PUSH_STAGE[stage] || stage) + ")";
       if (stage === "permission") {
@@ -3514,7 +3530,7 @@
       if (!pushWait || !pushSupported() || Notification.permission !== "granted") return;
       pushWait = false;
       var el = $("nt-push"); el.disabled = true; ntNote("알림이 허용되었습니다. 이어서 켜는 중입니다…");
-      subscribeAfterPermission().then(function () { el.checked = true; ntNote("알림을 켰습니다. 앱을 닫아 두어도 새 메시지를 알려 드립니다."); }, function (e) { el.checked = false; ntNote(pushErrText(e)); })
+      subscribeAfterPermission().then(function () { pushStepEnd(); el.checked = true; ntNote("알림을 켰습니다. 앱을 닫아 두어도 새 메시지를 알려 드립니다."); }, function (e) { pushStepEnd(); el.checked = false; ntNote(pushErrText(e)); })
         .then(function () { el.disabled = false; $("nt-chat").disabled = !el.checked; $("btn-notify").classList.toggle("on", el.checked); });
     }
     try {
@@ -3617,8 +3633,10 @@
       var on = this.checked, el = this;
       el.disabled = true; ntNote(on ? "알림을 켜는 중입니다…" : "");
       (on ? enablePush() : disablePush()).then(function () {
+        pushStepEnd();
         ntNote(on ? "알림을 켰습니다. 앱을 닫아 두어도 새 메시지를 알려 드립니다." : "이 기기의 알림을 껐습니다.");
       }).catch(function (e) {
+        pushStepEnd();
         el.checked = false;
         ntNote(pushErrText(e));
         if (on && e && (e.stage === "permission" || e.code === "dismissed")) pushWait = true;
