@@ -1104,7 +1104,7 @@ export class ChatRoom extends DurableObject {
 
   async webSocketMessage(ws, data) {
     const a = ws.deserializeAttachment() || {};
-    if (typeof data !== "string" || data.length > 512) { ws.close(1009, "too big"); return; }
+    if (typeof data !== "string" || data.length > 16384) { ws.close(1009, "too big"); return; }
     let msg;
     try { msg = JSON.parse(data); } catch { ws.close(1003, "bad"); return; }
     if (msg && msg.type === "auth") {
@@ -1113,10 +1113,57 @@ export class ChatRoom extends DurableObject {
       const wasOnline = this.onlineIds(null).has(user.id);
       ws.serializeAttachment({ uid: user.id, member: !!user.member, at: a.at || Date.now() });
       ws.send('{"type":"ready"}');
+      if (user.member) { try { ws.send(JSON.stringify({ type: "call-state", members: this.callMembers(null) })); } catch {} }
       if (!wasOnline) this.sendPresence(null);
       return;
     }
-    if (!a.uid) ws.close(4001, "unauthorized");
+    if (!a.uid) { ws.close(4001, "unauthorized"); return; }
+    if (typeof msg.type === "string" && msg.type.startsWith("call-")) this.onCall(ws, a, msg);
+  }
+
+  /* ---------- 사내 통화방 (WebRTC 신호 중계, 사내 멤버만) ---------- */
+  callMembers(except) {
+    const out = [];
+    for (const w of this.ctx.getWebSockets()) {
+      if (w === except) continue;
+      const a = w.deserializeAttachment() || {};
+      if (a.uid && a.call) out.push({ uid: a.uid, muted: !!a.cm, since: a.cs || 0 });
+    }
+    return out.sort((x, y) => x.since - y.since);
+  }
+  callSocket(uid) {
+    for (const w of this.ctx.getWebSockets()) { const a = w.deserializeAttachment() || {}; if (a.uid === uid && a.call) return w; }
+    return null;
+  }
+  sendCallState(except) {
+    const p = JSON.stringify({ type: "call-state", members: this.callMembers(except) });
+    for (const w of this.ctx.getWebSockets()) { if (w === except) continue; const a = w.deserializeAttachment() || {}; if (a.uid && a.member) { try { w.send(p); } catch {} } }
+  }
+  onCall(ws, a, msg) {
+    if (!a.member) { try { ws.send('{"type":"call-error","code":"members_only"}'); } catch {} return; }
+    if (msg.type === "call-join") {
+      // 같은 사람이 다른 창에서 들어오면 이전 창은 통화에서 내보냄
+      for (const w of this.ctx.getWebSockets()) {
+        if (w === ws) continue;
+        const b = w.deserializeAttachment() || {};
+        if (b.uid === a.uid && b.call) { w.serializeAttachment({ ...b, call: false, cm: false }); try { w.send('{"type":"call-ended","reason":"elsewhere"}'); } catch {} }
+      }
+      if (this.callMembers(ws).length >= 10) { try { ws.send('{"type":"call-error","code":"call_full"}'); } catch {} return; }
+      const peers = this.callMembers(ws).map((m) => m.uid);
+      ws.serializeAttachment({ ...a, call: true, cm: !!msg.muted, cs: Date.now() });
+      try { ws.send(JSON.stringify({ type: "call-joined", peers })); } catch {}
+      this.sendCallState(null);
+      return;
+    }
+    if (!a.call) return;
+    if (msg.type === "call-leave") { ws.serializeAttachment({ ...a, call: false, cm: false }); this.sendCallState(null); return; }
+    if (msg.type === "call-mute") { ws.serializeAttachment({ ...a, cm: !!msg.muted }); this.sendCallState(null); return; }
+    if (msg.type === "call-signal") {
+      const to = Number(msg.to), d = msg.data;
+      if (!Number.isInteger(to) || to === a.uid || !d || typeof d !== "object") return;
+      const peer = this.callSocket(to);
+      if (peer) { try { peer.send(JSON.stringify({ type: "call-signal", from: a.uid, data: d })); } catch {} }
+    }
   }
 
   async webSocketClose(ws, code) { try { ws.close(1000, "bye"); } catch {} this.leave(ws); }
@@ -1133,6 +1180,7 @@ export class ChatRoom extends DurableObject {
   }
   leave(ws) {
     const a = (() => { try { return ws.deserializeAttachment() || {}; } catch { return {}; } })();
+    if (a.call) this.sendCallState(ws);
     if (a.uid && !this.onlineIds(ws).has(a.uid)) this.sendPresence(ws);
   }
 }
@@ -1208,6 +1256,21 @@ const profileOf = (u, posts) => ({
 async function profiles(req, env, ctx, url, path, user, cors) {
   const M = req.method;
   if (path === "/api/push/key" && M === "GET") return json({ key: env.VAPID_PUBLIC || null }, 200, cors);
+  // 통화방 ICE 서버: 공개 STUN + (설정되어 있으면) Cloudflare TURN 단기 자격 증명
+  if (path === "/api/call/ice" && M === "GET") {
+    if (!user.member) return fail("members_only", 403, cors);
+    const ice = [{ urls: ["stun:stun.cloudflare.com:3478", "stun:stun.l.google.com:19302"] }];
+    let turn = false;
+    if (env.TURN_KEY_ID && env.TURN_KEY_TOKEN) {
+      try {
+        const r = await fetch("https://rtc.live.cloudflare.com/v1/turn/keys/" + env.TURN_KEY_ID + "/credentials/generate-ice-servers", {
+          method: "POST", headers: { Authorization: "Bearer " + env.TURN_KEY_TOKEN, "Content-Type": "application/json" }, body: JSON.stringify({ ttl: 21600 }),
+        });
+        if (r.ok) { const d = await r.json(); const list = Array.isArray(d.iceServers) ? d.iceServers : d.iceServers ? [d.iceServers] : []; if (list.length) { ice.push(...list); turn = true; } }
+      } catch {}
+    }
+    return json({ iceServers: ice, turn }, 200, { ...cors, "Cache-Control": "no-store" });
+  }
   if (path === "/api/push/subscribe" && M === "POST") {
     const body = await readJson(req, 4096);
     const ep = body && body.endpoint, k = body && body.keys;
