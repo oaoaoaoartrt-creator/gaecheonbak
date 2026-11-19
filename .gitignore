@@ -1,0 +1,4 @@
+
+# 관리자 비밀값·이를 읽는 도구 (커밋 금지)
+.secrets/
+tools/check-join-attempts.sh

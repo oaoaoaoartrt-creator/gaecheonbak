@@ -184,3 +184,23 @@ CREATE TABLE IF NOT EXISTS link_cache (
   fetched_at INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_link_cache_at ON link_cache(fetched_at);
+CREATE TABLE IF NOT EXISTS join_attempts (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  ts INTEGER NOT NULL,
+  user_id INTEGER,
+  nickname TEXT,
+  ip_hash TEXT,
+  country TEXT,
+  ua TEXT,
+  ok INTEGER NOT NULL DEFAULT 0,
+  reason TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_join_attempts_ts ON join_attempts(ts);
+CREATE TABLE IF NOT EXISTS member_grants (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  ts INTEGER NOT NULL,
+  user_id INTEGER NOT NULL,
+  nickname TEXT,
+  via TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_member_grants_ts ON member_grants(ts);

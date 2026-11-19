@@ -388,6 +388,28 @@ export default {
     try {
       if (path === "/" || path === "/api/health") return json({ ok: true, service: "gaecheonbak-chat" }, 200, cors);
 
+      // 관리자 전용: 감시 알림 시험 발송
+      if (path === "/api/admin/test-alert" && req.method === "POST") {
+        const auth = req.headers.get("Authorization") || "";
+        if (!(await hit(env, "admin:" + ip, 120, 3600000))) return fail("rate_limited", 429, cors);
+        if (!env.ADMIN_TOKEN || !timingSafeEqual(enc.encode(auth), enc.encode("Bearer " + env.ADMIN_TOKEN))) return fail("unauthorized", 401, cors);
+        const sent = await pushAdmins(env, "개천박컴퍼니 보안 알림", "✅ 참여코드 감시 알림 테스트예요");
+        return json({ recipients: alertUserIds(env).length, devices: sent }, 200, cors);
+      }
+      // 관리자 전용: 참여코드 시도 기록 조회 (ADMIN_TOKEN 비밀값으로만)
+      if (path === "/api/admin/join-attempts" && req.method === "GET") {
+        const auth = req.headers.get("Authorization") || "";
+        if (!(await hit(env, "admin:" + ip, 120, 3600000))) return fail("rate_limited", 429, cors);
+        if (!env.ADMIN_TOKEN || !timingSafeEqual(enc.encode(auth), enc.encode("Bearer " + env.ADMIN_TOKEN))) return fail("unauthorized", 401, cors);
+        const t = now();
+        let since = Number(url.searchParams.get("since"));
+        if (!Number.isFinite(since) || since <= 0) since = t - 35 * 60000;
+        const att = await env.DB.prepare("SELECT id, ts, user_id, nickname, ip_hash, country, ua, ok, reason FROM join_attempts WHERE ts >= ? ORDER BY ts ASC LIMIT 2000").bind(since).all();
+        const grants = await env.DB.prepare("SELECT ts, user_id, nickname, via FROM member_grants WHERE ts >= ? ORDER BY ts ASC LIMIT 500").bind(since).all();
+        const locks = await env.DB.prepare("SELECT key, window_start FROM rate_limits WHERE key LIKE 'joinlock%' AND window_start > ?").bind(t - 86400000).all();
+        return json({ now: t, since, attempts: att.results, grants: grants.results, locks: locks.results.map((l) => ({ key: l.key, since: l.window_start, until: l.window_start + (l.key === "joinlock-all" ? 3600000 : 86400000) })).filter((l) => l.until > t) }, 200, { ...cors, "Cache-Control": "no-store" });
+      }
+
       // 이미지 제공: 추측 불가능한 128비트 ID로만 접근 (img 태그는 인증 헤더를 보낼 수 없음)
       if (path.startsWith("/img/") && (req.method === "GET" || req.method === "HEAD")) {
         const id = path.slice(5);
@@ -540,11 +562,56 @@ export default {
         if (user.member) return json({ user: publicUser(user) }, 200, cors);
         const body = await readJson(req);
         const code = body && typeof body.code === "string" ? body.code.trim() : "";
-        if (!(await hit(env, "join:" + user.id, 5, 600000)) || !(await hit(env, "join-ip:" + ip, 20, 3600000))) return fail("rate_limited", 429, cors);
-        if (!env.JOIN_CODE_SHA256 || !code || code.length > 32) return fail("wrong_code", 403, cors);
-        const got = await sha256Hex("gcb-join:" + code);
-        if (!timingSafeEqual(enc.encode(got), enc.encode(String(env.JOIN_CODE_SHA256).toLowerCase()))) return fail("wrong_code", 403, cors);
+        const t = now();
+        // 모든 시도를 기록 (IP는 원문 대신 비밀 소금을 섞은 해시 앞 16자리 + 국가만)
+        const ipHash = (await sha256Hex("gcb-ip:" + (env.ADMIN_TOKEN || "-") + ":" + ip)).slice(0, 16);
+        const ua = String(req.headers.get("User-Agent") || "").replace(/\s+/g, " ").slice(0, 120);
+        const country = (req.cf && req.cf.country) || "";
+        const logJoin = (ok, reason) => env.DB.prepare("INSERT INTO join_attempts (ts, user_id, nickname, ip_hash, country, ua, ok, reason) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
+          .bind(t, user.id, user.nickname || "", ipHash, country, ua, ok ? 1 : 0, reason).run().catch(() => {});
+        const lockActive = async (key, ms) => { const r = await env.DB.prepare("SELECT window_start FROM rate_limits WHERE key = ?").bind(key).first(); return !!(r && t - r.window_start < ms); };
+        const setLock = (key) => env.DB.prepare("INSERT INTO rate_limits (key, window_start, count) VALUES (?1, ?2, 1) ON CONFLICT(key) DO UPDATE SET window_start = ?2, count = 1").bind(key, t).run();
+        // 계정 잠금(24시간) · 전체 일시 중지(1시간)
+        if (await lockActive("joinlock:" + user.id, 86400000)) { await logJoin(false, "locked_account"); ctx.waitUntil(joinAlert(env, "u" + user.id, (user.nickname || "닉네임 없음") + "(#" + user.id + ") 계정이 차단 중인데도 계속 시도하고 있어요")); return fail("rate_limited", 429, cors); }
+        if (await lockActive("joinlock-all", 3600000)) { await logJoin(false, "locked_global"); return fail("rate_limited", 429, cors); }
+        if (!(await hit(env, "join:" + user.id, 5, 600000)) || !(await hit(env, "join-ip:" + ip, 20, 3600000))) {
+          await logJoin(false, "rate_limited");
+          // 하루에 3번 속도 제한에 걸린 계정은 24시간 잠금
+          const who = (user.nickname || "닉네임 없음") + "(#" + user.id + ")";
+          if (!(await hit(env, "joinrl:" + user.id, 2, 86400000))) { await setLock("joinlock:" + user.id); await logJoin(false, "account_locked_24h"); ctx.waitUntil(joinAlert(env, "lock" + user.id, who + " 계정이 너무 많이 시도해 24시간 차단했어요")); }
+          else ctx.waitUntil(joinAlert(env, "u" + user.id, who + " 계정이 참여코드를 너무 빨리 반복 입력해 잠시 막혔어요"));
+          return fail("rate_limited", 429, cors);
+        }
+        let reason = "";
+        if (!env.JOIN_CODE_SHA256) reason = "not_configured";
+        else if (!code) reason = "empty";
+        else if (code.length > 32) reason = "too_long";
+        else {
+          const got = await sha256Hex("gcb-join:" + code);
+          if (!timingSafeEqual(enc.encode(got), enc.encode(String(env.JOIN_CODE_SHA256).toLowerCase()))) reason = "wrong_code";
+        }
+        if (reason) {
+          await logJoin(false, reason);
+          // 전체 실패가 1시간에 100번을 넘으면 1시간 동안 참여 자체를 중지
+          if (!(await hit(env, "joinfail-all", 100, 3600000))) { await setLock("joinlock-all"); await logJoin(false, "global_paused_1h"); ctx.waitUntil(joinAlert(env, "global", "1시간에 실패가 100번을 넘어 참여코드 입력을 1시간 동안 모두 막았어요")); }
+          else {
+            const FR = "reason IN ('wrong_code','empty','too_long')", h1 = t - 3600000;
+            const [ua1, ip1, all1] = await Promise.all([
+              env.DB.prepare(`SELECT COUNT(*) AS c FROM join_attempts WHERE ts > ? AND user_id = ? AND ${FR}`).bind(h1, user.id).first(),
+              env.DB.prepare(`SELECT COUNT(*) AS c FROM join_attempts WHERE ts > ? AND ip_hash = ? AND ${FR}`).bind(h1, ipHash).first(),
+              env.DB.prepare(`SELECT COUNT(*) AS c FROM join_attempts WHERE ts > ? AND ${FR}`).bind(h1).first(),
+            ]);
+            const who = (user.nickname || "닉네임 없음") + "(#" + user.id + ")";
+            if (ua1.c >= 3) ctx.waitUntil(joinAlert(env, "u" + user.id, who + " 계정이 1시간에 " + ua1.c + "번 틀렸어요"));
+            else if (ip1.c >= 3) ctx.waitUntil(joinAlert(env, "ip" + ipHash, "같은 곳(IP)에서 1시간에 " + ip1.c + "번 틀렸어요 · 마지막 계정 " + who));
+            else if (all1.c >= 10) ctx.waitUntil(joinAlert(env, "total", "1시간에 참여코드가 모두 " + all1.c + "번 틀렸어요"));
+          }
+          return fail("wrong_code", 403, cors);
+        }
         await env.DB.prepare("UPDATE users SET member = 1 WHERE id = ?").bind(user.id).run();
+        await env.DB.prepare("INSERT INTO member_grants (ts, user_id, nickname, via) VALUES (?, ?, ?, 'join_code')").bind(t, user.id, user.nickname || "").run().catch(() => {});
+        await logJoin(true, "ok");
+        ctx.waitUntil(joinAlert(env, "ok" + user.id, (user.nickname || "닉네임 없음") + "(#" + user.id + ") 계정이 참여코드로 사내 메신저에 들어왔어요"));
         return json({ user: { ...publicUser(user), member: true } }, 200, cors);
       }
 
@@ -1543,6 +1610,23 @@ async function sendPush(env, sub, data) {
 }
 async function pushTo(env, rows, data) {
   await Promise.all(rows.slice(0, 40).map((r) => sendPush(env, r, data)));
+}
+/* ---------- 참여코드 감시: 수상한 시도를 관리자(ALERT_USER_IDS)에게 즉시 푸시 ---------- */
+function alertUserIds(env) { return String(env.ALERT_USER_IDS || "").split(",").map((x) => Number(x.trim())).filter((x) => Number.isInteger(x) && x > 0).slice(0, 5); }
+async function pushAdmins(env, title, body) {
+  const ids = alertUserIds(env); if (!ids.length) return 0;
+  const rs = (await env.DB.prepare(`SELECT * FROM push_subs WHERE user_id IN (${ids.map(() => "?").join(",")})`).bind(...ids).all()).results;
+  await pushTo(env, rs, { title, body, url: "messenger.html", tag: "join-alert-" + now(), kind: "alert" });
+  return rs.length;
+}
+// subject: 같은 계정/IP는 1시간에 한 번, 전체는 1시간에 6번까지
+async function joinAlert(env, subject, body) {
+  try {
+    if (!alertUserIds(env).length) return;
+    if (!(await hit(env, "jalert:" + subject, 1, 3600000))) return;
+    if (!(await hit(env, "jalert-all", 6, 3600000))) return;
+    await pushAdmins(env, "⚠️ 참여코드 시도 감지", body);
+  } catch (e) { console.error("joinAlert", e && e.message); }
 }
 const snip = (t, n = 80) => { const a = [...String(t || "").replace(/\s+/g, " ").trim()]; return a.length > n ? a.slice(0, n).join("") + "…" : a.join(""); };
 const conText = (t) => String(t || "").replace(/\[\[con:\d+\]\]/g, "(콘)");
