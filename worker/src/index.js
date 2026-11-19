@@ -1266,7 +1266,14 @@ async function profiles(req, env, ctx, url, path, user, cors) {
         const r = await fetch("https://rtc.live.cloudflare.com/v1/turn/keys/" + env.TURN_KEY_ID + "/credentials/generate-ice-servers", {
           method: "POST", headers: { Authorization: "Bearer " + env.TURN_KEY_TOKEN, "Content-Type": "application/json" }, body: JSON.stringify({ ttl: 21600 }),
         });
-        if (r.ok) { const d = await r.json(); const list = Array.isArray(d.iceServers) ? d.iceServers : d.iceServers ? [d.iceServers] : []; if (list.length) { ice.push(...list); turn = true; } }
+        if (r.ok) {
+          const d = await r.json();
+          const list = (Array.isArray(d.iceServers) ? d.iceServers : d.iceServers ? [d.iceServers] : [])
+            // 브라우저는 53번 포트 TURN에서 오래 멈출 수 있어 제외 (Cloudflare 안내)
+            .map((x) => ({ ...x, urls: (Array.isArray(x.urls) ? x.urls : [x.urls]).filter((u) => typeof u === "string" && !/:53(\?|$)/.test(u)) }))
+            .filter((x) => x.urls.length);
+          if (list.some((x) => x.urls.some((u) => /^turns?:/.test(u)))) { ice.push(...list.filter((x) => x.urls.some((u) => /^turns?:/.test(u)))); turn = true; }
+        }
       } catch {}
     }
     return json({ iceServers: ice, turn }, 200, { ...cors, "Cache-Control": "no-store" });
