@@ -941,6 +941,11 @@
     .cs-stage:fullscreen video { width: 100%; height: 100%; }
     .cs-stage.zoomed:fullscreen video { width: 200%; height: auto; }
     .cs-wait { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #cfccc4; font-size: 13.5px; pointer-events: none; }
+    .share-pre { display: flex; flex-direction: column; gap: 3px; padding: 0 24px 8px; font-size: 13px; color: var(--ink-soft); }
+    .share-pre[hidden] { display: none; }
+    .share-pre .share-snd { display: inline-flex; align-items: center; gap: 7px; font-weight: 600; cursor: pointer; }
+    .share-pre .share-snd input { accent-color: var(--ink); width: 15px; height: 15px; }
+    .share-pre small { color: var(--muted); font-size: 12px; line-height: 1.5; }
     .share-opts { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 0 24px 4px; font-size: 13px; color: var(--muted); }
     .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
     .seg button { border: 0; background: var(--surface); color: var(--ink); padding: 6px 11px; font: inherit; font-size: 12.5px; cursor: pointer; }
@@ -1271,6 +1276,7 @@
           <button class="btn ptt" type="button" id="call-ptt" hidden>누르고 말하기</button>
         </div>
         <div class="share-opts" id="share-opts" hidden><span>공유 화질</span><div class="seg" role="group" aria-label="공유 화질"><button type="button" id="sh-detail" class="on">선명하게 (문서·코드)</button><button type="button" id="sh-motion">부드럽게 (영상·게임)</button></div></div>
+        <div class="share-pre" id="share-pre" hidden><label class="share-snd"><input type="checkbox" id="sh-audio"> 화면 소리도 함께 공유</label><small id="sh-audio-hint">전체 화면의 소리를 공유하면 통화 목소리까지 다시 보내져 울릴 수 있습니다. 영상 소리가 필요하면 공유 창에서 'Chrome 탭'을 골라 '탭 오디오 공유'를 켜 주세요.</small></div>
         <p class="call-share-note" id="call-share-note" hidden></p>
       </div>
       <aside class="cc-panel" id="cc-panel" aria-label="통화방 채팅">
@@ -4842,9 +4848,10 @@
       pc.ontrack = function (e) {
         var st = e.streams && e.streams[0] ? e.streams[0] : new MediaStream([e.track]);
         // 화면 공유 영상(+탭 소리)은 별도 뷰어로, 마이크 소리는 오디오 요소로
-        if (e.track.kind === "video" || (p.screenId && st.id === p.screenId)) {
+        if (e.track.kind === "video" || (p.screenId && st.id === p.screenId) || st.getVideoTracks().length || (p.micId && st.id !== p.micId)) {
           p.screen = st; e.track.addEventListener("unmute", paintScreen); e.track.addEventListener("ended", paintScreen); paintScreen(); return;
         }
+        if (!p.micId) p.micId = st.id;
         if (!p.audio) p.audio = takeAudioEl();
         p.audio.srcObject = st; p.audio.volume = volOf(uid); p.audio.muted = call.deaf;
         playPeer(p);
@@ -4991,20 +4998,33 @@
       if (!canShare()) { callNote("휴대폰 브라우저에서는 화면을 공유할 수 없습니다. PC에서 공유해 주세요.", true); return; }
       var other = sharerUid();
       if (other && other !== me.id) { callNote(callInfo(other).nickname + "님이 화면을 공유하고 있습니다. 공유가 끝난 뒤 다시 시도해 주세요.", true); return; }
+      // 소리 공유는 기본 꺼짐. 켜도 이 페이지(통화 목소리) 소리는 빼고 잡도록 요청 (울림 방지)
+      var wantAudio = !!call.shareAudio;
+      var sup = (navigator.mediaDevices.getSupportedConstraints && navigator.mediaDevices.getSupportedConstraints()) || {};
       navigator.mediaDevices.getDisplayMedia({
         video: { width: { ideal: 2560, max: 2560 }, height: { ideal: 1440, max: 1440 }, frameRate: { ideal: 30, max: 30 } },
-        audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
-        systemAudio: "include", selfBrowserSurface: "exclude", surfaceSwitching: "include"
+        audio: wantAudio ? { echoCancellation: false, noiseSuppression: false, autoGainControl: false, restrictOwnAudio: true, suppressLocalAudioPlayback: false } : false,
+        systemAudio: wantAudio ? "include" : "exclude", windowAudio: wantAudio ? "system" : "exclude", selfBrowserSurface: "exclude", surfaceSwitching: "include", monitorTypeSurfaces: "include"
       }).then(function (st) {
         if (!call.on) { st.getTracks().forEach(function (t) { t.stop(); }); return; }
         var vt = st.getVideoTracks()[0];
         if (!vt) { st.getTracks().forEach(function (t) { t.stop(); }); return; }
+        // 전체 화면·창 소리에 통화 목소리를 빼 주지 못하는 브라우저면 소리는 빼고 공유 (상대가 자기 목소리를 다시 듣는 울림 방지)
+        var at = st.getAudioTracks()[0], surf = (vt.getSettings && vt.getSettings().displaySurface) || "", dropped = false;
+        if (at) {
+          var aset = at.getSettings ? at.getSettings() : {};
+          var ownExcluded = aset.restrictOwnAudio === true || (sup.restrictOwnAudio && aset.restrictOwnAudio !== false);
+          if (!wantAudio || (surf !== "browser" && !ownExcluded)) { at.stop(); st.removeTrack(at); dropped = wantAudio; }
+        }
         try { vt.contentHint = call.shareHint === "motion" ? "motion" : "detail"; } catch (e) {}
         vt.addEventListener("ended", function () { stopShare(); });
         call.screen = st;
         callSend({ type: "call-share", on: true });
         Object.keys(call.peers).forEach(function (k) { syncScreen(call.peers[k]); });
-        callNote(st.getAudioTracks().length ? "화면과 소리를 함께 공유하고 있습니다." : "화면을 공유하고 있습니다. (소리를 함께 보내려면 공유 창에서 '탭 오디오 공유'를 켜 주세요.)");
+        var tips = [];
+        if (dropped) tips.push("이 컴퓨터에서는 전체 화면·창 소리에서 통화 목소리를 뺄 수 없어, 울리지 않도록 소리는 빼고 화면만 공유합니다. 소리가 필요하면 공유 창에서 'Chrome 탭'을 골라 '탭 오디오 공유'를 켜 주세요.");
+        if (call.opts.hq) tips.push("고음질(음악) 모드는 에코 제거가 꺼져 있어 스피커를 쓰면 목소리가 울릴 수 있습니다. 이어폰을 쓰거나 모드를 꺼 주세요.");
+        callNote((st.getAudioTracks().length ? "화면과 소리를 함께 공유하고 있습니다." : "화면을 공유하고 있습니다.") + (tips.length ? " " + tips.join(" ") : ""), dropped);
         paintCall();
       }).catch(function (e) {
         var n = (e && e.name) || "";
@@ -5039,6 +5059,13 @@
       if (st && v.srcObject !== st) { v.srcObject = st; var pr = v.play(); if (pr && pr.catch) pr.catch(function () {}); }
       v.muted = mine || call.deaf; if (!mine) v.volume = volOf(sid);
     }
+    // 이 브라우저가 '내 페이지 소리 빼고 잡기(restrictOwnAudio)'를 지원하면 통화 목소리 없이 컴퓨터 소리를 공유할 수 있음
+    call.ownAudioEx = !!(navigator.mediaDevices && navigator.mediaDevices.getSupportedConstraints && navigator.mediaDevices.getSupportedConstraints().restrictOwnAudio);
+    call.shareAudio = (function () { try { var v = localStorage.getItem("gcb-share-audio2"); return v === null ? call.ownAudioEx : v === "1"; } catch (e) { return false; } })();
+    $("sh-audio-hint").textContent = call.ownAudioEx
+      ? "컴퓨터 소리(영상·음악 등)를 함께 보내되 통화방 목소리는 빼고 보내 울리지 않게 합니다. 이 컴퓨터에서 뺄 수 없으면 소리 없이 화면만 공유하니, 그때는 공유 창에서 'Chrome 탭'을 골라 '탭 오디오 공유'를 켜 주세요."
+      : "이 브라우저는 컴퓨터 소리에서 통화 목소리를 빼지 못해, 전체 화면·창 공유 때는 소리를 빼고 보냅니다. 영상 소리가 필요하면 공유 창에서 'Chrome 탭'을 골라 '탭 오디오 공유'를 켜 주세요.";
+    $("sh-audio").addEventListener("change", function () { call.shareAudio = this.checked; try { localStorage.setItem("gcb-share-audio2", this.checked ? "1" : "0"); } catch (e) {} });
     call.shareHint = (function () { try { return localStorage.getItem("gcb-share-hint") === "motion" ? "motion" : "detail"; } catch (e) { return "detail"; } })();
     function onCallMsg(d) {
       if (d.type === "call-state" && (Array.isArray(d.members) || Array.isArray(d.free))) {
@@ -5434,6 +5461,8 @@
       $("call-share").classList.toggle("on", !!call.screen);
       $("call-share").disabled = !call.screen && !!sidc && sidc !== me.id;
       $("share-opts").hidden = !call.screen;
+      $("share-pre").hidden = !(call.on && here && !mob && !call.screen && !(sidc && sidc !== me.id));
+      $("sh-audio").checked = !!call.shareAudio;
       $("sh-detail").classList.toggle("on", call.shareHint !== "motion"); $("sh-motion").classList.toggle("on", call.shareHint === "motion");
       var sn = $("call-share-note");
       if (call.on && here && mob) { sn.hidden = false; sn.textContent = "휴대폰 브라우저에서는 화면을 보낼 수 없습니다. 다른 사람이 공유한 화면은 여기서 크게 볼 수 있어요(두 손가락으로 확대)."; }
