@@ -291,6 +291,8 @@ const publicUser = (u) => ({ id: u.id, login: u.login, nickname: u.nickname || "
 const author = (r) => ({ id: r.uid, nickname: r.u_nick || "(탈퇴한 사용자)", avatarId: r.u_avatar || null, frame: cleanFrame(r.u_frame), role: cleanRole(r.u_role) });
 const isMod = (u) => MOD_ROLES.includes(u.role);
 const CHANNELS = ["company", "free", "call"];
+// 통화방 마이크 실제 상태: 켜짐 / 대기(눌러서 말하기) / 오류
+const MIC_ST = ["on", "ptt", "gate", "err"];
 // 1:1 DM 채널: "dm:<작은id>-<큰id>"
 const DM_RE = /^dm:(\d{1,12})-(\d{1,12})$/;
 const dmPair = (ch) => { const m = DM_RE.exec(String(ch || "")); if (!m) return null; const a = Number(m[1]), b = Number(m[2]); return a > 0 && a < b ? [a, b] : null; };
@@ -1127,7 +1129,7 @@ export class ChatRoom extends DurableObject {
     for (const w of this.ctx.getWebSockets()) {
       if (w === except) continue;
       const a = w.deserializeAttachment() || {};
-      if (a.uid && a.call) out.push({ uid: a.uid, muted: !!a.cm, deaf: !!a.cd, share: !!a.ss, since: a.cs || 0 });
+      if (a.uid && a.call) out.push({ uid: a.uid, muted: !!a.cm, deaf: !!a.cd, st: a.cst || "on", share: !!a.ss, since: a.cs || 0 });
     }
     return out.sort((x, y) => x.since - y.since);
   }
@@ -1150,14 +1152,14 @@ export class ChatRoom extends DurableObject {
       }
       if (this.callMembers(ws).length >= 10) { try { ws.send('{"type":"call-error","code":"call_full"}'); } catch {} return; }
       const peers = this.callMembers(ws).map((m) => m.uid);
-      ws.serializeAttachment({ ...a, call: true, cm: !!msg.muted || !!msg.deaf, cd: !!msg.deaf, ss: false, cs: Date.now() });
+      ws.serializeAttachment({ ...a, call: true, cm: !!msg.muted || !!msg.deaf, cd: !!msg.deaf, cst: MIC_ST.includes(msg.st) ? msg.st : "on", ss: false, cs: Date.now() });
       try { ws.send(JSON.stringify({ type: "call-joined", peers })); } catch {}
       this.sendCallState(null);
       return;
     }
     if (!a.call) return;
     if (msg.type === "call-leave") { ws.serializeAttachment({ ...a, call: false, cm: false, cd: false, ss: false }); this.sendCallState(null); return; }
-    if (msg.type === "call-mute") { ws.serializeAttachment({ ...a, cm: !!msg.muted || !!msg.deaf, cd: !!msg.deaf }); this.sendCallState(null); return; }
+    if (msg.type === "call-mute") { ws.serializeAttachment({ ...a, cm: !!msg.muted || !!msg.deaf, cd: !!msg.deaf, cst: MIC_ST.includes(msg.st) ? msg.st : "on" }); this.sendCallState(null); return; }
     // 화면 공유: 한 번에 한 사람만
     if (msg.type === "call-share") {
       if (!a.call) return;
