@@ -290,12 +290,12 @@ const publicUser = (u) => ({ id: u.id, login: u.login, nickname: u.nickname || "
 // 다른 사람에게 보이는 작성자 정보 (로그인 아이디 제외)
 const author = (r) => ({ id: r.uid, nickname: r.u_nick || "(탈퇴한 사용자)", avatarId: r.u_avatar || null, frame: cleanFrame(r.u_frame), role: cleanRole(r.u_role) });
 const isMod = (u) => MOD_ROLES.includes(u.role);
-const CHANNELS = ["company", "free"];
+const CHANNELS = ["company", "free", "call"];
 // 1:1 DM 채널: "dm:<작은id>-<큰id>"
 const DM_RE = /^dm:(\d{1,12})-(\d{1,12})$/;
 const dmPair = (ch) => { const m = DM_RE.exec(String(ch || "")); if (!m) return null; const a = Number(m[1]), b = Number(m[2]); return a > 0 && a < b ? [a, b] : null; };
 const dmChan = (x, y) => "dm:" + Math.min(x, y) + "-" + Math.max(x, y);
-const chanOf = (v) => (v === "free" ? "free" : v === "company" || v === undefined || v === null || v === "" ? "company" : dmPair(v) ? String(v) : null);
+const chanOf = (v) => (v === "free" ? "free" : v === "call" ? "call" : v === "company" || v === undefined || v === null || v === "" ? "company" : dmPair(v) ? String(v) : null);
 const canSee = (u, ch) => { const p = dmPair(ch); if (p) return p.includes(u.id); return ch === "free" || !!u.member; };
 const dmPeer = (u, ch) => { const p = dmPair(ch); return p ? (p[0] === u.id ? p[1] : p[0]) : 0; };
 const publicMsg = (m) => ({
@@ -352,7 +352,7 @@ async function insertMessage(env, user, kind, text, imageId, replyTo, ch) {
 }
 function msgBroadcast(env, ctx, msg) {
   const p = dmPair(msg.channel);
-  broadcast(env, ctx, p ? { type: "message", message: msg, to: p } : { type: "message", message: msg, membersOnly: msg.channel === "company" });
+  broadcast(env, ctx, p ? { type: "message", message: msg, to: p } : { type: "message", message: msg, membersOnly: msg.channel === "company" || msg.channel === "call" });
 }
 // DM 상대가 실제로 있는 사용자인지 (DB 확인)
 async function dmPeerOk(env, user, ch) {
@@ -495,7 +495,7 @@ export default {
         if (!canSee(user, ch)) return fail("members_only", 403, cors);
         const pr = dmPair(ch);
         const rows = pr ? (await env.DB.prepare("SELECT id, nickname, avatar_id, frame, role FROM users WHERE nickname != '' AND id IN (?, ?)").bind(pr[0], pr[1]).all()).results
-          : (await env.DB.prepare("SELECT id, nickname, avatar_id, frame, role FROM users WHERE nickname != ''" + (ch === "company" ? " AND member = 1" : "")).all()).results;
+          : (await env.DB.prepare("SELECT id, nickname, avatar_id, frame, role FROM users WHERE nickname != ''" + (ch === "company" || ch === "call" ? " AND member = 1" : "")).all()).results;
         let online = [];
         try { const r = await env.ROOM.get(env.ROOM.idFromName("main")).fetch("https://room/presence"); online = (await r.json()).online || []; } catch {}
         const on = new Set(online);
@@ -1513,9 +1513,12 @@ async function notifyChat(env, ctx, user, msg, mt) {
     return;
   }
   const company = msg.channel !== "free";
-  const label = company ? "사내 메신저" : "자유 메신저";
-  const url = company ? "messenger.html#/chat" : "messenger.html#/free";
-  const tag = company ? "chat" : "free";
+  const callChat = msg.channel === "call";
+  // 통화방 채팅: @멘션(@everyone 포함)만 알림, 일반 메시지·답장은 알림 없음
+  if (callChat && !(mt && (mt.all || mt.ids.some((id) => id !== user.id)))) return;
+  const label = callChat ? "통화방 채팅" : company ? "사내 메신저" : "자유 메신저";
+  const url = callChat ? "messenger.html#/call" : company ? "messenger.html#/chat" : "messenger.html#/free";
+  const tag = callChat ? "callchat" : company ? "chat" : "free";
   const memberSql = company ? " AND user_id IN (SELECT id FROM users WHERE member = 1)" : "";
   const body = msg.kind === "image" ? "사진을 보냈습니다." : msg.kind === "emoticon" ? "이모티콘을 보냈습니다." : snip(await plainMentions(env, msg.text));
   // @everyone: 채널을 볼 수 있는 모든 사람에게 ("모든 채팅 알림"을 꺼 둔 사람 포함)
@@ -1529,6 +1532,7 @@ async function notifyChat(env, ctx, user, msg, mt) {
     const rs = (await env.DB.prepare(`SELECT * FROM push_subs WHERE user_id IN (${mentioned.map(() => "?").join(",")})` + memberSql).bind(...mentioned).all()).results;
     await pushTo(env, rs, { title: user.nickname + "님이 회원님을 언급했습니다 · " + label, body, url, tag: tag + "-mention", kind: "mention", channel: msg.channel });
   }
+  if (callChat) return;
   const replyUid = msg.reply && !msg.reply.missing && msg.reply.userId !== user.id ? msg.reply.userId : 0;
   if (replyUid && !mentioned.includes(replyUid)) {
     const rs = (await env.DB.prepare("SELECT * FROM push_subs WHERE user_id = ?" + memberSql).bind(replyUid).all()).results;

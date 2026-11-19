@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
   <meta name="robots" content="noindex">
-  <meta http-equiv="Content-Security-Policy" content="img-src 'self' https: blob: data:; frame-src https://www.youtube-nocookie.com">
+  <meta http-equiv="Content-Security-Policy" content="img-src 'self' https: blob: data:; frame-src 'self' https://www.youtube-nocookie.com">
   <meta name="description" content="개천박컴퍼니 사내 메신저">
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://oaoaoaoartrt-creator.github.io/gaecheonbak/messenger.html">
@@ -785,6 +785,42 @@
     /* ---------- 사내 통화방 ---------- */
     .call-wrap { padding: 24px 0 calc(48px + var(--safe-bottom)); }
     .call-panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); }
+    /* 통화 중 회사 소개: 페이지를 떠나지 않고 겹쳐 보여 줌 */
+    .intro-ov { position: fixed; z-index: 45; left: 0; right: 0; top: var(--nav-h); bottom: 0; background: var(--paper); }
+    .intro-ov iframe { display: block; width: 100%; height: 100%; border: 0; background: var(--paper); }
+    .intro-close { position: absolute; top: 12px; right: 16px; padding: 7px 12px; font: inherit; font-size: 13px; font-weight: 500; color: var(--ink); background: var(--surface); border: 1px solid var(--line-strong); border-radius: 999px; box-shadow: 0 2px 8px rgba(28, 27, 24, .12); cursor: pointer; }
+    body.intro-open { overflow: hidden; }
+    /* 통화방 전용 채팅 */
+    .call-seg { display: none; margin: 0 0 12px; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; background: var(--surface); }
+    .call-seg button { flex: 1; display: inline-flex; align-items: center; justify-content: center; padding: 10px; border: 0; background: none; font: inherit; font-size: 14px; font-weight: 500; color: var(--muted); cursor: pointer; }
+    .call-seg button + button { border-left: 1px solid var(--line); }
+    .call-seg button[aria-selected="true"] { background: var(--ink); color: var(--surface); }
+    .cc-panel { display: flex; flex-direction: column; min-width: 0; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+    .cc-head { flex: none; display: flex; align-items: baseline; justify-content: space-between; gap: 10px; padding: 14px 16px; border-bottom: 1px solid var(--line); }
+    .cc-head b { font-size: 15px; font-weight: 600; }
+    .cc-head span { font-size: 12px; color: var(--muted); }
+    .cc-log { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 14px; background: var(--paper); }
+    .cc-log .bubble { max-width: 100%; font-size: 14px; padding: 8px 12px; }
+    .cc-log .msg { margin-bottom: 10px; }
+    .cc-log .pf { flex: none; }
+    .cc-log .log-empty { margin: 32px 8px; font-size: 13px; line-height: 1.6; }
+    .cc-sys { margin: 4px 0 10px; text-align: center; font-size: 12px; color: var(--muted); }
+    .cc-panel .composer { padding: 10px; gap: 6px; background: var(--surface); }
+    .cc-panel .composer .btn { flex: none; height: 44px; padding: 0 14px; white-space: nowrap; }
+    .cc-panel .tool { width: 38px; }
+    .cc-err { margin: 0; padding: 0 12px 10px; font-size: 12.5px; color: #b0412e; background: var(--surface); }
+    .cc-err:empty { display: none; }
+    .call-float button.cf-chat { position: relative; }
+    .call-float .cf-n { position: absolute; top: -4px; right: -4px; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 8px; background: #c8331f; color: #fff; font-size: 10px; font-weight: 700; line-height: 16px; text-align: center; }
+    @media (min-width: 1100px) {
+      .call-layout { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 20px; align-items: start; }
+      .cc-panel { position: sticky; top: calc(var(--nav-h) + 16px); height: calc(100vh - var(--nav-h) - 40px); max-height: 860px; min-height: 420px; }
+    }
+    @media (max-width: 1099px) {
+      .call-seg { display: flex; }
+      .call-wrap[data-pane="chat"] .call-panel, .call-wrap:not([data-pane="chat"]) .cc-panel { display: none; }
+      .cc-panel { height: calc(100vh - var(--nav-h) - 170px); height: calc(var(--app-h, 100dvh) - var(--nav-h) - 170px); min-height: 380px; }
+    }
     .call-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding: 22px 24px 18px; border-bottom: 1px solid var(--line); }
     .call-top h2 { margin: 0; font-family: var(--font-serif, inherit); font-size: 1.3rem; font-weight: 600; }
     .call-top p { margin: 6px 0 0; font-size: 13px; color: var(--muted); line-height: 1.6; }
@@ -965,7 +1001,7 @@
     </section>
 
     <p class="wrap loading" id="view-loading">불러오는 중입니다.</p>
-    <div class="call-float" id="call-float" hidden><a href="#/call" id="cf-text">통화 중</a><button type="button" class="ic" id="cf-mute" aria-label="음소거"></button><button type="button" class="ic" id="cf-deaf" aria-label="헤드셋 끄기"></button><button type="button" class="ptt" id="cf-ptt" aria-label="누르고 말하기" title="누르고 있는 동안 말하기" hidden>말하기</button><button type="button" class="leave" id="cf-leave">나가기</button></div>
+    <div class="call-float" id="call-float" hidden><a href="#/call" id="cf-text">통화 중</a><button type="button" class="ic" id="cf-mute" aria-label="음소거"></button><button type="button" class="ic" id="cf-deaf" aria-label="헤드셋 끄기"></button><button type="button" class="ptt" id="cf-ptt" aria-label="누르고 말하기" title="누르고 있는 동안 말하기" hidden>말하기</button><button type="button" class="ic cf-chat" id="cf-chat" aria-label="통화방 채팅" title="통화방 채팅"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5.5h16v10H9l-5 4z"/></svg><span class="cf-n" id="cf-chat-n" hidden></span></button><button type="button" class="leave" id="cf-leave">나가기</button></div>
 
     <!-- 로그인 / 회원가입 -->
     <section class="wrap stage" id="view-auth" hidden>
@@ -1110,7 +1146,12 @@
     </section>
 
     <!-- 사내 게시판 -->
-    <section class="wrap call-wrap" id="view-call" hidden>
+    <section class="wrap call-wrap" id="view-call" data-pane="call" hidden>
+      <div class="call-seg" role="tablist" aria-label="통화방 화면">
+        <button type="button" role="tab" id="cs-pane-call" data-pane="call" aria-selected="true">통화</button>
+        <button type="button" role="tab" id="cs-pane-chat" data-pane="chat" aria-selected="false">채팅<span class="tab-dot" id="cc-dot" hidden></span></button>
+      </div>
+      <div class="call-layout">
       <div class="call-panel" id="call-root">
         <div class="call-top">
           <div>
@@ -1167,6 +1208,20 @@
         </div>
         <div class="share-opts" id="share-opts" hidden><span>공유 화질</span><div class="seg" role="group" aria-label="공유 화질"><button type="button" id="sh-detail" class="on">선명하게 (문서·코드)</button><button type="button" id="sh-motion">부드럽게 (영상·게임)</button></div></div>
         <p class="call-share-note" id="call-share-note" hidden></p>
+      </div>
+      <aside class="cc-panel" id="cc-panel" aria-label="통화방 채팅">
+        <div class="cc-head"><b>통화방 채팅</b><span>사내 멤버만 볼 수 있어요</span></div>
+        <div class="cc-log" id="cc-log" aria-live="polite" aria-label="통화방 채팅 메시지"></div>
+        <div class="jump-wrap"><button class="jump" type="button" id="cc-jump" hidden>새 메시지 <span aria-hidden="true">↓</span></button></div>
+        <div class="mention-wrap"><div class="mention-pop" id="cc-mention" role="listbox" aria-label="멘션할 사람" hidden></div></div>
+        <form class="composer" id="cc-form">
+          <div class="tools"><button class="tool" type="button" id="cc-attach" aria-label="사진 보내기" title="사진 보내기"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4.5" width="18" height="15" rx="1.5"/><circle cx="8.5" cy="9.5" r="1.6"/><path d="M21 16l-5.2-5.2L6 19.5"/></svg></button></div>
+          <textarea id="cc-input" aria-label="통화방 채팅 메시지" rows="1" maxlength="500" placeholder="통화방에 메시지 보내기"></textarea>
+          <button class="btn" type="submit" id="cc-send">보내기</button>
+        </form>
+        <p class="cc-err" id="cc-err" role="alert"></p>
+        <input type="file" id="cc-file" accept="image/jpeg,image/png,image/webp,image/gif" hidden>
+      </aside>
       </div>
     </section>
     <section class="wrap board-wrap" id="view-board" hidden>
@@ -2311,9 +2366,10 @@
       };
       sock.onmessage = function (ev) {
         var data; try { data = JSON.parse(ev.data); } catch (e) { return; }
-        if (data.type === "ready") { wsReady = true; retry = 0; stopPolling(); catchUp(); if (channel) loadMembers(channel); loadDms(true); callSocketReady(); }
+        if (data.type === "ready") { wsReady = true; retry = 0; stopPolling(); catchUp(); if (channel) loadMembers(channel); loadDms(true); callSocketReady(); ccOnReady(); }
         else if (typeof data.type === "string" && data.type.indexOf("call-") === 0) onCallMsg(data);
         else if (data.type === "presence" && Array.isArray(data.online)) { members.online = new Set(data.online); paintMembers(); }
+        else if (data.type === "message" && data.message && data.message.channel === "call") ccAdd([data.message], false);
         else if (data.type === "message" && data.message) {
           var mc = msgChan(data.message);
           if (isDm(mc)) {
@@ -4662,6 +4718,7 @@
     call.shareHint = (function () { try { return localStorage.getItem("gcb-share-hint") === "motion" ? "motion" : "detail"; } catch (e) { return "detail"; } })();
     function onCallMsg(d) {
       if (d.type === "call-state" && Array.isArray(d.members)) {
+        ccCallState(d.members);
         call.members = d.members;
         var inRoom = {}; d.members.forEach(function (m) { inRoom[m.uid] = true; });
         var gone = Object.keys(call.peers).filter(function (k) { return !inRoom[k]; });
@@ -4798,7 +4855,7 @@
       if (tab) { tab.classList.toggle("sharing", !!sid); tab.title = n ? n + "명 통화 중" + (sid ? " · " + callInfo(sid).nickname + "님 화면 공유 중" : "") : "사내 통화방"; }
       var f = $("call-float");
       if (f) {
-        f.hidden = !(call.on && $("view-call").hidden);
+        f.hidden = !(call.on && ($("view-call").hidden || (typeof introOpen === "function" && introOpen())));
         if (!f.hidden) {
           $("cf-text").textContent = "통화 중 · " + n + "명" + (sid ? " · 화면 공유" : "");
           $("cf-mute").innerHTML = call.muted ? MIC_OFF_SVG : MIC_SVG; $("cf-mute").setAttribute("aria-label", call.muted ? "음소거 해제" : "음소거"); $("cf-mute").title = call.muted ? "음소거 해제" : "음소거"; $("cf-mute").classList.toggle("off", call.muted);
@@ -4864,7 +4921,7 @@
       paintMicSet();
       paintCallClock(); paintSpeaking(); paintQuality();
     }
-    function callView() { show("view-call"); paintCall(); }
+    function callView() { show("view-call"); paintCall(); ccShow(); }
     $("call-join").addEventListener("click", callJoin);
     $("call-share").addEventListener("click", function () { if (call.screen) stopShare(false); else startShare(); });
     $("sh-detail").addEventListener("click", function () { setShareHint("detail"); });
@@ -4887,6 +4944,270 @@
       $(x[0]).addEventListener("change", function () { call.opts[x[1]] = this.checked; saveCallOpts(); paintCall(); reapplyMic(); });
     });
     window.addEventListener("pagehide", function () { if (call.on) callSend({ type: "call-leave" }); });
+
+    /* ---------- 통화 중 인원·일·혜택 소개: index.html을 겹쳐 열어 통화가 끊기지 않게 ---------- */
+    var intro = { el: null, frame: null, sec: "", ready: false };
+    function introInCall() { return !!(call.on || call.joining); }
+    function introOpen() { return !!(intro.el && !intro.el.hidden); }
+    function paintIntroNav() {
+      Array.prototype.forEach.call(document.querySelectorAll(".nav .nav-links a"), function (a) {
+        var h = a.getAttribute("href") || "", cur = introOpen() ? (intro.sec && h.indexOf("#panel-" + intro.sec) !== -1) : /messenger\.html/.test(h);
+        if (cur) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current");
+      });
+    }
+    function introGo() {
+      if (!intro.ready) return;
+      var d, w; try { d = intro.frame.contentDocument; w = intro.frame.contentWindow; } catch (e) { return; }
+      if (!d) return;
+      if (!intro.sec) { w.scrollTo(0, 0); return; }
+      var a = d.querySelector('.nav-links a[href="#panel-' + intro.sec + '"]'); if (a) a.click();
+    }
+    function introLoaded() {
+      var d; try { d = intro.frame.contentDocument; } catch (e) { return; }
+      if (!d || !d.head) return;
+      intro.ready = true;
+      var st = d.createElement("style"); st.textContent = "header.nav{display:none!important}"; d.head.appendChild(st);
+      d.addEventListener("click", function (e) {
+        var a = e.target.closest && e.target.closest("a[href]"); if (!a) return;
+        var h = a.getAttribute("href") || ""; if (h.charAt(0) === "#") return;
+        e.preventDefault();
+        if (/messenger\.html/.test(h)) { closeIntro(true); return; }
+        window.open(a.href, "_blank", "noopener");
+      }, true);
+      introGo();
+    }
+    function openIntro(sec) {
+      if (!intro.el) {
+        intro.el = E("div", "intro-ov"); intro.el.setAttribute("role", "dialog"); intro.el.setAttribute("aria-label", "회사 소개");
+        intro.frame = document.createElement("iframe"); intro.frame.title = "회사 소개";
+        intro.frame.addEventListener("load", introLoaded);
+        var cl = E("button", "intro-close", "메신저로 돌아가기"); cl.type = "button"; cl.addEventListener("click", function () { closeIntro(true); });
+        intro.el.append(intro.frame, cl); intro.el.hidden = true; document.body.appendChild(intro.el);
+        intro.frame.src = "./?embed=1";
+      }
+      intro.sec = sec || "";
+      if (!introOpen()) { intro.el.hidden = false; document.body.classList.add("intro-open"); if (!(history.state && history.state.gcbIntro)) history.pushState({ gcbIntro: true }, "", location.href); }
+      introGo(); paintIntroNav(); paintCallBadge();
+    }
+    function closeIntro(viaUi) {
+      if (!introOpen()) return;
+      intro.el.hidden = true; document.body.classList.remove("intro-open"); paintIntroNav(); paintCallBadge();
+      if (viaUi && history.state && history.state.gcbIntro) history.back();
+    }
+    Array.prototype.forEach.call(document.querySelectorAll(".nav .nav-links a, .nav .logo"), function (a) {
+      a.addEventListener("click", function (e) {
+        if (!introInCall() && !introOpen()) return;
+        var h = a.getAttribute("href") || "", m = /#panel-(\w+)/.exec(h);
+        if (/messenger\.html/.test(h)) { e.preventDefault(); closeIntro(true); return; }
+        e.preventDefault(); openIntro(m ? m[1] : "");
+      });
+    });
+    window.addEventListener("popstate", function (e) { if (introOpen() && !(e.state && e.state.gcbIntro)) closeIntro(false); });
+    window.addEventListener("hashchange", function () { if (introOpen()) closeIntro(false); });
+    // 통화 중에 새로고침·다른 주소로 이동하면 먼저 확인
+    window.addEventListener("beforeunload", function (e) { if (call.on) { e.preventDefault(); e.returnValue = ""; } });
+
+    /* ---------- 통화방 전용 채팅 (채널 "call", 사내 멤버만 · 알림은 @멘션만) ---------- */
+    var cc = { msgs: [], seen: {}, lastId: 0, loaded: false, loading: false, unread: 0, pane: "call", members: [], sys: [], prev: null, sending: false, uploading: false, stick: true, ment: { open: false, items: [], idx: 0, start: 0 } };
+    window.gcbCC = cc;
+    function ccWide() { return window.matchMedia("(min-width: 1100px)").matches; }
+    function ccVisible() { return !$("view-call").hidden && !document.hidden && (ccWide() || cc.pane === "chat"); }
+    function ccErr(t) { $("cc-err").textContent = t || ""; }
+    function ccLoad() {
+      if (!me || !me.member || cc.loading) return;
+      cc.loading = true;
+      var first = !cc.loaded;
+      api("/api/messages?channel=call" + (first ? "" : "&after=" + cc.lastId))
+        .then(function (d) { cc.loaded = true; ccErr(""); ccAdd(d.messages || [], first); }, function (e) { if (e.code !== "unauthorized") ccErr(errText(e)); })
+        .then(function () { cc.loading = false; });
+      if (!cc.members.length) api("/api/channel-members?channel=call").then(function (d) { cc.members = d.members || []; cc.members.forEach(function (u) { remember(u.id, u); }); }, function () {});
+    }
+    function ccOnReady() { if (cc.loaded) ccLoad(); }
+    function ccAdd(list, quiet) {
+      var added = false, fresh = [], mineNew = false;
+      (list || []).forEach(function (m) {
+        if (!m || typeof m.id !== "number" || cc.seen[m.id]) return;
+        cc.seen[m.id] = true; cc.msgs.push(m); added = true;
+        if ("avatarId" in m) remember(m.userId, m);
+        if (m.id > cc.lastId) cc.lastId = m.id;
+        if (me && m.userId === me.id) mineNew = !quiet;
+        else if (!quiet) fresh.push(m);
+      });
+      if (!added) return;
+      cc.msgs.sort(function (a, b) { return a.id - b.id; });
+      if (cc.msgs.length > 200) cc.msgs.splice(0, cc.msgs.length - 200).forEach(function (m) { delete cc.seen[m.id]; });
+      if (fresh.length) {
+        var vis = ccVisible();
+        if (!vis) cc.unread += fresh.length;
+        var mm = fresh.filter(function (m) { return (m.kind || "text") === "text" && mentionsMe(m.text); }).pop();
+        if (mm && !vis) { toast(String(mm.nickname || "") + (/@everyone/i.test(mm.text) ? "님이 모두를 불렀습니다" : "님이 회원님을 언급했습니다") + " · 통화방", plainMentions(String(mm.text || "")).slice(0, 80), "#/call"); chime(); }
+        if (!cc.stick) $("cc-jump").hidden = false;
+      }
+      ccBadge(); ccRender(mineNew || !!quiet);
+    }
+    function ccBadge() {
+      if (ccVisible()) cc.unread = 0;
+      var n = cc.unread, t = n > 99 ? "99+" : String(n);
+      var d = $("cc-dot"); if (d) { d.textContent = n ? t : ""; d.hidden = !n; }
+      var f = $("cf-chat-n"); if (f) { f.textContent = n ? t : ""; f.hidden = !n; }
+    }
+    function ccSys(text) {
+      cc.sys.push({ at: Date.now(), text: text });
+      if (cc.sys.length > 30) cc.sys.shift();
+      ccRender(false);
+    }
+    // 들어옴·나감·화면 공유 시작은 채팅에 작게 표시 (저장하지 않음)
+    function ccCallState(list) {
+      var now = {}; list.forEach(function (m) { now[m.uid] = m; });
+      var prev = cc.prev; cc.prev = now;
+      if (!prev) return;
+      Object.keys(now).forEach(function (k) {
+        if (me && Number(k) === me.id) return;
+        if (!prev[k]) ccSys(callInfo(Number(k)).nickname + "님이 통화에 들어왔습니다");
+        else if (now[k].share && !prev[k].share) ccSys(callInfo(Number(k)).nickname + "님이 화면 공유를 시작했습니다");
+      });
+      Object.keys(prev).forEach(function (k) { if (!now[k] && !(me && Number(k) === me.id)) ccSys(callInfo(Number(k)).nickname + "님이 통화에서 나갔습니다"); });
+    }
+    function ccAtBottom() { var l = $("cc-log"); return l.scrollHeight - l.scrollTop - l.clientHeight < 60; }
+    function ccRender(force) {
+      var log2 = $("cc-log"); if (!log2) return;
+      if ($("view-call").hidden && !force) { cc.dirty = true; return; }
+      cc.dirty = false;
+      var items = cc.msgs.map(function (m) { return { t: Number(m.createdAt) || 0, id: m.id, m: m }; })
+        .concat(cc.sys.map(function (x, i) { return { t: x.at, id: 1e15 + i, s: x }; }));
+      items.sort(function (a, b) { return a.t - b.t || a.id - b.id; });
+      log2.replaceChildren();
+      if (!items.length) { log2.appendChild(E("p", "log-empty", cc.loaded ? "아직 대화가 없습니다. 통화하면서 링크나 메모를 나눠 보세요." : "불러오는 중…")); return; }
+      var lastDay = "", lastUid = null, lastTs = 0;
+      items.forEach(function (it) {
+        var date = new Date(it.t || Date.now()), day = dayFmt.format(date);
+        if (day !== lastDay) { log2.appendChild(E("div", "day", day)); lastUid = null; lastDay = day; }
+        if (it.s) { log2.appendChild(E("p", "cc-sys", it.s.text + " · " + timeFmt.format(date))); lastUid = null; return; }
+        var m = it.m, mine = !!(me && m.userId === me.id);
+        var row = E("div", "msg"); row.setAttribute("data-id", m.id);
+        if (mine) row.classList.add("mine");
+        else if ((m.kind || "text") === "text" && mentionsMe(m.text)) row.classList.add("mentioned");
+        if (m.userId === lastUid && date - lastTs < 3 * 60 * 1000) row.classList.add("follow");
+        if (!mine) { var fc = face(people[m.userId], m.nickname, "sm"); fc.setAttribute("data-uid", m.userId); row.appendChild(fc); }
+        var body = E("div", "msg-body"), meta = E("div", "meta");
+        var who = E("span", "who", String(m.nickname || "익명")); who.setAttribute("data-uid", m.userId); meta.appendChild(who);
+        var rt = roleTag(people[m.userId] && people[m.userId].role); if (rt) meta.appendChild(rt);
+        var when = E("time", "", timeFmt.format(date)); when.dateTime = date.toISOString(); meta.appendChild(when);
+        body.appendChild(meta);
+        var line = E("div", "msg-line"); line.appendChild(messageContent(m, date)); body.appendChild(line);
+        row.appendChild(body); log2.appendChild(row);
+        lastUid = m.userId; lastTs = date;
+      });
+      if (force || cc.stick) { log2.scrollTop = log2.scrollHeight; cc.stick = true; $("cc-jump").hidden = true; }
+    }
+    function ccPane(p) {
+      cc.pane = p === "chat" ? "chat" : "call";
+      $("view-call").setAttribute("data-pane", cc.pane);
+      $("cs-pane-call").setAttribute("aria-selected", cc.pane === "call" ? "true" : "false");
+      $("cs-pane-chat").setAttribute("aria-selected", cc.pane === "chat" ? "true" : "false");
+      ccShow();
+    }
+    function ccShow() {
+      if (!me || !me.member || $("view-call").hidden) return;
+      if (!cc.loaded) ccLoad();
+      if (cc.dirty || !$("cc-log").firstChild) ccRender(true);
+      if (ccVisible()) { var l = $("cc-log"); if (cc.stick) l.scrollTop = l.scrollHeight; }
+      ccBadge();
+    }
+    $("cs-pane-call").addEventListener("click", function () { ccPane("call"); });
+    $("cs-pane-chat").addEventListener("click", function () { ccPane("chat"); });
+    $("cf-chat").addEventListener("click", function () { cc.pane = "chat"; if (location.hash === "#/call") ccPane("chat"); else location.hash = "#/call"; setTimeout(function () { ccPane("chat"); if (ccWide()) $("cc-input").focus(); }, 0); });
+    document.addEventListener("visibilitychange", function () { if (!document.hidden) ccBadge(); });
+    window.addEventListener("resize", function () { if (!$("view-call").hidden) ccBadge(); });
+    $("cc-log").addEventListener("scroll", function () { cc.stick = ccAtBottom(); if (cc.stick) $("cc-jump").hidden = true; }, { passive: true });
+    $("cc-log").addEventListener("load", function () { if (cc.stick) { var l = $("cc-log"); l.scrollTop = l.scrollHeight; } }, true);
+    $("cc-jump").addEventListener("click", function () { var l = $("cc-log"); l.scrollTop = l.scrollHeight; cc.stick = true; $("cc-jump").hidden = true; });
+    $("cc-log").addEventListener("click", function (e) { var t = e.target.closest && e.target.closest("[data-uid]"); if (t && (t.classList.contains("who") || t.classList.contains("pf"))) location.hash = "#/u/" + t.getAttribute("data-uid"); });
+    function ccEncode(text) {
+      var list = cc.members.slice().sort(function (a, b) { return b.nickname.length - a.nickname.length; });
+      list.forEach(function (u) {
+        if (!u.nickname) return;
+        var re = new RegExp("(^|[\\s(\\[])@" + escRe(u.nickname) + "(?=$|[\\s.,!?)\\]~…:;])", "g");
+        text = text.replace(re, function (x, pre) { return pre + "<@" + u.id + ">"; });
+      });
+      return text;
+    }
+    function ccAutosize() { var t = $("cc-input"); t.style.height = "auto"; t.style.height = Math.min(t.scrollHeight + 2, 140) + "px"; }
+    function ccSend() {
+      if (cc.sending) return;
+      var inp = $("cc-input"), text = inp.value.replace(/^\s+|\s+$/g, "");
+      ccErr(""); if (!text) return;
+      if (Array.from(text).length > 500) { ccErr("메시지는 500자까지 보낼 수 있습니다."); return; }
+      cc.sending = true; $("cc-send").disabled = true; inp.value = ""; ccAutosize();
+      api("/api/messages", { method: "POST", body: { text: ccEncode(text), channel: "call" } })
+        .then(function (d) { ccAdd([d.message], false); ccRender(true); })
+        .catch(function (e) { if (e.code === "unauthorized") return; inp.value = text; ccAutosize(); ccErr(errText(e)); })
+        .then(function () { cc.sending = false; $("cc-send").disabled = false; inp.focus(); });
+    }
+    function ccPhoto(file) {
+      if (cc.uploading || !file) return;
+      if (badType(file)) { ccErr(ERRORS.unsupported_type); return; }
+      cc.uploading = true; $("cc-attach").disabled = true; ccErr("");
+      makePhoto(file)
+        .then(function (blob) { return api("/api/photos?channel=call", { method: "POST", raw: blob }); })
+        .then(function (d) { ccAdd([d.message], false); ccRender(true); })
+        .catch(function (e) { if (e.code !== "unauthorized") ccErr(errText(e)); })
+        .then(function () { cc.uploading = false; $("cc-attach").disabled = false; });
+    }
+    $("cc-form").addEventListener("submit", function (e) { e.preventDefault(); ccSend(); });
+    $("cc-attach").addEventListener("click", function () { $("cc-file").click(); });
+    $("cc-file").addEventListener("change", function () { var f = this.files && this.files[0]; this.value = ""; if (f) ccPhoto(f); });
+    $("cc-input").addEventListener("paste", function (e) {
+      var items = (e.clipboardData && e.clipboardData.files) || [];
+      if (items.length && /^image\//.test(items[0].type)) { e.preventDefault(); ccPhoto(items[0]); }
+    });
+    // @ 자동완성
+    function ccMentionQuery() {
+      var inp = $("cc-input"), v = inp.value, pos = inp.selectionStart;
+      if (pos == null || pos !== inp.selectionEnd) return null;
+      var mm = /(^|\s)@([^\s@]{0,20})$/.exec(v.slice(0, pos));
+      return mm ? { q: mm[2], start: pos - mm[2].length - 1 } : null;
+    }
+    function ccCloseMention() { cc.ment.open = false; $("cc-mention").hidden = true; }
+    function ccPaintMention() {
+      var pop = $("cc-mention");
+      pop.replaceChildren.apply(pop, cc.ment.items.map(function (it, i) {
+        var b = E("button", "mo" + (i === cc.ment.idx ? " on" : "")); b.type = "button"; b.setAttribute("role", "option"); b.setAttribute("aria-selected", i === cc.ment.idx ? "true" : "false");
+        if (it.everyone) b.append(E("span", "all-ic", "@"), E("span", "", "@everyone"), E("small", "", "모두 부르기"));
+        else { b.appendChild(face(it, it.nickname, "xs")); b.appendChild(E("span", "", it.nickname)); var rt = roleTag(it.role); if (rt) b.appendChild(rt); }
+        b.addEventListener("pointerdown", function (ev) { ev.preventDefault(); });
+        b.addEventListener("click", function () { ccPickMention(i); });
+        return b;
+      }));
+      pop.hidden = false;
+    }
+    function ccUpdateMention() {
+      var mq = ccMentionQuery(); if (!mq) return ccCloseMention();
+      var q = mq.q.toLowerCase(), items = [];
+      if ("everyone".indexOf(q) === 0) items.push({ everyone: true });
+      sortedMembers(cc.members.filter(function (u) { return !(me && u.id === me.id) && u.nickname && u.nickname.toLowerCase().indexOf(q) !== -1; })).slice(0, 8).forEach(function (u) { items.push(u); });
+      if (!items.length) return ccCloseMention();
+      cc.ment = { open: true, items: items, idx: 0, start: mq.start };
+      ccPaintMention();
+    }
+    function ccPickMention(i) {
+      var it = cc.ment.items[i]; if (!it) return;
+      var inp = $("cc-input"), v = inp.value, pos = inp.selectionStart;
+      var ins = it.everyone ? "@everyone " : "@" + it.nickname + " ";
+      inp.value = v.slice(0, cc.ment.start) + ins + v.slice(pos);
+      var np = cc.ment.start + ins.length; try { inp.setSelectionRange(np, np); } catch (e) {}
+      ccCloseMention(); ccAutosize(); inp.focus();
+    }
+    $("cc-input").addEventListener("input", function () { ccAutosize(); ccUpdateMention(); });
+    $("cc-input").addEventListener("blur", function () { setTimeout(ccCloseMention, 150); });
+    $("cc-input").addEventListener("keydown", function (e) {
+      if (cc.ment.open) {
+        if (e.key === "ArrowDown" || e.key === "ArrowUp") { e.preventDefault(); var n = cc.ment.items.length; cc.ment.idx = (cc.ment.idx + (e.key === "ArrowDown" ? 1 : n - 1)) % n; ccPaintMention(); return; }
+        if (e.key === "Enter" || e.key === "Tab") { e.preventDefault(); ccPickMention(cc.ment.idx); return; }
+        if (e.key === "Escape") { ccCloseMention(); return; }
+      }
+      if (e.key === "Enter" && !e.shiftKey && !e.isComposing && e.keyCode !== 229) { e.preventDefault(); ccSend(); }
+    });
 
     /* ---------- 앱 설치 안내 ---------- */
     var DISMISS_KEY = "gcb_install_dismissed";
