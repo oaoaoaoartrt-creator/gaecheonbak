@@ -290,15 +290,15 @@ const publicUser = (u) => ({ id: u.id, login: u.login, nickname: u.nickname || "
 // 다른 사람에게 보이는 작성자 정보 (로그인 아이디 제외)
 const author = (r) => ({ id: r.uid, nickname: r.u_nick || "(탈퇴한 사용자)", avatarId: r.u_avatar || null, frame: cleanFrame(r.u_frame), role: cleanRole(r.u_role) });
 const isMod = (u) => MOD_ROLES.includes(u.role);
-const CHANNELS = ["company", "free", "call"];
+const CHANNELS = ["company", "free", "call", "callfree"];
 // 통화방 마이크 실제 상태: 켜짐 / 대기(눌러서 말하기) / 오류
 const MIC_ST = ["on", "ptt", "gate", "err"];
 // 1:1 DM 채널: "dm:<작은id>-<큰id>"
 const DM_RE = /^dm:(\d{1,12})-(\d{1,12})$/;
 const dmPair = (ch) => { const m = DM_RE.exec(String(ch || "")); if (!m) return null; const a = Number(m[1]), b = Number(m[2]); return a > 0 && a < b ? [a, b] : null; };
 const dmChan = (x, y) => "dm:" + Math.min(x, y) + "-" + Math.max(x, y);
-const chanOf = (v) => (v === "free" ? "free" : v === "call" ? "call" : v === "company" || v === undefined || v === null || v === "" ? "company" : dmPair(v) ? String(v) : null);
-const canSee = (u, ch) => { const p = dmPair(ch); if (p) return p.includes(u.id); return ch === "free" || !!u.member; };
+const chanOf = (v) => (v === "free" ? "free" : v === "call" ? "call" : v === "callfree" ? "callfree" : v === "company" || v === undefined || v === null || v === "" ? "company" : dmPair(v) ? String(v) : null);
+const canSee = (u, ch) => { const p = dmPair(ch); if (p) return p.includes(u.id); return ch === "free" || ch === "callfree" || !!u.member; };
 const dmPeer = (u, ch) => { const p = dmPair(ch); return p ? (p[0] === u.id ? p[1] : p[0]) : 0; };
 const publicMsg = (m) => ({
   id: m.id, channel: m.channel || "company", userId: m.user_id, nickname: m.nickname, kind: m.kind || "text", text: m.text,
@@ -1115,7 +1115,7 @@ export class ChatRoom extends DurableObject {
       const wasOnline = this.onlineIds(null).has(user.id);
       ws.serializeAttachment({ uid: user.id, member: !!user.member, at: a.at || Date.now() });
       ws.send('{"type":"ready"}');
-      if (user.member) { try { ws.send(JSON.stringify({ type: "call-state", members: this.callMembers(null) })); } catch {} }
+      try { ws.send(this.callStateFor({ member: !!user.member }, null)); } catch {}
       if (!wasOnline) this.sendPresence(null);
       return;
     }
@@ -1123,48 +1123,62 @@ export class ChatRoom extends DurableObject {
     if (typeof msg.type === "string" && msg.type.startsWith("call-")) this.onCall(ws, a, msg);
   }
 
-  /* ---------- 사내 통화방 (WebRTC 신호 중계, 사내 멤버만) ---------- */
-  callMembers(except) {
+  /* ---------- 통화방 (WebRTC 신호 중계) · company = 사내 통화방(사내 멤버만), free = 자유 통화방(모두) ---------- */
+  callMembers(except, room) {
     const out = [];
     for (const w of this.ctx.getWebSockets()) {
       if (w === except) continue;
       const a = w.deserializeAttachment() || {};
-      if (a.uid && a.call) out.push({ uid: a.uid, muted: !!a.cm, deaf: !!a.cd, st: a.cst || "on", share: !!a.ss, since: a.cs || 0 });
+      if (a.uid && a.call && (a.cr || "company") === room) out.push({ uid: a.uid, muted: !!a.cm, deaf: !!a.cd, st: a.cst || "on", share: !!a.ss, since: a.cs || 0 });
     }
     return out.sort((x, y) => x.since - y.since);
   }
-  callSocket(uid) {
-    for (const w of this.ctx.getWebSockets()) { const a = w.deserializeAttachment() || {}; if (a.uid === uid && a.call) return w; }
+  callSocket(uid, room) {
+    for (const w of this.ctx.getWebSockets()) { const a = w.deserializeAttachment() || {}; if (a.uid === uid && a.call && (a.cr || "company") === room) return w; }
     return null;
   }
+  callStateFor(a, except) {
+    const o = { type: "call-state", free: this.callMembers(except, "free") };
+    if (a.member) o.members = this.callMembers(except, "company");
+    return JSON.stringify(o);
+  }
   sendCallState(except) {
-    const p = JSON.stringify({ type: "call-state", members: this.callMembers(except) });
-    for (const w of this.ctx.getWebSockets()) { if (w === except) continue; const a = w.deserializeAttachment() || {}; if (a.uid && a.member) { try { w.send(p); } catch {} } }
+    let pm = null, pn = null;
+    for (const w of this.ctx.getWebSockets()) {
+      if (w === except) continue;
+      const a = w.deserializeAttachment() || {};
+      if (!a.uid) continue;
+      const p = a.member ? (pm = pm || this.callStateFor(a, except)) : (pn = pn || this.callStateFor(a, except));
+      try { w.send(p); } catch {}
+    }
   }
   onCall(ws, a, msg) {
-    if (!a.member) { try { ws.send('{"type":"call-error","code":"members_only"}'); } catch {} return; }
     if (msg.type === "call-join") {
-      // 같은 사람이 다른 창에서 들어오면 이전 창은 통화에서 내보냄
+      const room = msg.room === "free" ? "free" : "company";
+      if (room === "company" && !a.member) { try { ws.send('{"type":"call-error","code":"members_only"}'); } catch {} return; }
+      // 같은 사람이 다른 창(또는 다른 방)에 있으면 그쪽 통화는 끝냄
       for (const w of this.ctx.getWebSockets()) {
         if (w === ws) continue;
         const b = w.deserializeAttachment() || {};
         if (b.uid === a.uid && b.call) { w.serializeAttachment({ ...b, call: false, cm: false, cd: false, ss: false }); try { w.send('{"type":"call-ended","reason":"elsewhere"}'); } catch {} }
       }
-      if (this.callMembers(ws).length >= 10) { try { ws.send('{"type":"call-error","code":"call_full"}'); } catch {} return; }
-      const peers = this.callMembers(ws).map((m) => m.uid);
-      ws.serializeAttachment({ ...a, call: true, cm: !!msg.muted || !!msg.deaf, cd: !!msg.deaf, cst: MIC_ST.includes(msg.st) ? msg.st : "on", ss: false, cs: Date.now() });
-      try { ws.send(JSON.stringify({ type: "call-joined", peers })); } catch {}
+      if (a.call) ws.serializeAttachment({ ...a, call: false, ss: false });
+      if (this.callMembers(ws, room).length >= 10) { try { ws.send('{"type":"call-error","code":"call_full"}'); } catch {} this.sendCallState(null); return; }
+      const peers = this.callMembers(ws, room).map((m) => m.uid);
+      ws.serializeAttachment({ ...a, call: true, cr: room, cm: !!msg.muted || !!msg.deaf, cd: !!msg.deaf, cst: MIC_ST.includes(msg.st) ? msg.st : "on", ss: false, cs: Date.now() });
+      try { ws.send(JSON.stringify({ type: "call-joined", room, peers })); } catch {}
       this.sendCallState(null);
       return;
     }
     if (!a.call) return;
+    const room = a.cr || "company";
+    if (room === "company" && !a.member) return;
     if (msg.type === "call-leave") { ws.serializeAttachment({ ...a, call: false, cm: false, cd: false, ss: false }); this.sendCallState(null); return; }
     if (msg.type === "call-mute") { ws.serializeAttachment({ ...a, cm: !!msg.muted || !!msg.deaf, cd: !!msg.deaf, cst: MIC_ST.includes(msg.st) ? msg.st : "on" }); this.sendCallState(null); return; }
-    // 화면 공유: 한 번에 한 사람만
+    // 화면 공유: 방마다 한 번에 한 사람만
     if (msg.type === "call-share") {
-      if (!a.call) return;
       if (msg.on) {
-        const other = this.callMembers(ws).find((m) => m.share);
+        const other = this.callMembers(ws, room).find((m) => m.share);
         if (other) { try { ws.send(JSON.stringify({ type: "call-share-denied", by: other.uid })); } catch {} return; }
       }
       ws.serializeAttachment({ ...a, ss: !!msg.on });
@@ -1174,7 +1188,7 @@ export class ChatRoom extends DurableObject {
     if (msg.type === "call-signal") {
       const to = Number(msg.to), d = msg.data;
       if (!Number.isInteger(to) || to === a.uid || !d || typeof d !== "object") return;
-      const peer = this.callSocket(to);
+      const peer = this.callSocket(to, room);   // 같은 방에 있는 사람에게만 전달
       if (peer) { try { peer.send(JSON.stringify({ type: "call-signal", from: a.uid, data: d })); } catch {} }
     }
   }
@@ -1271,7 +1285,8 @@ async function profiles(req, env, ctx, url, path, user, cors) {
   if (path === "/api/push/key" && M === "GET") return json({ key: env.VAPID_PUBLIC || null }, 200, cors);
   // 통화방 ICE 서버: 공개 STUN + (설정되어 있으면) Cloudflare TURN 단기 자격 증명
   if (path === "/api/call/ice" && M === "GET") {
-    if (!user.member) return fail("members_only", 403, cors);
+    if (!user.nickname) return fail("nickname_required", 400, cors);
+    if (!(await hit(env, "ice:" + user.id, 60, 3600000))) return fail("rate_limited", 429, cors);
     const ice = [{ urls: ["stun:stun.cloudflare.com:3478", "stun:stun.l.google.com:19302"] }];
     let turn = false;
     if (env.TURN_KEY_ID && env.TURN_KEY_TOKEN) {
@@ -1514,12 +1529,12 @@ async function notifyChat(env, ctx, user, msg, mt) {
     await pushTo(env, rs, { title: user.nickname + " · DM", body, url: "messenger.html#/dm/" + user.id, tag: "dm-" + user.id, kind: "dm", channel: msg.channel });
     return;
   }
-  const company = msg.channel !== "free";
-  const callChat = msg.channel === "call";
+  const company = msg.channel === "company" || msg.channel === "call";
+  const callChat = msg.channel === "call" || msg.channel === "callfree";
   // 통화방 채팅: @멘션(@everyone 포함)만 알림, 일반 메시지·답장은 알림 없음
   if (callChat && !(mt && (mt.all || mt.ids.some((id) => id !== user.id)))) return;
-  const label = callChat ? "통화방 채팅" : company ? "사내 메신저" : "자유 메신저";
-  const url = callChat ? "messenger.html#/call" : company ? "messenger.html#/chat" : "messenger.html#/free";
+  const label = msg.channel === "callfree" ? "자유 통화방 채팅" : callChat ? "사내 통화방 채팅" : company ? "사내 메신저" : "자유 메신저";
+  const url = msg.channel === "callfree" ? "messenger.html#/callfree" : callChat ? "messenger.html#/call" : company ? "messenger.html#/chat" : "messenger.html#/free";
   const tag = callChat ? "callchat" : company ? "chat" : "free";
   const memberSql = company ? " AND user_id IN (SELECT id FROM users WHERE member = 1)" : "";
   const body = msg.kind === "image" ? "사진을 보냈습니다." : msg.kind === "emoticon" ? "이모티콘을 보냈습니다." : snip(await plainMentions(env, msg.text));

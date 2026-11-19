@@ -791,6 +791,8 @@
     .intro-close { position: absolute; top: 12px; right: 16px; padding: 7px 12px; font: inherit; font-size: 13px; font-weight: 500; color: var(--ink); background: var(--surface); border: 1px solid var(--line-strong); border-radius: 999px; box-shadow: 0 2px 8px rgba(28, 27, 24, .12); cursor: pointer; }
     body.intro-open { overflow: hidden; }
     /* 통화방 전용 채팅 */
+    .room-switch { margin: 0 0 14px; }
+    .room-switch .in-call { margin-left: 2px; font-family: var(--font-sans, inherit); font-size: 11px; font-weight: 600; color: #2e9d6a; letter-spacing: 0; }
     .call-seg { display: none; margin: 0 0 12px; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; background: var(--surface); }
     .call-seg button { flex: 1; display: inline-flex; align-items: center; justify-content: center; padding: 10px; border: 0; background: none; font: inherit; font-size: 14px; font-weight: 500; color: var(--muted); cursor: pointer; }
     .call-seg button + button { border-left: 1px solid var(--line); }
@@ -1072,7 +1074,7 @@
           <button class="btn btn-block" type="submit" id="join-submit">입장하기</button>
           <p class="error" id="join-error" role="alert"></p>
         </form>
-        <p class="join-note">참여코드가 없다면 <a href="#/free">자유 메신저</a>에서 대화할 수 있습니다.</p>
+        <p class="join-note" id="join-note">참여코드가 없다면 <a href="#/free">자유 메신저</a>에서 대화할 수 있습니다.</p>
       </div>
     </section>
 
@@ -1156,6 +1158,10 @@
 
     <!-- 사내 게시판 -->
     <section class="wrap call-wrap" id="view-call" data-pane="call" hidden>
+      <nav class="ch-switch room-switch" aria-label="통화방 선택">
+        <a href="#/call" data-room="company">사내 통화방<span class="tab-dot call" id="rc-company" hidden></span></a>
+        <a href="#/callfree" data-room="free">자유 통화방<span class="tab-dot call" id="rc-free" hidden></span></a>
+      </nav>
       <div class="call-seg" role="tablist" aria-label="통화방 화면">
         <button type="button" role="tab" id="cs-pane-call" data-pane="call" aria-selected="true">통화</button>
         <button type="button" role="tab" id="cs-pane-chat" data-pane="chat" aria-selected="false">채팅<span class="tab-dot" id="cc-dot" hidden></span></button>
@@ -1164,8 +1170,8 @@
       <div class="call-panel" id="call-root">
         <div class="call-top">
           <div>
-            <h2>사내 통화방</h2>
-            <p>사내 멤버끼리 고음질 음성으로 이야기하는 방입니다. 들어가면 지금 통화 중인 사람과 바로 연결되고, 다른 메뉴로 옮겨도 통화는 이어집니다.</p>
+            <h2 id="call-title">사내 통화방</h2>
+            <p id="call-desc">사내 멤버끼리 고음질 음성으로 이야기하는 방입니다. 들어가면 지금 통화 중인 사람과 바로 연결되고, 다른 메뉴로 옮겨도 통화는 이어집니다.</p>
           </div>
           <span class="call-status" id="call-status">대기 중</span>
         </div>
@@ -1220,7 +1226,7 @@
         <p class="call-share-note" id="call-share-note" hidden></p>
       </div>
       <aside class="cc-panel" id="cc-panel" aria-label="통화방 채팅">
-        <div class="cc-head"><b>통화방 채팅</b><span>사내 멤버만 볼 수 있어요</span></div>
+        <div class="cc-head"><b id="cc-title">사내 통화방 채팅</b><span id="cc-sub">사내 멤버만 볼 수 있어요</span></div>
         <div class="cc-log" id="cc-log" aria-live="polite" aria-label="통화방 채팅 메시지"></div>
         <div class="jump-wrap"><button class="jump" type="button" id="cc-jump" hidden>새 메시지 <span aria-hidden="true">↓</span></button></div>
         <div class="mention-wrap"><div class="mention-pop" id="cc-mention" role="listbox" aria-label="멘션할 사람" hidden></div></div>
@@ -2379,7 +2385,7 @@
         if (data.type === "ready") { wsReady = true; retry = 0; stopPolling(); catchUp(); if (channel) loadMembers(channel); loadDms(true); callSocketReady(); ccOnReady(); }
         else if (typeof data.type === "string" && data.type.indexOf("call-") === 0) onCallMsg(data);
         else if (data.type === "presence" && Array.isArray(data.online)) { members.online = new Set(data.online); paintMembers(); }
-        else if (data.type === "message" && data.message && data.message.channel === "call") ccAdd([data.message], false);
+        else if (data.type === "message" && data.message && (data.message.channel === "call" || data.message.channel === "callfree")) ccWith(ccStore[data.message.channel === "callfree" ? "free" : "company"], function () { ccAdd([data.message], false); });
         else if (data.type === "message" && data.message) {
           var mc = msgChan(data.message);
           if (isDm(mc)) {
@@ -2546,6 +2552,7 @@
     function showJoin(tab) {
       show("view-join", tab);
       $("join-error").textContent = "";
+      $("join-note").innerHTML = tab === "view-call" ? '사내 통화방은 임직원 전용입니다. 참여코드가 없다면 <a href="#/callfree">자유 통화방</a>에 누구나 들어갈 수 있습니다.' : '참여코드가 없다면 <a href="#/free">자유 메신저</a>에서 대화할 수 있습니다.';
       if (!window.matchMedia("(max-width: 560px)").matches) $("join-input").focus();
     }
     $("join-form").addEventListener("submit", function (e) {
@@ -2775,7 +2782,8 @@
       var um = /^#\/u\/(me|\d{1,12})$/.exec(h);
       if (um) { show("view-profile", um[1] === "me" || Number(um[1]) === me.id ? "view-profile" : "none"); profileView(++bseq, um[1] === "me" ? me.id : Number(um[1])); return; }
       var m = /^#\/board(?:\/(write|\d{1,12})(?:\/(edit))?)?(?:\?(.*))?$/.exec(h);
-      if (h === "#/call") { if (!me.member) { showJoin("view-call"); return; } callView(); return; }
+      if (h === "#/call" && !me.member) { showJoin("view-call"); return; }
+      if (h === "#/call" || h === "#/callfree") { setViewRoom(h === "#/callfree" ? "free" : "company"); callView(); return; }
       if (h === "#/chat" && !me.member) { showJoin("view-chat"); return; }
       var dm = /^#\/dm(?:\/(\d{1,12}))?$/.exec(h);
       if (dm) {
@@ -4228,6 +4236,16 @@
       vol: (function () { try { return JSON.parse(localStorage.getItem(CALL_VOL_KEY) || "{}") || {}; } catch (e) { return {}; } })()
     };
     window.gcbCall = call;
+    /* 통화방 2개: company = 사내 통화방(사내 멤버만), free = 자유 통화방(모두) */
+    var ROOMS = {
+      company: { name: "사내 통화방", hash: "#/call", chan: "call", desc: "사내 멤버끼리 고음질 음성으로 이야기하는 방입니다. 들어가면 지금 통화 중인 사람과 바로 연결되고, 다른 메뉴로 옮겨도 통화는 이어집니다.", sub: "사내 멤버만 볼 수 있어요" },
+      free: { name: "자유 통화방", hash: "#/callfree", chan: "callfree", desc: "메신저를 쓰는 누구나 들어올 수 있는 방입니다. 사내 통화방과 같은 고음질 음성·화면 공유를 쓸 수 있고, 다른 메뉴로 옮겨도 통화는 이어집니다.", sub: "누구나 볼 수 있어요" }
+    };
+    var viewRoom = "company";
+    call.room = ""; call.lists = { company: [], free: [] };
+    function curRoom() { return (call.on || call.joining) && call.room ? call.room : viewRoom; }
+    function inViewRoom() { return !!((call.on || call.joining) && call.room === viewRoom); }
+    function syncMembers() { call.members = call.lists[curRoom()] || []; }
     var micSt = { err: "", sent: "", gateSince: 0, recovering: false, lastSelf: "" };
     var MIC_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/></svg>';
     var HS_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 15v-3a8 8 0 0 1 16 0v3"/><rect x="3.5" y="14" width="4.5" height="6.5" rx="1.6"/><rect x="16" y="14" width="4.5" height="6.5" rx="1.6"/></svg>';
@@ -4379,7 +4397,7 @@
       $("ms-test").classList.toggle("on", !!(micRt.test || (call.mic && call.mic.loop)));
       var rn = $("co-rn"); if (rn) { rn.checked = mic.rn; rn.disabled = call.opts.hq; }
       var ptt = mic.mode === "ptt" && call.on;
-      $("call-ptt").hidden = !ptt; $("cf-ptt").hidden = !ptt;
+      $("call-ptt").hidden = !ptt || !inViewRoom(); $("cf-ptt").hidden = !ptt;
       $("cf-ptt").textContent = micRt.ptt ? "말하는 중" : "말하기";
       paintMicMeter();
     }
@@ -4518,9 +4536,18 @@
       if (call.ice) return Promise.resolve(call.ice);
       return api("/api/call/ice").then(function (d) { call.ice = d.iceServers || []; call.turn = !!d.turn; return call.ice; }, function () { return [{ urls: ["stun:stun.cloudflare.com:3478", "stun:stun.l.google.com:19302"] }]; });
     }
+    // 다른 통화방에 있으면 확인 후 옮김 (한 번에 한 방만)
+    function callJoinView() {
+      if ((call.on || call.joining) && call.room && call.room !== viewRoom) {
+        if (!confirm(ROOMS[call.room].name + "에서 나와 " + ROOMS[viewRoom].name + "으로 옮길까요?")) return;
+        callStop(true);
+      }
+      callJoin();
+    }
     function callJoin() {
       if (call.on || call.joining) return;
-      if (!me || !me.member) { callNote(micErrText({ code: "members_only" }), true); return; }
+      if (!me || (viewRoom === "company" && !me.member)) { callNote(micErrText({ code: "members_only" }), true); return; }
+      call.room = viewRoom; syncMembers();
       call.joining = true; callNote("마이크를 준비하는 중입니다…"); paintCall();
       ensureCtx(); micTestStop();
       getMic().then(buildMic).then(function (m) {
@@ -4529,7 +4556,7 @@
         if (mic.rn && !m.rn && !call.opts.hq) micHint("강력한 잡음 제거를 불러오지 못해 기본 잡음 제거만 사용합니다.", true);
         return loadIce();
       }).then(function () {
-        if (!callSend({ type: "call-join", muted: call.muted, deaf: call.deaf, st: micBroadcastSt() })) throw { code: "offline" };
+        if (!callSend({ type: "call-join", room: call.room || viewRoom, muted: call.muted, deaf: call.deaf, st: micBroadcastSt() })) throw { code: "offline" };
         call.local = levelMeter(call.stream);
         call.stream.getAudioTracks().forEach(function (t) { t.enabled = !call.muted; });
       }).catch(function (e) {
@@ -4555,7 +4582,7 @@
       if (call.on) callSend({ type: "call-leave" });
       Object.keys(call.peers).forEach(closePeer);
       stopStream();
-      call.on = false; call.joining = false; call.since = 0;
+      call.on = false; call.joining = false; call.since = 0; call.room = ""; syncMembers();
       if (call.deaf) { call.deaf = false; call.muted = call.preDeafMuted; }
       clearInterval(call.timer); clearInterval(call.statT); clearInterval(call.levelT); call.timer = call.statT = call.levelT = 0;
       if (was && !silent) callNote("통화방에서 나왔습니다.");
@@ -4742,7 +4769,7 @@
       var box = $("call-screen"); if (!box) return;
       var sid = call.on ? sharerUid() : 0, v = $("cs-video"), st = null, mine = me && sid === me.id;
       if (mine) st = call.screen; else if (sid && call.peers[sid]) st = call.peers[sid].screen;
-      box.hidden = !sid;
+      box.hidden = !sid || !inViewRoom();
       if (!sid) { if (v.srcObject) v.srcObject = null; $("cs-stage").classList.remove("zoomed"); $("cs-zoom").textContent = "확대"; return; }
       $("cs-title").textContent = mine ? "내 화면을 공유하고 있습니다" : callInfo(sid).nickname + "님의 화면";
       var live = st && st.getVideoTracks().some(function (t) { return t.readyState === "live" && !t.muted; });
@@ -4752,16 +4779,18 @@
     }
     call.shareHint = (function () { try { return localStorage.getItem("gcb-share-hint") === "motion" ? "motion" : "detail"; } catch (e) { return "detail"; } })();
     function onCallMsg(d) {
-      if (d.type === "call-state" && Array.isArray(d.members)) {
-        ccCallState(d.members);
-        call.members = d.members;
-        var inRoom = {}; d.members.forEach(function (m) { inRoom[m.uid] = true; });
+      if (d.type === "call-state" && (Array.isArray(d.members) || Array.isArray(d.free))) {
+        call.lists.company = Array.isArray(d.members) ? d.members : [];
+        call.lists.free = Array.isArray(d.free) ? d.free : [];
+        ["company", "free"].forEach(function (r) { ccWith(ccStore[r], function () { ccCallState(call.lists[r]); }); });
+        syncMembers();
+        var inRoom = {}; call.members.forEach(function (m) { inRoom[m.uid] = true; });
         var gone = Object.keys(call.peers).filter(function (k) { return !inRoom[k]; });
         gone.forEach(closePeer); if (gone.length) applySenderBitrate();
-        var unknown = d.members.some(function (m) { return !(people[m.uid] && people[m.uid].nickname); });
+        var unknown = call.lists.company.concat(call.lists.free).some(function (m) { return !(people[m.uid] && people[m.uid].nickname); });
         if (call.screen && sharerUid() && sharerUid() !== me.id) stopShare(true);
         paintScreen();
-        if (unknown) api("/api/channel-members?channel=company").then(function (r) { (r.members || []).forEach(function (u) { remember(u.id, u); }); paintCall(); }, function () {});
+        if (unknown) api("/api/channel-members?channel=" + (call.lists.company.length && me.member ? "company" : "callfree")).then(function (r) { (r.members || []).forEach(function (u) { remember(u.id, u); }); if (call.lists.free.length && me.member) return api("/api/channel-members?channel=callfree").then(function (r2) { (r2.members || []).forEach(function (u) { remember(u.id, u); }); }); }).then(function () { paintCall(); }, function () {});
         paintCall();
       } else if (d.type === "call-joined") {
         call.joining = false; call.on = true; call.since = Date.now(); micSt.sent = ""; setTimeout(function () { micCheck(); sendMicState(true); }, 0);
@@ -4782,7 +4811,7 @@
       paintCall();
     }
     function callSocketReady() {
-      if (call.joining && call.stream) callSend({ type: "call-join", muted: call.muted, deaf: call.deaf, st: micBroadcastSt() });
+      if (call.joining && call.stream) callSend({ type: "call-join", room: call.room || viewRoom, muted: call.muted, deaf: call.deaf, st: micBroadcastSt() });
     }
     function startCallLoops() {
       clearInterval(call.timer); clearInterval(call.statT); clearInterval(call.levelT);
@@ -4914,14 +4943,16 @@
         callNote(typeof msg === "string" ? msg : call.opts.hq ? "고음질(음악) 모드: 잡음·에코 제거 없이 스테레오로 보냅니다. 이어폰을 쓰면 울림 없이 들립니다." : "음질 설정을 적용했습니다.");
       }).catch(function (e) { callNote(micErrText(e), true); micCheck(); });
     }
-    function callInfo(uid) { var p = people[uid] || {}; return { id: uid, nickname: p.nickname || (me && uid === me.id ? myNick : "사내 멤버"), avatarId: p.avatarId, frame: p.frame, role: p.role }; }
+    function callInfo(uid) { var p = people[uid] || {}; return { id: uid, nickname: p.nickname || (me && uid === me.id ? myNick : "참여자"), avatarId: p.avatarId, frame: p.frame, role: p.role }; }
     function paintCallClock() {
       var s = $("call-status"); if (!s) return;
-      if (call.on) {
+      if (call.on && inViewRoom()) {
         var t = Math.floor((Date.now() - call.since) / 1000), mm = Math.floor(t / 60), ss = t % 60;
         s.textContent = "통화 중 · " + (mm < 10 ? "0" : "") + mm + ":" + (ss < 10 ? "0" : "") + ss;
-      } else s.textContent = call.joining ? "연결 중" : call.members.length ? call.members.length + "명 통화 중" : "대기 중";
-      s.classList.toggle("live", call.on || call.members.length > 0);
+      }
+      var vl = call.lists[viewRoom] || [];
+      if (!(call.on && inViewRoom())) s.textContent = call.joining ? "연결 중" : vl.length ? vl.length + "명 통화 중" : "대기 중";
+      s.classList.toggle("live", inViewRoom() || vl.length > 0);
     }
     function paintSpeaking() {
       Array.prototype.forEach.call(document.querySelectorAll(".call-item"), function (li) {
@@ -4938,17 +4969,18 @@
       });
     }
     function paintCallBadge() {
-      var n = call.members.length, dot = $("dot-call");
+      var n = call.members.length, dot = $("dot-call"), total = (me && me.member ? call.lists.company.length : 0) + call.lists.free.length;
+      ["company", "free"].forEach(function (r) { var rc = $("rc-" + r); if (rc) { var k = call.lists[r].length; rc.textContent = k ? String(k) : ""; rc.hidden = !k; } });
       if (typeof micRt !== "undefined" && micRt && $("view-call").hidden && (micRt.test || (call.mic && call.mic.loop))) micTestStop();
-      if (dot) { dot.textContent = n ? String(n) : ""; dot.hidden = !n; }
+      if (dot) { dot.textContent = total ? String(total) : ""; dot.hidden = !total; }
       var sid = sharerUid(), tab = document.querySelector('.app-tabs a[data-tab="call"]');
-      if (dot && n && sid) { dot.innerHTML = n + SCR_SVG; dot.classList.add("share"); } else if (dot) dot.classList.remove("share");
-      if (tab) { tab.classList.toggle("sharing", !!sid); tab.title = n ? n + "명 통화 중" + (sid ? " · " + callInfo(sid).nickname + "님 화면 공유 중" : "") : "사내 통화방"; }
+      if (dot && total && sid) { dot.innerHTML = total + SCR_SVG; dot.classList.add("share"); } else if (dot) dot.classList.remove("share");
+      if (tab) { tab.setAttribute("href", ROOMS[me && me.member ? (call.room || viewRoom) : "free"].hash); tab.classList.toggle("sharing", !!sid); tab.title = n ? n + "명 통화 중" + (sid ? " · " + callInfo(sid).nickname + "님 화면 공유 중" : "") : "사내 통화방"; }
       var f = $("call-float");
       if (f) {
-        f.hidden = !(call.on && ($("view-call").hidden || (typeof introOpen === "function" && introOpen())));
+        f.hidden = !(call.on && ($("view-call").hidden || !inViewRoom() || (typeof introOpen === "function" && introOpen())));
         if (!f.hidden) {
-          $("cf-text").textContent = "통화 중 · " + n + "명" + (sid ? " · 화면 공유" : "");
+          $("cf-text").textContent = (call.room === "free" ? "자유" : "사내") + " 통화 중 · " + n + "명" + (sid ? " · 화면 공유" : ""); $("cf-text").setAttribute("href", ROOMS[call.room || "company"].hash);
           var fst = micState(true);
           $("cf-mute").innerHTML = call.muted || fst === "err" ? MIC_OFF_SVG : MIC_SVG; $("cf-mute").setAttribute("aria-label", call.muted ? "음소거 해제" : "음소거"); $("cf-mute").title = fst === "err" ? "마이크 오류 — 통화방에서 다시 연결해 주세요" : "마이크 " + MIC_LABEL[fst] + (call.muted ? " · 눌러서 음소거 해제" : " · 눌러서 음소거"); $("cf-mute").classList.toggle("off", call.muted); $("cf-mute").classList.toggle("warn", fst === "err" && !call.muted);
           $("cf-deaf").innerHTML = call.deaf ? HS_OFF_SVG : HS_SVG; $("cf-deaf").setAttribute("aria-label", call.deaf ? "헤드셋 켜기" : "헤드셋 끄기"); $("cf-deaf").title = call.deaf ? "헤드셋 켜기" : "헤드셋 끄기"; $("cf-deaf").classList.toggle("off", call.deaf);
@@ -4959,11 +4991,19 @@
       paintCallBadge(); paintScreen();
       var root = $("call-root"); if (!root || $("view-call").hidden) return;
       var list = $("call-list"); list.replaceChildren();
-      var ids = call.members.map(function (m) { return m.uid; });
-      if (call.on && me && ids.indexOf(me.id) === -1) ids.unshift(me.id);
+      var here = inViewRoom(), vlist = here ? call.members : (call.lists[viewRoom] || []);
+      $("call-title").textContent = ROOMS[viewRoom].name; $("call-desc").textContent = ROOMS[viewRoom].desc;
+      Array.prototype.forEach.call(document.querySelectorAll(".room-switch a"), function (a) {
+        var r = a.getAttribute("data-room");
+        if (r === viewRoom) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current");
+        var tag = a.querySelector(".in-call"); if (tag) tag.remove();
+        if ((call.on || call.joining) && call.room === r && r !== viewRoom) a.appendChild(E("span", "in-call", "참여 중"));
+      });
+      var ids = vlist.map(function (m) { return m.uid; });
+      if (here && call.on && me && ids.indexOf(me.id) === -1) ids.unshift(me.id);
       if (!ids.length) list.appendChild(E("li", "call-empty", "지금 통화 중인 사람이 없습니다. 먼저 들어가 기다려 보세요."));
       ids.forEach(function (uid) {
-        var info = callInfo(uid), mine = me && uid === me.id, mem = call.members.filter(function (m) { return m.uid === uid; })[0] || {};
+        var info = callInfo(uid), mine = here && me && uid === me.id, mem = vlist.filter(function (m) { return m.uid === uid; })[0] || {};
         var mst = mine ? micState(true) : memberMicState(mem), deaf = mst === "deaf";
         var li = E("li", "call-item"); li.setAttribute("data-cuid", uid);
         var fw = E("span", "call-face"); fw.appendChild(face(info, info.nickname, "")); li.appendChild(fw);
@@ -4977,9 +5017,9 @@
         if (mst !== "deaf") { mic.innerHTML = offish ? MIC_OFF_SVG : MIC_SVG; mic.appendChild(document.createTextNode(mst === "err" ? MIC_LABEL.err : "마이크 " + MIC_LABEL[mst])); sub.appendChild(mic); }
         if (mem.share || (mine && call.screen)) { var shs = E("span", "call-mic share"); shs.innerHTML = SCR_SVG; shs.appendChild(document.createTextNode("화면 공유 중")); sub.appendChild(shs); }
         if (deaf) { var hs = E("span", "call-mic off"); hs.innerHTML = HS_OFF_SVG; hs.appendChild(document.createTextNode("헤드셋 꺼짐")); sub.appendChild(hs); }
-        if (!mine && call.on) { var q = E("span", "call-q"); q.setAttribute("data-q", uid); q.innerHTML = "<i></i><i></i><i></i>"; sub.appendChild(q); sub.appendChild(E("span", "q-lab", "")); }
+        if (!mine && here && call.on) { var q = E("span", "call-q"); q.setAttribute("data-q", uid); q.innerHTML = "<i></i><i></i><i></i>"; sub.appendChild(q); sub.appendChild(E("span", "q-lab", "")); }
         who.appendChild(sub); li.appendChild(who);
-        if (!mine && call.on) {
+        if (!mine && here && call.on) {
           var vw = E("label", "call-vol"); vw.appendChild(E("span", "", "볼륨"));
           var r = E("input"); r.type = "range"; r.min = "0"; r.max = "100"; r.step = "5"; r.value = String(Math.round(volOf(uid) * 100)); r.setAttribute("aria-label", info.nickname + " 볼륨");
           r.addEventListener("input", function () { var v = Number(r.value) / 100; call.vol[uid] = v; try { localStorage.setItem(CALL_VOL_KEY, JSON.stringify(call.vol)); } catch (e) {} var p = call.peers[uid]; if (p && p.audio) p.audio.volume = v; });
@@ -4987,26 +5027,28 @@
         }
         list.appendChild(li);
       });
-      $("call-join").hidden = call.on || call.joining;
-      $("call-join").disabled = !me || !me.member;
-      $("call-mute").hidden = !(call.on || call.joining);
+      var busy = call.on || call.joining;
+      $("call-join").hidden = here;
+      $("call-join").disabled = !me || (viewRoom === "company" && !me.member);
+      $("call-join").textContent = busy && !here ? ROOMS[viewRoom].name + "으로 옮기기" : "통화방 들어가기";
+      $("call-mute").hidden = !here;
       $("call-mute").textContent = call.muted ? "음소거 해제" : "음소거";
       $("call-mute").classList.toggle("on", call.muted);
-      $("call-deaf").hidden = !(call.on || call.joining);
+      $("call-deaf").hidden = !here;
       $("call-deaf").textContent = call.deaf ? "헤드셋 켜기" : "헤드셋 끄기";
       $("call-deaf").classList.toggle("on", call.deaf);
       $("call-deaf").setAttribute("aria-pressed", call.deaf ? "true" : "false");
-      $("call-leave").hidden = !(call.on || call.joining);
+      $("call-leave").hidden = !here;
       var sidc = sharerUid(), mob = !canShare();
-      $("call-share").hidden = !call.on || mob;
+      $("call-share").hidden = !call.on || !here || mob;
       $("call-share").textContent = call.screen ? "공유 중지" : "화면 공유";
       $("call-share").classList.toggle("on", !!call.screen);
       $("call-share").disabled = !call.screen && !!sidc && sidc !== me.id;
       $("share-opts").hidden = !call.screen;
       $("sh-detail").classList.toggle("on", call.shareHint !== "motion"); $("sh-motion").classList.toggle("on", call.shareHint === "motion");
       var sn = $("call-share-note");
-      if (call.on && mob) { sn.hidden = false; sn.textContent = "휴대폰 브라우저에서는 화면을 보낼 수 없습니다. 다른 사람이 공유한 화면은 여기서 크게 볼 수 있어요(두 손가락으로 확대)."; }
-      else if (call.on && !call.screen && sidc && sidc !== me.id) { sn.hidden = false; sn.textContent = callInfo(sidc).nickname + "님이 화면을 공유하고 있어 지금은 공유할 수 없습니다."; }
+      if (call.on && here && mob) { sn.hidden = false; sn.textContent = "휴대폰 브라우저에서는 화면을 보낼 수 없습니다. 다른 사람이 공유한 화면은 여기서 크게 볼 수 있어요(두 손가락으로 확대)."; }
+      else if (call.on && here && !call.screen && sidc && sidc !== me.id) { sn.hidden = false; sn.textContent = callInfo(sidc).nickname + "님이 화면을 공유하고 있어 지금은 공유할 수 없습니다."; }
       else sn.hidden = true;
       $("co-hq").checked = call.opts.hq; $("co-ec").checked = call.opts.ec; $("co-ns").checked = call.opts.ns; $("co-agc").checked = call.opts.agc;
       ["co-ec", "co-ns", "co-agc"].forEach(function (id) { $(id).disabled = call.opts.hq; });
@@ -5016,7 +5058,7 @@
       paintCallClock(); paintSpeaking(); paintQuality();
     }
     function callView() { show("view-call"); paintCall(); ccShow(); }
-    $("call-join").addEventListener("click", callJoin);
+    $("call-join").addEventListener("click", callJoinView);
     $("mic-retry").addEventListener("click", micRetry);
     $("call-share").addEventListener("click", function () { if (call.screen) stopShare(false); else startShare(); });
     $("sh-detail").addEventListener("click", function () { setShareHint("detail"); });
@@ -5104,21 +5146,34 @@
     window.addEventListener("beforeunload", function (e) { if (call.on) { e.preventDefault(); e.returnValue = ""; } });
 
     /* ---------- 통화방 전용 채팅 (채널 "call", 사내 멤버만 · 알림은 @멘션만) ---------- */
-    var cc = { msgs: [], seen: {}, lastId: 0, loaded: false, loading: false, unread: 0, pane: "call", members: [], sys: [], prev: null, sending: false, uploading: false, stick: true, ment: { open: false, items: [], idx: 0, start: 0 } };
-    window.gcbCC = cc;
+    // 방마다 채팅 저장소 따로 (company → 채널 "call", free → 채널 "callfree"). cc = 지금 화면에 보이는 방
+    function ccNew(room) { return { room: room, chan: ROOMS[room].chan, msgs: [], seen: {}, lastId: 0, loaded: false, loading: false, unread: 0, members: [], sys: [], prev: null, sending: false, uploading: false, stick: true, ment: { open: false, items: [], idx: 0, start: 0 } }; }
+    var ccStore = { company: ccNew("company"), free: ccNew("free") }, cc = ccStore.company, ccUI = { pane: "call" };
+    window.gcbCCS = ccStore;
+    function ccWith(st, fn) { var prev = cc; cc = st; try { return fn(); } finally { cc = prev; } }
+    function ccAllowed(st) { return !!(me && (st.room === "free" || me.member)); }
+    function setViewRoom(r) {
+      var nr = r === "free" ? "free" : "company";
+      if (nr !== viewRoom) ccStore[nr].dirty = true;
+      viewRoom = nr; cc = ccStore[viewRoom]; syncMembers();
+      $("cc-title").textContent = ROOMS[viewRoom].name + " 채팅"; $("cc-sub").textContent = ROOMS[viewRoom].sub;
+      $("cc-input").placeholder = ROOMS[viewRoom].name + "에 메시지 보내기";
+      ccCloseMention(); ccErr("");
+    }
     function ccWide() { return window.matchMedia("(min-width: 1100px)").matches; }
-    function ccVisible() { return !$("view-call").hidden && !document.hidden && (ccWide() || cc.pane === "chat"); }
+    function ccVisible() { return cc === ccStore[viewRoom] && !$("view-call").hidden && !document.hidden && (ccWide() || ccUI.pane === "chat"); }
     function ccErr(t) { $("cc-err").textContent = t || ""; }
     function ccLoad() {
-      if (!me || !me.member || cc.loading) return;
-      cc.loading = true;
-      var first = !cc.loaded;
-      api("/api/messages?channel=call" + (first ? "" : "&after=" + cc.lastId))
-        .then(function (d) { cc.loaded = true; ccErr(""); ccAdd(d.messages || [], first); }, function (e) { if (e.code !== "unauthorized") ccErr(errText(e)); })
-        .then(function () { cc.loading = false; });
-      if (!cc.members.length) api("/api/channel-members?channel=call").then(function (d) { cc.members = d.members || []; cc.members.forEach(function (u) { remember(u.id, u); }); }, function () {});
+      var st = cc;
+      if (!ccAllowed(st) || st.loading) return;
+      st.loading = true;
+      var first = !st.loaded;
+      api("/api/messages?channel=" + st.chan + (first ? "" : "&after=" + st.lastId))
+        .then(function (d) { st.loaded = true; if (cc === st) ccErr(""); ccWith(st, function () { ccAdd(d.messages || [], first); }); }, function (e) { if (e.code !== "unauthorized" && cc === st) ccErr(errText(e)); })
+        .then(function () { st.loading = false; });
+      if (!st.members.length) api("/api/channel-members?channel=" + st.chan).then(function (d) { st.members = d.members || []; st.members.forEach(function (u) { remember(u.id, u); }); }, function () {});
     }
-    function ccOnReady() { if (cc.loaded) ccLoad(); }
+    function ccOnReady() { ["company", "free"].forEach(function (r) { if (ccStore[r].loaded) ccWith(ccStore[r], ccLoad); }); }
     function ccAdd(list, quiet) {
       var added = false, fresh = [], mineNew = false;
       (list || []).forEach(function (m) {
@@ -5136,16 +5191,17 @@
         var vis = ccVisible();
         if (!vis) cc.unread += fresh.length;
         var mm = fresh.filter(function (m) { return (m.kind || "text") === "text" && mentionsMe(m.text); }).pop();
-        if (mm && !vis) { toast(String(mm.nickname || "") + (/@everyone/i.test(mm.text) ? "님이 모두를 불렀습니다" : "님이 회원님을 언급했습니다") + " · 통화방", plainMentions(String(mm.text || "")).slice(0, 80), "#/call"); chime(); }
-        if (!cc.stick) $("cc-jump").hidden = false;
+        if (mm && !vis) { toast(String(mm.nickname || "") + (/@everyone/i.test(mm.text) ? "님이 모두를 불렀습니다" : "님이 회원님을 언급했습니다") + " · " + ROOMS[cc.room].name, plainMentions(String(mm.text || "")).slice(0, 80), ROOMS[cc.room].hash); chime(); }
+        if (!cc.stick && cc === ccStore[viewRoom]) $("cc-jump").hidden = false;
       }
       ccBadge(); ccRender(mineNew || !!quiet);
     }
     function ccBadge() {
-      if (ccVisible()) cc.unread = 0;
-      var n = cc.unread, t = n > 99 ? "99+" : String(n);
-      var d = $("cc-dot"); if (d) { d.textContent = n ? t : ""; d.hidden = !n; }
-      var f = $("cf-chat-n"); if (f) { f.textContent = n ? t : ""; f.hidden = !n; }
+      if (ccWith(ccStore[viewRoom], ccVisible)) ccStore[viewRoom].unread = 0;
+      var lab = function (n) { return n > 99 ? "99+" : String(n); };
+      var n1 = ccStore[viewRoom].unread, n2 = ccStore[call.room || viewRoom].unread;
+      var d = $("cc-dot"); if (d) { d.textContent = n1 ? lab(n1) : ""; d.hidden = !n1; }
+      var f = $("cf-chat-n"); if (f) { f.textContent = n2 ? lab(n2) : ""; f.hidden = !n2; }
     }
     function ccSys(text) {
       cc.sys.push({ at: Date.now(), text: text });
@@ -5167,7 +5223,7 @@
     function ccAtBottom() { var l = $("cc-log"); return l.scrollHeight - l.scrollTop - l.clientHeight < 60; }
     function ccRender(force) {
       var log2 = $("cc-log"); if (!log2) return;
-      if ($("view-call").hidden && !force) { cc.dirty = true; return; }
+      if (cc !== ccStore[viewRoom] || ($("view-call").hidden && !force)) { cc.dirty = true; return; }
       cc.dirty = false;
       var items = cc.msgs.map(function (m) { return { t: Number(m.createdAt) || 0, id: m.id, m: m }; })
         .concat(cc.sys.map(function (x, i) { return { t: x.at, id: 1e15 + i, s: x }; }));
@@ -5197,14 +5253,14 @@
       if (force || cc.stick) { log2.scrollTop = log2.scrollHeight; cc.stick = true; $("cc-jump").hidden = true; }
     }
     function ccPane(p) {
-      cc.pane = p === "chat" ? "chat" : "call";
-      $("view-call").setAttribute("data-pane", cc.pane);
-      $("cs-pane-call").setAttribute("aria-selected", cc.pane === "call" ? "true" : "false");
-      $("cs-pane-chat").setAttribute("aria-selected", cc.pane === "chat" ? "true" : "false");
+      ccUI.pane = p === "chat" ? "chat" : "call";
+      $("view-call").setAttribute("data-pane", ccUI.pane);
+      $("cs-pane-call").setAttribute("aria-selected", ccUI.pane === "call" ? "true" : "false");
+      $("cs-pane-chat").setAttribute("aria-selected", ccUI.pane === "chat" ? "true" : "false");
       ccShow();
     }
     function ccShow() {
-      if (!me || !me.member || $("view-call").hidden) return;
+      if (!ccAllowed(cc) || $("view-call").hidden) return;
       if (!cc.loaded) ccLoad();
       if (cc.dirty || !$("cc-log").firstChild) ccRender(true);
       if (ccVisible()) { var l = $("cc-log"); if (cc.stick) l.scrollTop = l.scrollHeight; }
@@ -5212,7 +5268,7 @@
     }
     $("cs-pane-call").addEventListener("click", function () { ccPane("call"); });
     $("cs-pane-chat").addEventListener("click", function () { ccPane("chat"); });
-    $("cf-chat").addEventListener("click", function () { cc.pane = "chat"; if (location.hash === "#/call") ccPane("chat"); else location.hash = "#/call"; setTimeout(function () { ccPane("chat"); if (ccWide()) $("cc-input").focus(); }, 0); });
+    $("cf-chat").addEventListener("click", function () { var hh = ROOMS[call.room || viewRoom].hash; ccUI.pane = "chat"; if (location.hash === hh) ccPane("chat"); else location.hash = hh; setTimeout(function () { ccPane("chat"); if (ccWide()) $("cc-input").focus(); }, 0); });
     document.addEventListener("visibilitychange", function () { if (!document.hidden) ccBadge(); });
     window.addEventListener("resize", function () { if (!$("view-call").hidden) ccBadge(); });
     $("cc-log").addEventListener("scroll", function () { cc.stick = ccAtBottom(); if (cc.stick) $("cc-jump").hidden = true; }, { passive: true });
@@ -5234,21 +5290,23 @@
       var inp = $("cc-input"), text = inp.value.replace(/^\s+|\s+$/g, "");
       ccErr(""); if (!text) return;
       if (Array.from(text).length > 500) { ccErr("메시지는 500자까지 보낼 수 있습니다."); return; }
-      cc.sending = true; $("cc-send").disabled = true; inp.value = ""; ccAutosize();
-      api("/api/messages", { method: "POST", body: { text: ccEncode(text), channel: "call" } })
-        .then(function (d) { ccAdd([d.message], false); ccRender(true); })
-        .catch(function (e) { if (e.code === "unauthorized") return; inp.value = text; ccAutosize(); ccErr(errText(e)); })
-        .then(function () { cc.sending = false; $("cc-send").disabled = false; inp.focus(); });
+      var st = cc;
+      st.sending = true; $("cc-send").disabled = true; inp.value = ""; ccAutosize();
+      api("/api/messages", { method: "POST", body: { text: ccEncode(text), channel: st.chan } })
+        .then(function (d) { ccWith(st, function () { ccAdd([d.message], false); ccRender(true); }); })
+        .catch(function (e) { if (e.code === "unauthorized") return; if (cc === st) { inp.value = text; ccAutosize(); ccErr(errText(e)); } })
+        .then(function () { st.sending = false; $("cc-send").disabled = false; if (cc === st) inp.focus(); });
     }
     function ccPhoto(file) {
       if (cc.uploading || !file) return;
       if (badType(file)) { ccErr(ERRORS.unsupported_type); return; }
-      cc.uploading = true; $("cc-attach").disabled = true; ccErr("");
+      var st = cc;
+      st.uploading = true; $("cc-attach").disabled = true; ccErr("");
       makePhoto(file)
-        .then(function (blob) { return api("/api/photos?channel=call", { method: "POST", raw: blob }); })
-        .then(function (d) { ccAdd([d.message], false); ccRender(true); })
-        .catch(function (e) { if (e.code !== "unauthorized") ccErr(errText(e)); })
-        .then(function () { cc.uploading = false; $("cc-attach").disabled = false; });
+        .then(function (blob) { return api("/api/photos?channel=" + st.chan, { method: "POST", raw: blob }); })
+        .then(function (d) { ccWith(st, function () { ccAdd([d.message], false); ccRender(true); }); })
+        .catch(function (e) { if (e.code !== "unauthorized" && cc === st) ccErr(errText(e)); })
+        .then(function () { st.uploading = false; $("cc-attach").disabled = false; });
     }
     $("cc-form").addEventListener("submit", function (e) { e.preventDefault(); ccSend(); });
     $("cc-attach").addEventListener("click", function () { $("cc-file").click(); });
